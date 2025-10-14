@@ -1,4 +1,4 @@
-/* Gracula Styles */
+/* Gracula Styles - FSD Architecture v2.0 */
 
 /* Animations */
 @keyframes slideIn {
@@ -8,6 +8,15 @@
   }
   to {
     transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
     opacity: 1;
   }
 }
@@ -492,5 +501,88 @@
   .gracula-tone-name {
     font-size: 12px;
   }
+}
+
+/* Context Analysis Styles */
+.gracula-context-analysis {
+  margin-top: 15px;
+  padding: 15px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  border-radius: 8px;
+  animation: fadeIn 0.3s ease;
+}
+
+.gracula-context-analysis h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.gracula-analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.gracula-analysis-item {
+  background: white;
+  padding: 10px;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gracula-analysis-item.gracula-analysis-full {
+  grid-column: 1 / -1;
+}
+
+.gracula-analysis-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.gracula-analysis-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+}
+
+.gracula-toggle-analysis-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: 8px;
+}
+
+.gracula-toggle-analysis-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+/* Enhanced Context Preview */
+.gracula-context-preview {
+  position: relative;
+  padding-left: 12px;
+}
+
+.gracula-context-preview::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 2px;
 }
 

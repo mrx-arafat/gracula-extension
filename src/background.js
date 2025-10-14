@@ -21,12 +21,12 @@ chrome.storage.sync.get(['apiConfig'], (result) => {
 // Listen for messages from content script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'generateReplies') {
-    handleGenerateReplies(request.tone, request.context)
+    handleGenerateReplies(request.tone, request.context, request.enhancedContext)
       .then(replies => sendResponse({ success: true, replies }))
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true; // Keep channel open for async response
   }
-  
+
   if (request.action === 'updateApiConfig') {
     apiConfig = { ...apiConfig, ...request.config };
     chrome.storage.sync.set({ apiConfig }, () => {
@@ -35,45 +35,86 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
     return true;
   }
-  
+
   if (request.action === 'getApiConfig') {
     sendResponse({ success: true, config: apiConfig });
     return true;
   }
 });
 
-async function handleGenerateReplies(tone, context) {
+async function handleGenerateReplies(tone, context, enhancedContext) {
   console.log('🧛 Gracula Background: Generating replies with tone:', tone.name);
-  
-  // Build the prompt
-  const prompt = buildPrompt(tone, context);
-  
+
+  // Build the prompt with enhanced context
+  const prompt = buildPrompt(tone, context, enhancedContext);
+
   // Call AI API
   const replies = await callAIAPI(prompt);
-  
+
   return replies;
 }
 
-function buildPrompt(tone, context) {
+function buildPrompt(tone, context, enhancedContext) {
   let prompt = '';
-  
-  // Add conversation context if available
+
+  // Add enhanced context analysis if available
+  if (enhancedContext && enhancedContext.analysis) {
+    const analysis = enhancedContext.analysis;
+    const summary = enhancedContext.summary;
+
+    prompt += '=== CONVERSATION ANALYSIS ===\n';
+    prompt += `Participants: ${summary.participants}\n`;
+    prompt += `Last Speaker: ${summary.lastSpeaker}\n`;
+    prompt += `Conversation Type: ${summary.conversationType}\n`;
+    prompt += `Sentiment: ${summary.sentiment}\n`;
+
+    if (analysis.hasUnansweredQuestion && analysis.hasUnansweredQuestion.hasQuestion) {
+      prompt += `⚠️ UNANSWERED QUESTION: "${analysis.hasUnansweredQuestion.question}" (asked by ${analysis.hasUnansweredQuestion.askedBy})\n`;
+    }
+
+    if (analysis.urgency && analysis.urgency.level !== 'low') {
+      prompt += `⚠️ URGENCY LEVEL: ${analysis.urgency.level}\n`;
+    }
+
+    if (summary.topics) {
+      prompt += `Topics: ${summary.topics}\n`;
+    }
+
+    prompt += '\n';
+  }
+
+  // Add conversation context
   if (context && context.length > 0) {
-    prompt += 'Conversation context:\n';
-    context.forEach((msg, i) => {
-      prompt += `Message ${i + 1}: ${msg}\n`;
+    prompt += '=== CONVERSATION HISTORY ===\n';
+    context.forEach((msg) => {
+      prompt += `${msg}\n`;
     });
     prompt += '\n';
   }
-  
+
   // Add tone instruction
+  prompt += '=== YOUR TASK ===\n';
   prompt += `${tone.prompt}\n\n`;
-  
+
+  // Add special instructions based on analysis
+  if (enhancedContext && enhancedContext.analysis) {
+    const analysis = enhancedContext.analysis;
+
+    if (analysis.hasUnansweredQuestion && analysis.hasUnansweredQuestion.hasQuestion) {
+      prompt += '⚠️ IMPORTANT: There is an unanswered question. Make sure to address it in your reply.\n';
+    }
+
+    if (analysis.urgency && analysis.urgency.level === 'high') {
+      prompt += '⚠️ IMPORTANT: This conversation seems urgent. Respond accordingly.\n';
+    }
+  }
+
   // Add instruction for multiple replies
-  prompt += 'Generate 3 different reply options. Each reply should be on a new line, numbered 1., 2., and 3.\n';
-  prompt += 'Keep each reply concise (1-2 sentences max).\n\n';
+  prompt += '\nGenerate 3 different reply options. Each reply should be on a new line, numbered 1., 2., and 3.\n';
+  prompt += 'Keep each reply concise (1-2 sentences max).\n';
+  prompt += 'Make replies contextually relevant based on the conversation analysis above.\n\n';
   prompt += 'Replies:\n';
-  
+
   return prompt;
 }
 

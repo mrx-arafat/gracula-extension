@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Gracula - AI Reply Assistant",
-  "version": "2.0.0",
-  "description": "Context-aware AI-powered replies for messaging apps. Advanced speaker detection and conversation analysis.",
+  "version": "1.0.0",
+  "description": "AI-powered replies and rewrites for messaging apps. Never run out of words again!",
   "permissions": [
     "activeTab",
     "storage",
@@ -43,38 +43,7 @@
         "https://mail.google.com/*",
         "https://web.telegram.org/*"
       ],
-      "js": [
-        "shared/config/platforms.js",
-        "shared/config/tones.js",
-        "shared/config/api.js",
-        "shared/config/index.js",
-        "shared/lib/logger.js",
-        "shared/lib/dom-utils.js",
-        "shared/lib/index.js",
-        "entities/platform/model/Platform.js",
-        "entities/platform/lib/detector.js",
-        "entities/platform/index.js",
-        "entities/message/model/Message.js",
-        "entities/message/index.js",
-        "entities/tone/model/Tone.js",
-        "entities/tone/index.js",
-        "features/context/model/SpeakerDetector.js",
-        "features/context/model/ConversationAnalyzer.js",
-        "features/context/model/ContextExtractor.js",
-        "features/context/index.js",
-        "widgets/floating-button/ui/FloatingButton.js",
-        "widgets/floating-button/index.js",
-        "widgets/modal/ui/Modal.js",
-        "widgets/modal/index.js",
-        "widgets/tone-selector/ui/ToneSelector.js",
-        "widgets/tone-selector/index.js",
-        "widgets/context-viewer/ui/ContextViewer.js",
-        "widgets/context-viewer/index.js",
-        "widgets/reply-list/ui/ReplyList.js",
-        "widgets/reply-list/index.js",
-        "app/GraculaApp.js",
-        "app/index.js"
-      ],
+      "js": ["config.js", "content.js"],
       "css": ["styles.css"],
       "run_at": "document_idle",
       "all_frames": false
@@ -95,6 +64,12 @@
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }
 

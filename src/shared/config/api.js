@@ -1,0 +1,21 @@
+// API Configuration
+// Defines API settings for AI providers
+
+export const API_CONFIG = {
+  provider: 'openai', // 'openai' or 'huggingface'
+  openai: {
+    model: 'gpt-3.5-turbo', // or 'gpt-4', 'gpt-4-turbo-preview'
+    endpoint: 'https://api.openai.com/v1/chat/completions',
+    maxTokens: 200,
+    temperature: 0.7
+  },
+  huggingface: {
+    model: 'mistralai/Mistral-7B-Instruct-v0.2',
+    endpoint: 'https://api-inference.huggingface.co/models/',
+    maxTokens: 150,
+    temperature: 0.7
+  }
+};
+
+export default API_CONFIG;
+
