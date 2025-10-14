@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gracula Icon Generator</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    h1 {
+      text-align: center;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 10px;
+    }
+
+    p {
+      text-align: center;
+      color: #666;
+      margin-bottom: 30px;
+    }
+
+    .preview {
+      display: flex;
+      justify-content: space-around;
+      margin: 30px 0;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .icon-preview {
+      text-align: center;
+    }
+
+    canvas {
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      display: block;
+      margin: 10px auto;
+    }
+
+    .icon-label {
+      font-size: 14px;
+      color: #666;
+      margin-top: 8px;
+    }
+
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 15px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      margin: 10px 0;
+      transition: transform 0.2s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+    }
+
+    .instructions {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      margin-top: 30px;
+      border-left: 4px solid #667eea;
+    }
+
+    .instructions h3 {
+      margin-top: 0;
+      color: #333;
+    }
+
+    .instructions ol {
+      color: #666;
+      line-height: 1.8;
+    }
+
+    .success {
+      background: #d4edda;
+      color: #155724;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 20px 0;
+      text-align: center;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧛 Gracula Icon Generator</h1>
+    <p>Generate extension icons for Gracula</p>
+
+    <div class="preview">
+      <div class="icon-preview">
+        <canvas id="icon16" width="16" height="16"></canvas>
+        <div class="icon-label">16x16 (Toolbar)</div>
+      </div>
+      <div class="icon-preview">
+        <canvas id="icon48" width="48" height="48"></canvas>
+        <div class="icon-label">48x48 (Extension Page)</div>
+      </div>
+      <div class="icon-preview">
+        <canvas id="icon128" width="128" height="128"></canvas>
+        <div class="icon-label">128x128 (Chrome Store)</div>
+      </div>
+    </div>
+
+    <button class="btn" onclick="downloadIcon('icon16', 16)">Download icon16.png</button>
+    <button class="btn" onclick="downloadIcon('icon48', 48)">Download icon48.png</button>
+    <button class="btn" onclick="downloadIcon('icon128', 128)">Download icon128.png</button>
+    <button class="btn" onclick="downloadAll()">Download All Icons</button>
+
+    <div id="success" class="success">
+      ✓ Icons downloaded! Save them in the 'icons' folder of your Gracula extension.
+    </div>
+
+    <div class="instructions">
+      <h3>📝 Instructions</h3>
+      <ol>
+        <li>Click the "Download All Icons" button above</li>
+        <li>Create a folder named <code>icons</code> in your Gracula directory</li>
+        <li>Move all three downloaded PNG files into the <code>icons</code> folder</li>
+        <li>Your folder structure should look like:
+          <pre style="background: white; padding: 10px; border-radius: 4px; margin-top: 10px;">
+gracula/
+├── manifest.json
+├── config.js
+├── content.js
+├── background.js
+├── styles.css
+├── popup.html
+├── popup.js
+├── icons/
+│   ├── icon16.png  ← Downloaded
+│   ├── icon48.png  ← Downloaded
+│   └── icon128.png ← Downloaded
+└── README.md</pre>
+        </li>
+        <li>Now you can load the extension in Chrome!</li>
+      </ol>
+    </div>
+  </div>
+
+  <script>
+    // Generate icons on page load
+    window.addEventListener('load', () => {
+      generateIcon('icon16', 16);
+      generateIcon('icon48', 48);
+      generateIcon('icon128', 128);
+    });
+
+    function generateIcon(canvasId, size) {
+      const canvas = document.getElementById(canvasId);
+      const ctx = canvas.getContext('2d');
+
+      // Create gradient background
+      const gradient = ctx.createLinearGradient(0, 0, size, size);
+      gradient.addColorStop(0, '#667eea');
+      gradient.addColorStop(1, '#764ba2');
+
+      // Fill background
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size);
+
+      // Add vampire emoji
+      ctx.font = `${size * 0.6}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🧛', size / 2, size / 2);
+    }
+
+    function downloadIcon(canvasId, size) {
+      const canvas = document.getElementById(canvasId);
+      const link = document.createElement('a');
+      link.download = `icon${size}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+
+      showSuccess();
+    }
+
+    function downloadAll() {
+      setTimeout(() => downloadIcon('icon16', 16), 100);
+      setTimeout(() => downloadIcon('icon48', 48), 300);
+      setTimeout(() => downloadIcon('icon128', 128), 500);
+    }
+
+    function showSuccess() {
+      const successEl = document.getElementById('success');
+      successEl.style.display = 'block';
+      setTimeout(() => {
+        successEl.style.display = 'none';
+      }, 5000);
+    }
+  </script>
+</body>
+</html>
+

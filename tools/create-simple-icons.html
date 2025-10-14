@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Gracula Icons - AUTO DOWNLOAD</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            background: white;
+            color: #333;
+            padding: 40px;
+            border-radius: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        h1 { color: #667eea; }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 20px 40px;
+            font-size: 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            margin: 20px;
+            font-weight: bold;
+        }
+        button:hover { transform: scale(1.05); }
+        .preview { margin: 20px 0; }
+        canvas { margin: 10px; border: 2px solid #ddd; }
+        .instructions {
+            background: #f0f0f0;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .success {
+            background: #4CAF50;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧛 Gracula Icon Creator</h1>
+        <p style="font-size: 18px;">Click below to download all 3 icons at once!</p>
+        
+        <div class="preview">
+            <canvas id="c16" width="16" height="16"></canvas>
+            <canvas id="c48" width="48" height="48"></canvas>
+            <canvas id="c128" width="128" height="128"></canvas>
+        </div>
+
+        <button onclick="downloadAll()" style="font-size: 24px;">
+            📥 DOWNLOAD ALL 3 ICONS NOW
+        </button>
+
+        <div class="success" id="msg">
+            ✅ Downloaded! Check your Downloads folder for 3 PNG files.
+        </div>
+
+        <div class="instructions">
+            <h3>📋 Next Steps:</h3>
+            <ol>
+                <li>Click the button above (3 files will download)</li>
+                <li>Go to your <strong>Downloads</strong> folder</li>
+                <li>Find these 3 files:
+                    <ul>
+                        <li>icon16.png</li>
+                        <li>icon48.png</li>
+                        <li>icon128.png</li>
+                    </ul>
+                </li>
+                <li>Move them to: <code>D:\ainput-main-decompiled\gracula-extension\icons\</code></li>
+                <li>Load extension in Chrome!</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        function draw(id, size) {
+            const c = document.getElementById(id);
+            const ctx = c.getContext('2d');
+            
+            // Gradient background
+            const g = ctx.createLinearGradient(0, 0, size, size);
+            g.addColorStop(0, '#667eea');
+            g.addColorStop(1, '#764ba2');
+            
+            // Rounded rect
+            const r = size * 0.2;
+            ctx.beginPath();
+            ctx.moveTo(r, 0);
+            ctx.arcTo(size, 0, size, size, r);
+            ctx.arcTo(size, size, 0, size, r);
+            ctx.arcTo(0, size, 0, 0, r);
+            ctx.arcTo(0, 0, size, 0, r);
+            ctx.closePath();
+            ctx.fillStyle = g;
+            ctx.fill();
+            
+            // Text
+            ctx.fillStyle = 'white';
+            ctx.font = `bold ${size * 0.6}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('G', size/2, size/2);
+        }
+
+        // Draw previews
+        draw('c16', 16);
+        draw('c48', 48);
+        draw('c128', 128);
+
+        function download(id, name) {
+            const c = document.getElementById(id);
+            const a = document.createElement('a');
+            a.download = name;
+            a.href = c.toDataURL('image/png');
+            a.click();
+        }
+
+        function downloadAll() {
+            download('c16', 'icon16.png');
+            setTimeout(() => download('c48', 'icon48.png'), 300);
+            setTimeout(() => download('c128', 'icon128.png'), 600);
+            document.getElementById('msg').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
+

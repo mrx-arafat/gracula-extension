@@ -1,0 +1,496 @@
+/* Gracula Styles */
+
+/* Animations */
+@keyframes slideIn {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+}
+
+/* Floating Button - ALWAYS VISIBLE */
+#gracula-floating-btn {
+  position: fixed !important;
+  width: 60px !important;
+  height: 60px !important;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  border-radius: 50% !important;
+  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.6) !important;
+  cursor: pointer !important;
+  z-index: 2147483647 !important; /* Maximum z-index */
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.3s ease !important;
+  opacity: 1 !important; /* Always visible */
+  transform: scale(1) !important;
+  pointer-events: all !important;
+  border: 3px solid white !important;
+  animation: pulse 2s infinite !important;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.6);
+  }
+  50% {
+    box-shadow: 0 4px 30px rgba(102, 126, 234, 0.9);
+  }
+}
+
+#gracula-floating-btn.gracula-btn-visible {
+  opacity: 1 !important;
+  transform: scale(1) !important;
+  pointer-events: all !important;
+}
+
+#gracula-floating-btn:hover {
+  transform: scale(1.15) !important;
+  box-shadow: 0 6px 30px rgba(102, 126, 234, 0.8) !important;
+}
+
+.gracula-btn-icon {
+  font-size: 32px !important;
+  line-height: 1 !important;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)) !important;
+}
+
+.gracula-btn-tooltip {
+  position: absolute !important;
+  top: 50% !important;
+  right: 70px !important;
+  transform: translateY(-50%) !important;
+  background: rgba(0, 0, 0, 0.9) !important;
+  color: white !important;
+  padding: 8px 16px !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  font-weight: bold !important;
+  white-space: nowrap !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity 0.3s ease !important;
+  transition: opacity 0.3s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+#gracula-floating-btn:hover .gracula-btn-tooltip {
+  opacity: 1;
+}
+
+/* Modal */
+#gracula-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 9999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.3s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.gracula-modal-content {
+  background: white;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.gracula-modal-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 20px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.gracula-modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.gracula-close-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.2s ease;
+}
+
+.gracula-close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.gracula-modal-body {
+  padding: 24px;
+  max-height: calc(80vh - 80px);
+  overflow-y: auto;
+}
+
+/* Context Section */
+.gracula-context-section {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+  border-left: 4px solid #667eea;
+}
+
+.gracula-context-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.gracula-context-header strong {
+  color: #333;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gracula-edit-context-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.gracula-edit-context-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.gracula-context-display {
+  margin-bottom: 12px;
+}
+
+.gracula-context-preview {
+  color: #555;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  max-height: 150px;
+  overflow-y: auto;
+  padding: 8px;
+  background: white;
+  border-radius: 6px;
+}
+
+.gracula-context-editor {
+  width: 100%;
+  min-height: 120px;
+  max-height: 200px;
+  padding: 12px;
+  border: 2px solid #667eea;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  line-height: 1.6;
+  resize: vertical;
+  background: white;
+  color: #333;
+}
+
+.gracula-context-editor:focus {
+  outline: none;
+  border-color: #764ba2;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.gracula-context-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.gracula-save-context-btn,
+.gracula-cancel-context-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.gracula-save-context-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.gracula-save-context-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.gracula-cancel-context-btn {
+  background: #e0e0e0;
+  color: #555;
+}
+
+.gracula-cancel-context-btn:hover {
+  background: #d0d0d0;
+}
+
+/* Old context preview styles (kept for compatibility) */
+.gracula-context-text {
+  color: #666;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Tone Selector */
+.gracula-tone-selector h3 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.gracula-tone-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.gracula-tone-btn {
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 16px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-family: inherit;
+}
+
+.gracula-tone-btn:hover {
+  border-color: #667eea;
+  background: #f8f9ff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+}
+
+.gracula-tone-emoji {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.gracula-tone-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+}
+
+/* Replies Container */
+.gracula-replies-container h3 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  color: #333;
+}
+
+/* Loading */
+.gracula-loading {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.gracula-spinner {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 16px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.gracula-loading p {
+  color: #666;
+  font-size: 14px;
+  margin: 0;
+}
+
+/* Reply Cards */
+.gracula-replies-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.gracula-reply-card {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 16px;
+  border: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.gracula-reply-card:hover {
+  border-color: #667eea;
+  background: #f8f9ff;
+}
+
+.gracula-reply-text {
+  color: #333;
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.gracula-reply-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.gracula-reply-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  font-family: inherit;
+}
+
+.gracula-insert-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  flex: 1;
+}
+
+.gracula-insert-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.gracula-copy-btn {
+  background: white;
+  color: #667eea;
+  border: 2px solid #667eea;
+}
+
+.gracula-copy-btn:hover {
+  background: #f8f9ff;
+}
+
+/* Scrollbar */
+.gracula-modal-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.gracula-modal-body::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.gracula-modal-body::-webkit-scrollbar-thumb {
+  background: #667eea;
+  border-radius: 4px;
+}
+
+.gracula-modal-body::-webkit-scrollbar-thumb:hover {
+  background: #764ba2;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .gracula-modal-content {
+    width: 95%;
+    max-height: 90vh;
+  }
+
+  .gracula-tone-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 8px;
+  }
+
+  .gracula-tone-btn {
+    padding: 12px 8px;
+  }
+
+  .gracula-tone-emoji {
+    font-size: 24px;
+  }
+
+  .gracula-tone-name {
+    font-size: 12px;
+  }
+}
+

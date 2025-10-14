@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gracula Icon Generator - Click to Download!</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            background: white;
+            color: #333;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #667eea;
+            text-align: center;
+        }
+        .icon-preview {
+            display: flex;
+            justify-content: space-around;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+        .icon-box {
+            text-align: center;
+            margin: 10px;
+        }
+        canvas {
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 10px;
+            cursor: pointer;
+            display: block;
+            margin: 20px auto;
+            font-weight: bold;
+        }
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        .instructions {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .instructions ol {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .success {
+            background: #4CAF50;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧛 Gracula Icon Generator</h1>
+        <p style="text-align: center; font-size: 18px;">Click the button below to download all 3 icons!</p>
+        
+        <div class="icon-preview">
+            <div class="icon-box">
+                <canvas id="icon16" width="16" height="16"></canvas>
+                <div>16x16</div>
+            </div>
+            <div class="icon-box">
+                <canvas id="icon48" width="48" height="48"></canvas>
+                <div>48x48</div>
+            </div>
+            <div class="icon-box">
+                <canvas id="icon128" width="128" height="128"></canvas>
+                <div>128x128</div>
+            </div>
+        </div>
+
+        <button onclick="downloadAllIcons()">📥 Download All 3 Icons</button>
+
+        <div class="success" id="success">
+            ✅ Icons downloaded! Now move them to the icons folder.
+        </div>
+
+        <div class="instructions">
+            <h3>📋 Instructions:</h3>
+            <ol>
+                <li><strong>Click the button above</strong> - 3 PNG files will download</li>
+                <li><strong>Move the files</strong> to: <code>D:\ainput-main-decompiled\gracula-extension\icons\</code></li>
+                <li><strong>Load extension</strong> in Chrome: <code>chrome://extensions/</code></li>
+                <li><strong>Enable Developer mode</strong> and click "Load unpacked"</li>
+                <li><strong>Select folder</strong>: <code>D:\ainput-main-decompiled\gracula-extension</code></li>
+                <li><strong>Done!</strong> Add your OpenAI API key and test on WhatsApp Web!</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // Draw icons on canvas
+        function drawIcon(canvas) {
+            const ctx = canvas.getContext('2d');
+            const size = canvas.width;
+            
+            // Create gradient
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#667eea');
+            gradient.addColorStop(1, '#764ba2');
+            
+            // Draw rounded rectangle
+            const radius = size * 0.2;
+            ctx.beginPath();
+            ctx.moveTo(radius, 0);
+            ctx.lineTo(size - radius, 0);
+            ctx.quadraticCurveTo(size, 0, size, radius);
+            ctx.lineTo(size, size - radius);
+            ctx.quadraticCurveTo(size, size, size - radius, size);
+            ctx.lineTo(radius, size);
+            ctx.quadraticCurveTo(0, size, 0, size - radius);
+            ctx.lineTo(0, radius);
+            ctx.quadraticCurveTo(0, 0, radius, 0);
+            ctx.closePath();
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            
+            // Draw text
+            ctx.fillStyle = 'white';
+            ctx.font = `bold ${size * 0.6}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('G', size / 2, size / 2);
+        }
+
+        // Draw all icons
+        drawIcon(document.getElementById('icon16'));
+        drawIcon(document.getElementById('icon48'));
+        drawIcon(document.getElementById('icon128'));
+
+        // Download function
+        function downloadIcon(canvasId, filename) {
+            const canvas = document.getElementById(canvasId);
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        function downloadAllIcons() {
+            downloadIcon('icon16', 'icon16.png');
+            setTimeout(() => downloadIcon('icon48', 'icon48.png'), 200);
+            setTimeout(() => downloadIcon('icon128', 'icon128.png'), 400);
+            
+            // Show success message
+            document.getElementById('success').style.display = 'block';
+            
+            // Scroll to success message
+            setTimeout(() => {
+                document.getElementById('success').scrollIntoView({ behavior: 'smooth' });
+            }, 600);
+        }
+    </script>
+</body>
+</html>
+
