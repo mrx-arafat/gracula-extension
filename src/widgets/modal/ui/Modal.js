@@ -80,8 +80,8 @@ window.Gracula.Modal = class {
       this.element.remove();
       this.element = null;
       this.isOpen = false;
-      this.onClose();
       window.Gracula.logger.info('Modal closed');
+      this.onClose();
     }
   }
 

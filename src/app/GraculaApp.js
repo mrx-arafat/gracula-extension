@@ -20,6 +20,7 @@ window.Gracula.GraculaApp = class {
     this.isInitialized = false;
     this.context = [];
     this.enhancedContext = null;
+    this.isInserting = false;
   }
 
   /**
@@ -222,6 +223,12 @@ window.Gracula.GraculaApp = class {
    * Show modal with tone selector
    */
   showModal() {
+    // Close old modal if it exists
+    if (this.modal) {
+      this.modal.close();
+      this.modal = null;
+    }
+
     // Create widgets
     this.toneSelector = new window.Gracula.ToneSelector({
       onToneSelect: (tone) => this.handleToneSelection(tone)
@@ -321,10 +328,25 @@ window.Gracula.GraculaApp = class {
    * Insert reply into input field
    */
   insertReply(reply) {
+    console.log('🧛 [INSERT] insertReply called with:', reply);
+    console.log('🧛 [INSERT] isInserting flag:', this.isInserting);
+    console.trace('🧛 [INSERT] Stack trace:');
+
+    // Prevent duplicate inserts
+    if (this.isInserting) {
+      console.log('🧛 [INSERT] BLOCKED - Insert already in progress');
+      window.Gracula.logger.warn('Insert already in progress');
+      return;
+    }
+
     if (!this.currentInputField) {
+      console.log('🧛 [INSERT] BLOCKED - No input field found');
       window.Gracula.logger.warn('No input field found');
       return;
     }
+
+    this.isInserting = true;
+    console.log('🧛 [INSERT] Flag set to true');
 
     let field = this.currentInputField;
 
@@ -337,37 +359,42 @@ window.Gracula.GraculaApp = class {
     }
 
     const normalizedReply = reply || '';
+    console.log('🧛 [INSERT] About to insert into field:', field);
+    console.log('🧛 [INSERT] Field type:', field.tagName, 'contentEditable:', field.contentEditable);
 
     try {
       if (field.contentEditable === 'true') {
+        console.log('🧛 [INSERT] Using contentEditable path');
         field.focus();
 
+        // Clear the field first
+        field.innerHTML = '';
+
+        // Create a text node with the reply
+        const textNode = document.createTextNode(normalizedReply);
+        field.appendChild(textNode);
+
+        // Set cursor to end
         const selection = window.getSelection();
         if (selection) {
           selection.removeAllRanges();
           const range = document.createRange();
-          range.selectNodeContents(field);
-          range.collapse(false);
+          range.setStart(textNode, normalizedReply.length);
+          range.collapse(true);
           selection.addRange(range);
         }
 
-        document.execCommand('selectAll', false, null);
-        document.execCommand('delete', false, null);
-
-        const inserted = document.execCommand('insertText', false, normalizedReply);
-        if (!inserted) {
-          field.innerHTML = '';
-          field.textContent = normalizedReply;
-        }
-
+        // Trigger input event for React/Vue to detect change
         const inputEvent = new InputEvent('input', {
           bubbles: true,
           cancelable: true,
           data: normalizedReply,
           inputType: 'insertText'
         });
+        console.log('🧛 [INSERT] Dispatching input event');
         field.dispatchEvent(inputEvent);
       } else {
+        console.log('🧛 [INSERT] Using textarea/input path');
         const prototype = Object.getPrototypeOf(field);
         const valueSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
         if (valueSetter) {
@@ -377,27 +404,27 @@ window.Gracula.GraculaApp = class {
         }
 
         const inputEvent = new Event('input', { bubbles: true, cancelable: true });
+        console.log('🧛 [INSERT] Dispatching input event');
         field.dispatchEvent(inputEvent);
       }
 
-      if (this.modal) {
-        this.modal.close();
-      }
-
+      console.log('🧛 [INSERT] SUCCESS - Reply inserted');
       window.Gracula.logger.success('Reply inserted');
-
-      // Disable the button temporarily to prevent double clicks
-      const activeButton = document.activeElement;
-      if (activeButton && activeButton.classList.contains('gracula-insert-btn')) {
-        activeButton.disabled = true;
-        setTimeout(() => {
-          if (activeButton.parentNode) {
-            activeButton.disabled = false;
-          }
-        }, 1000);
-      }
     } catch (error) {
+      console.log('🧛 [INSERT] ERROR:', error);
       window.Gracula.logger.error('Failed to insert reply:', error);
+    } finally {
+      // Close modal and reset flag
+      if (this.modal) {
+        console.log('🧛 [INSERT] Closing modal');
+        this.modal.close();
+        this.modal = null;
+      }
+
+      setTimeout(() => {
+        console.log('🧛 [INSERT] Resetting isInserting flag to false');
+        this.isInserting = false;
+      }, 300);
     }
   }
 };

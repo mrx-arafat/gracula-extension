@@ -120,13 +120,17 @@ window.Gracula.ReplyList = class {
     const copyButtons = container.querySelectorAll('.gracula-copy-btn');
 
     insertButtons.forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      // Use onclick to ensure only one handler
+      btn.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
         const reply = btn.dataset.reply;
         window.Gracula.logger.info('Insert reply clicked');
         this.onInsert(reply);
-      }, { once: true });
+        // Disable button immediately to prevent double clicks
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+      };
     });
 
     copyButtons.forEach(btn => {
