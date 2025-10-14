@@ -1,4 +1,3 @@
 // Context Viewer Widget Index
-
-export { ContextViewer } from './ui/ContextViewer.js';
+// All exports are available via window.Gracula
 

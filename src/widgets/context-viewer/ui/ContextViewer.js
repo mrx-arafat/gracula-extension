@@ -1,10 +1,9 @@
 // Context Viewer Widget
 // Displays and allows editing of conversation context
 
-import { escapeHtml } from '../../../shared/lib/index.js';
-import { logger } from '../../../shared/lib/index.js';
+window.Gracula = window.Gracula || {};
 
-export class ContextViewer {
+window.Gracula.ContextViewer = class {
   constructor(options = {}) {
     this.context = options.context || [];
     this.enhancedContext = options.enhancedContext || null;
@@ -51,7 +50,51 @@ Friend: Want to grab dinner?">${this.getFullContext()}</textarea>
     }
 
     const analysis = this.enhancedContext.analysis;
-    const summary = this.enhancedContext.summary;
+    const summary = this.enhancedContext.summary || {};
+    const metrics = this.enhancedContext.metrics || {};
+    const escapeHtml = window.Gracula.DOMUtils.escapeHtml;
+
+    const hasQuestionLabel = summary.hasQuestion ? 'Yes' : 'No';
+    const languageMix = metrics.languageHints && metrics.languageHints.length
+      ? metrics.languageHints.join(', ')
+      : summary.languageMix || 'Unknown';
+
+    const recommendedLength = metrics.recommendedReplyLength
+      ? `${metrics.recommendedReplyLength.words} words (~${metrics.recommendedReplyLength.chars} chars, ${metrics.recommendedReplyLength.sentences} sentence${metrics.recommendedReplyLength.sentences === 1 ? '' : 's'})`
+      : summary.averageLength || 'Not detected';
+
+    const incomingAverage = metrics.recentIncomingAverageChars
+      ? `${metrics.recentIncomingAverageChars} chars`
+      : 'No incoming messages yet';
+
+    const outgoingAverage = metrics.recentOutgoingAverageChars
+      ? `${metrics.recentOutgoingAverageChars} chars`
+      : 'No recent replies';
+
+    const messagePace = metrics.messagePaceSeconds
+      ? this.describePace(metrics.messagePaceSeconds)
+      : summary.messageTempo || 'Unknown';
+
+    const emojiUsage = summary.emojiUsage
+      ? summary.emojiUsage
+      : (analysis.emojiUsage?.usageLevel ? `${analysis.emojiUsage.usageLevel} (${analysis.emojiUsage.total || 0})` : 'None');
+
+    const styleNotes = (summary.styleNotes && summary.styleNotes.length)
+      ? summary.styleNotes
+      : (analysis.styleMarkers?.notes?.length ? analysis.styleMarkers.notes.join('; ') : '');
+
+    const shortMessageExamples = (metrics.shortMessageExamples || [])
+      .map(example => `<li>${escapeHtml(example)}</li>`)
+      .join('');
+
+    const shortMessagesSection = shortMessageExamples
+      ? `
+          <div class="gracula-analysis-item gracula-analysis-full">
+            <span class="gracula-analysis-label">Recent Short Messages:</span>
+            <ul class="gracula-analysis-list">${shortMessageExamples}</ul>
+          </div>
+        `
+      : '';
 
     return `
       <div class="gracula-context-analysis" style="display: none;">
@@ -75,22 +118,73 @@ Friend: Want to grab dinner?">${this.getFullContext()}</textarea>
           </div>
           <div class="gracula-analysis-item">
             <span class="gracula-analysis-label">Has Question:</span>
-            <span class="gracula-analysis-value">${summary.hasQuestion ? '✅ Yes' : '❌ No'}</span>
+            <span class="gracula-analysis-value">${hasQuestionLabel}</span>
           </div>
           <div class="gracula-analysis-item">
             <span class="gracula-analysis-label">Urgency:</span>
             <span class="gracula-analysis-value">${summary.urgency || 'Low'}</span>
           </div>
+          <div class="gracula-analysis-item">
+            <span class="gracula-analysis-label">Typical Length:</span>
+            <span class="gracula-analysis-value">${recommendedLength}</span>
+          </div>
+          <div class="gracula-analysis-item">
+            <span class="gracula-analysis-label">Incoming Average:</span>
+            <span class="gracula-analysis-value">${incomingAverage}</span>
+          </div>
+          <div class="gracula-analysis-item">
+            <span class="gracula-analysis-label">Outgoing Average:</span>
+            <span class="gracula-analysis-value">${outgoingAverage}</span>
+          </div>
+          <div class="gracula-analysis-item">
+            <span class="gracula-analysis-label">Language Mix:</span>
+            <span class="gracula-analysis-value">${languageMix}</span>
+          </div>
+          <div class="gracula-analysis-item">
+            <span class="gracula-analysis-label">Message Pace:</span>
+            <span class="gracula-analysis-value">${messagePace}</span>
+          </div>
+          <div class="gracula-analysis-item">
+            <span class="gracula-analysis-label">Emoji Usage:</span>
+            <span class="gracula-analysis-value">${emojiUsage}</span>
+          </div>
+
+          ${styleNotes ? `
+          <div class="gracula-analysis-item gracula-analysis-full">
+            <span class="gracula-analysis-label">Style Notes:</span>
+            <span class="gracula-analysis-value">${escapeHtml(styleNotes)}</span>
+          </div>
+          ` : ''}
           ${summary.topics ? `
           <div class="gracula-analysis-item gracula-analysis-full">
             <span class="gracula-analysis-label">Topics:</span>
-            <span class="gracula-analysis-value">${summary.topics}</span>
+            <span class="gracula-analysis-value">${escapeHtml(summary.topics)}</span>
           </div>
           ` : ''}
+          ${shortMessagesSection}
         </div>
       </div>
     `;
   }
+
+  describePace(seconds) {
+    if (typeof seconds !== 'number' || Number.isNaN(seconds)) {
+      return 'Unknown';
+    }
+
+    const rounded = Math.round(seconds);
+
+    if (rounded <= 90) {
+      return `Rapid (~${rounded}s apart)`;
+    }
+
+    if (rounded <= 600) {
+      return `Steady (~${rounded}s apart)`;
+    }
+
+    return `Slow (~${rounded}s apart)`;
+  }
+
 
   /**
    * Get context preview (last 3 messages)
@@ -101,7 +195,7 @@ Friend: Want to grab dinner?">${this.getFullContext()}</textarea>
     }
 
     const preview = this.context.slice(-3).join('\n');
-    return escapeHtml(preview.length > 200 ? preview.substring(0, 200) + '...' : preview);
+    return window.Gracula.DOMUtils.escapeHtml(preview.length > 200 ? preview.substring(0, 200) + '...' : preview);
   }
 
   /**
@@ -131,7 +225,7 @@ Friend: Want to grab dinner?">${this.getFullContext()}</textarea>
         editor.style.display = 'block';
         actions.style.display = 'flex';
         editBtn.style.display = 'none';
-        logger.info('Context editing enabled');
+        window.Gracula.logger.info('Context editing enabled');
       });
     }
 
@@ -141,7 +235,7 @@ Friend: Want to grab dinner?">${this.getFullContext()}</textarea>
         const newContext = editor.value.trim();
         if (newContext) {
           this.context = newContext.split('\n').filter(line => line.trim().length > 0);
-          preview.innerHTML = escapeHtml(this.getPreview());
+          preview.innerHTML = window.Gracula.DOMUtils.escapeHtml(this.getPreview());
         } else {
           this.context = [];
           preview.innerHTML = '<em>No context provided.</em>';
@@ -153,7 +247,7 @@ Friend: Want to grab dinner?">${this.getFullContext()}</textarea>
         editBtn.style.display = 'inline-block';
 
         this.onContextUpdate(this.context);
-        logger.success('Context updated');
+        window.Gracula.logger.success('Context updated');
       });
     }
 
@@ -165,7 +259,7 @@ Friend: Want to grab dinner?">${this.getFullContext()}</textarea>
         editor.style.display = 'none';
         actions.style.display = 'none';
         editBtn.style.display = 'inline-block';
-        logger.info('Context editing cancelled');
+        window.Gracula.logger.info('Context editing cancelled');
       });
     }
 
@@ -188,5 +282,5 @@ Friend: Want to grab dinner?">${this.getFullContext()}</textarea>
   }
 }
 
-export default ContextViewer;
+
 

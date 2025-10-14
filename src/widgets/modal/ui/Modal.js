@@ -1,10 +1,9 @@
 // Modal Widget
 // Main modal dialog for tone selection and reply generation
 
-import { createElement, escapeHtml } from '../../../shared/lib/index.js';
-import { logger } from '../../../shared/lib/index.js';
+window.Gracula = window.Gracula || {};
 
-export class Modal {
+window.Gracula.Modal = class {
   constructor(options = {}) {
     this.onClose = options.onClose || (() => {});
     this.element = null;
@@ -19,7 +18,7 @@ export class Modal {
       this.element.remove();
     }
 
-    this.element = createElement('div', {
+    this.element = window.Gracula.DOMUtils.createElement('div', {
       id: 'gracula-modal'
     });
 
@@ -49,7 +48,7 @@ export class Modal {
       }
     });
 
-    logger.success('Modal rendered');
+    window.Gracula.logger.success('Modal rendered');
 
     return this.element;
   }
@@ -82,7 +81,7 @@ export class Modal {
       this.element = null;
       this.isOpen = false;
       this.onClose();
-      logger.info('Modal closed');
+      window.Gracula.logger.info('Modal closed');
     }
   }
 
@@ -94,5 +93,5 @@ export class Modal {
   }
 }
 
-export default Modal;
+
 

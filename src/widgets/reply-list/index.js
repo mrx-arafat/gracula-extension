@@ -1,4 +1,3 @@
 // Reply List Widget Index
-
-export { ReplyList } from './ui/ReplyList.js';
+// All exports are available via window.Gracula
 

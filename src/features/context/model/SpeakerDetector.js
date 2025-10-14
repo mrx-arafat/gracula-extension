@@ -1,46 +1,148 @@
 // Speaker Detection System
 // Identifies who said what in conversations
 
-import { Message } from '../../../entities/message/index.js';
-import { logger } from '../../../shared/lib/index.js';
+window.Gracula = window.Gracula || {};
 
-export class SpeakerDetector {
+window.Gracula.SpeakerDetector = class {
   constructor(platform) {
     this.platform = platform;
     this.speakers = new Map(); // Map of speaker IDs to names
     this.currentUser = 'Me';
   }
 
+  extractPrePlainMetadata(element) {
+    if (!element || typeof element.getAttribute !== 'function') return null;
+
+    const raw = element.getAttribute('data-pre-plain-text')
+      || element.dataset?.prePlainText
+      || null;
+
+    if (!raw) return null;
+
+    const closingIndex = raw.indexOf(']');
+    let timestampText = null;
+    let remainder = raw;
+
+    if (closingIndex !== -1) {
+      timestampText = raw.substring(1, closingIndex).trim();
+      remainder = raw.substring(closingIndex + 1).trim();
+    }
+
+    const speakerMatch = remainder.match(/([^:]+):\s*$/);
+    const speakerName = speakerMatch ? speakerMatch[1].trim() : null;
+
+    const timestamp = this.parsePrePlainTimestamp(timestampText);
+
+    return {
+      raw,
+      speakerName,
+      timestampText,
+      timestamp
+    };
+  }
+
+  parsePrePlainTimestamp(timestampText) {
+    if (!timestampText) return null;
+
+    const parts = timestampText.split(',');
+    const timePart = parts[0] ? parts[0].trim() : null;
+    const datePart = parts.slice(1).join(',').trim();
+
+    let parsed = null;
+
+    if (datePart) {
+      const candidate = new Date(`${datePart} ${timePart}`);
+      if (!isNaN(candidate.getTime())) {
+        parsed = candidate;
+      }
+    }
+
+    if (!parsed && timePart) {
+      parsed = this.parseTime(timePart);
+    }
+
+    return parsed || null;
+  }
+
+  isCurrentUserLabel(label) {
+    if (!label) return false;
+    const normalized = label.trim().toLowerCase();
+    const synonyms = ['you', 'me', 'yo', 'moi', 'ich', 'ami'];
+    return synonyms.includes(normalized) || normalized === this.currentUser.toLowerCase();
+  }
+
+
   /**
    * Detect speaker for a message element
    */
   detectSpeaker(messageElement) {
-    if (!this.platform || !this.platform.speakerSelectors) {
-      return this.detectSpeakerFallback(messageElement);
+    const selectors = this.platform?.speakerSelectors || {};
+    const hasSelectors = Object.keys(selectors).length > 0;
+    const prePlainMeta = this.extractPrePlainMetadata(messageElement);
+    const timestampFromSelectors = selectors.timestamp
+      ? this.extractTimestamp(messageElement, selectors.timestamp)
+      : null;
+    const buildMeta = (strategy, details = {}) => {
+      const base = prePlainMeta ? { ...prePlainMeta } : {};
+      return { ...base, strategy, ...details };
+    };
+
+    if (!hasSelectors) {
+      const fallback = this.detectSpeakerFallback(messageElement, buildMeta('fallback-no-selectors'));
+      if (!fallback.timestamp) {
+        fallback.timestamp = prePlainMeta?.timestamp || timestampFromSelectors || null;
+      }
+      return fallback;
     }
 
-    const selectors = this.platform.speakerSelectors;
-    
-    // Check if message is outgoing (from current user)
     if (selectors.outgoingMessage) {
       const isOutgoing = this.isOutgoingMessage(messageElement, selectors.outgoingMessage);
       if (isOutgoing) {
-        return { speaker: this.currentUser, isOutgoing: true };
+        return {
+          speaker: this.currentUser,
+          isOutgoing: true,
+          timestamp: prePlainMeta?.timestamp || timestampFromSelectors || null,
+          meta: buildMeta('platform-outgoing', { selector: selectors.outgoingMessage })
+        };
       }
     }
 
-    // Check if message is incoming (from other user)
     if (selectors.incomingMessage) {
       const isIncoming = this.isIncomingMessage(messageElement, selectors.incomingMessage);
       if (isIncoming) {
-        // Try to extract sender name
-        const senderName = this.extractSenderName(messageElement, selectors.senderName);
-        return { speaker: senderName || 'Other', isOutgoing: false };
+        const senderName = this.extractSenderName(messageElement, selectors.senderName)
+          || prePlainMeta?.speakerName
+          || 'Other';
+
+        const isCurrent = this.isCurrentUserLabel(senderName);
+
+        return {
+          speaker: isCurrent ? this.currentUser : senderName,
+          isOutgoing: isCurrent,
+          timestamp: prePlainMeta?.timestamp || timestampFromSelectors || null,
+          meta: buildMeta('platform-incoming', {
+            selector: selectors.incomingMessage,
+            resolvedName: senderName
+          })
+        };
       }
     }
 
-    // Fallback
-    return this.detectSpeakerFallback(messageElement);
+    if (prePlainMeta) {
+      const isCurrent = this.isCurrentUserLabel(prePlainMeta.speakerName);
+      return {
+        speaker: isCurrent ? this.currentUser : (prePlainMeta.speakerName || 'Other'),
+        isOutgoing: isCurrent,
+        timestamp: prePlainMeta.timestamp || timestampFromSelectors || null,
+        meta: buildMeta('preplain-detection')
+      };
+    }
+
+    const fallback = this.detectSpeakerFallback(messageElement, buildMeta('fallback'));
+    if (!fallback.timestamp) {
+      fallback.timestamp = prePlainMeta?.timestamp || timestampFromSelectors || null;
+    }
+    return fallback;
   }
 
   /**
@@ -52,7 +154,7 @@ export class SpeakerDetector {
       if (element.matches(selector)) {
         return true;
       }
-      
+
       // Check if element is inside an outgoing message container
       const container = element.closest(selector);
       return !!container;
@@ -69,7 +171,7 @@ export class SpeakerDetector {
       if (element.matches(selector)) {
         return true;
       }
-      
+
       const container = element.closest(selector);
       return !!container;
     } catch (error) {
@@ -98,7 +200,7 @@ export class SpeakerDetector {
         }
       }
     } catch (error) {
-      logger.debug('Error extracting sender name:', error);
+      window.Gracula.logger.debug('Error extracting sender name:', error);
     }
 
     return null;
@@ -107,62 +209,106 @@ export class SpeakerDetector {
   /**
    * Fallback speaker detection using heuristics
    */
-  detectSpeakerFallback(element) {
-    // Check for common class patterns
-    const classList = element.className || '';
+  detectSpeakerFallback(element, metaOverride = null) {
+    const baseMeta = metaOverride ? { ...metaOverride } : {};
+    if (!baseMeta.strategy) {
+      baseMeta.strategy = 'fallback';
+    }
+
+    const result = {
+      speaker: baseMeta.speakerName || baseMeta.resolvedName || 'Other',
+      isOutgoing: false,
+      timestamp: baseMeta.timestamp || baseMeta.derivedTimestamp || null,
+      meta: baseMeta
+    };
+
+    const classList = element?.className || '';
     const classString = typeof classList === 'string' ? classList : classList.toString();
 
-    // Outgoing message patterns
-    if (classString.match(/message-out|outgoing|sent|self|own/i)) {
-      return { speaker: this.currentUser, isOutgoing: true };
+    if (classString.match(/message-out|outgoing|sent|self|own|from-me|is-user/i)) {
+      result.speaker = this.currentUser;
+      result.isOutgoing = true;
+      result.meta = { ...baseMeta, strategy: 'fallback-class', matchedClass: classString };
+      return result;
     }
 
-    // Incoming message patterns
-    if (classString.match(/message-in|incoming|received|other/i)) {
-      return { speaker: 'Other', isOutgoing: false };
+    if (classString.match(/message-in|incoming|received|other|from-them|is-other/i)) {
+      const detectedName = baseMeta.speakerName || 'Other';
+      const isCurrent = this.isCurrentUserLabel(detectedName);
+      result.speaker = isCurrent ? this.currentUser : detectedName;
+      result.isOutgoing = isCurrent;
+      result.meta = { ...baseMeta, strategy: 'fallback-class', matchedClass: classString };
+      return result;
     }
 
-    // Check parent elements
-    let parent = element.parentElement;
+    let parent = element?.parentElement;
     let depth = 0;
-    while (parent && depth < 5) {
+    while (parent && depth < 6) {
       const parentClass = parent.className || '';
       const parentClassString = typeof parentClass === 'string' ? parentClass : parentClass.toString();
 
-      if (parentClassString.match(/message-out|outgoing|sent|self|own/i)) {
-        return { speaker: this.currentUser, isOutgoing: true };
+      if (parentClassString.match(/message-out|outgoing|sent|self|own|from-me|is-user/i)) {
+        result.speaker = this.currentUser;
+        result.isOutgoing = true;
+        result.meta = { ...baseMeta, strategy: 'fallback-parent-class', matchedClass: parentClassString, depth };
+        return result;
       }
 
-      if (parentClassString.match(/message-in|incoming|received|other/i)) {
-        return { speaker: 'Other', isOutgoing: false };
+      if (parentClassString.match(/message-in|incoming|received|other|from-them|is-other/i)) {
+        const detectedName = baseMeta.speakerName || 'Other';
+        const isCurrent = this.isCurrentUserLabel(detectedName);
+        result.speaker = isCurrent ? this.currentUser : detectedName;
+        result.isOutgoing = isCurrent;
+        result.meta = { ...baseMeta, strategy: 'fallback-parent-class', matchedClass: parentClassString, depth };
+        return result;
       }
 
       parent = parent.parentElement;
       depth++;
     }
 
-    // Default to unknown
-    return { speaker: 'Unknown', isOutgoing: false };
+    if (baseMeta.speakerName) {
+      const isCurrent = this.isCurrentUserLabel(baseMeta.speakerName);
+      result.speaker = isCurrent ? this.currentUser : baseMeta.speakerName;
+      result.isOutgoing = isCurrent;
+      result.meta = { ...baseMeta, strategy: 'fallback-preplain' };
+    }
+
+    return result;
   }
 
   /**
    * Extract timestamp from message element
    */
   extractTimestamp(element, timestampSelector) {
+    const prePlainMeta = this.extractPrePlainMetadata(element);
+    if (prePlainMeta?.timestamp) {
+      return prePlainMeta.timestamp;
+    }
+
     if (!timestampSelector) return null;
 
     try {
-      const container = element.closest('[data-id], .message, [role="row"]');
-      if (!container) return null;
-
+      const container = element.closest('[data-id], .message, [role="row"], [role="listitem"]') || element;
       const timestampElement = container.querySelector(timestampSelector);
       if (timestampElement) {
-        const timeText = timestampElement.textContent.trim();
-        // Try to parse time
-        return this.parseTime(timeText);
+        const rawText = timestampElement.textContent.trim();
+        if (!rawText) return null;
+
+        const commaParts = rawText.split(',');
+        if (commaParts.length > 1) {
+          const timePart = commaParts[0].trim();
+          const datePart = commaParts.slice(1).join(',').trim();
+          const parsed = new Date(`${datePart} ${timePart}`);
+          if (!isNaN(parsed.getTime())) {
+            return parsed;
+          }
+        }
+
+        return this.parseTime(rawText);
       }
     } catch (error) {
-      logger.debug('Error extracting timestamp:', error);
+      window.Gracula.logger.debug('Error extracting timestamp:', error);
     }
 
     return null;
@@ -207,5 +353,5 @@ export class SpeakerDetector {
   }
 }
 
-export default SpeakerDetector;
+
 

@@ -1,7 +1,10 @@
 // API Configuration
 // Defines API settings for AI providers
 
-export const API_CONFIG = {
+window.Gracula = window.Gracula || {};
+window.Gracula.Config = window.Gracula.Config || {};
+
+window.Gracula.Config.API_CONFIG = {
   provider: 'openai', // 'openai' or 'huggingface'
   openai: {
     model: 'gpt-3.5-turbo', // or 'gpt-4', 'gpt-4-turbo-preview'
@@ -17,5 +20,5 @@ export const API_CONFIG = {
   }
 };
 
-export default API_CONFIG;
+
 

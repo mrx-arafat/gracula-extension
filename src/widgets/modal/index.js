@@ -1,4 +1,3 @@
 // Modal Widget Index
-
-export { Modal } from './ui/Modal.js';
+// All exports are available via window.Gracula
 

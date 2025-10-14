@@ -1,14 +1,12 @@
 // Tone Selector Widget
 // Grid of tone buttons for user selection
 
-import { TONES } from '../../../shared/config/index.js';
-import { Tone } from '../../../entities/tone/index.js';
-import { logger } from '../../../shared/lib/index.js';
+window.Gracula = window.Gracula || {};
 
-export class ToneSelector {
+window.Gracula.ToneSelector = class {
   constructor(options = {}) {
     this.onToneSelect = options.onToneSelect || (() => {});
-    this.tones = TONES.map(config => new Tone(config));
+    this.tones = window.Gracula.Config.TONES.map(config => new window.Gracula.Tone(config));
   }
 
   /**
@@ -49,7 +47,7 @@ export class ToneSelector {
         const toneId = btn.dataset.toneId;
         const tone = this.tones.find(t => t.id === toneId);
         if (tone) {
-          logger.info(`Tone selected: ${tone.name}`);
+          window.Gracula.logger.info(`Tone selected: ${tone.name}`);
           this.onToneSelect(tone);
         }
       });
@@ -64,5 +62,5 @@ export class ToneSelector {
   }
 }
 
-export default ToneSelector;
+
 

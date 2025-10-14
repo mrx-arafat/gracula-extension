@@ -1,4 +1,3 @@
 // Floating Button Widget Index
-
-export { FloatingButton } from './ui/FloatingButton.js';
+// All exports are available via window.Gracula
 

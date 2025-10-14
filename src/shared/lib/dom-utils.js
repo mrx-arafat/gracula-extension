@@ -1,10 +1,13 @@
 // DOM Utility Functions
 // Helper functions for DOM manipulation
 
+window.Gracula = window.Gracula || {};
+window.Gracula.DOMUtils = window.Gracula.DOMUtils || {};
+
 /**
  * Safely query selector with error handling
  */
-export function safeQuerySelector(selector, context = document) {
+window.Gracula.DOMUtils.safeQuerySelector = function(selector, context = document) {
   try {
     return context.querySelector(selector);
   } catch (error) {
@@ -16,19 +19,19 @@ export function safeQuerySelector(selector, context = document) {
 /**
  * Safely query all selectors
  */
-export function safeQuerySelectorAll(selector, context = document) {
+window.Gracula.DOMUtils.safeQuerySelectorAll = function(selector, context = document) {
   try {
     return context.querySelectorAll(selector);
   } catch (error) {
     console.error('Invalid selector:', selector, error);
     return [];
   }
-}
+};
 
 /**
  * Wait for element to appear in DOM
  */
-export function waitForElement(selector, timeout = 5000) {
+window.Gracula.DOMUtils.waitForElement = function(selector, timeout = 5000) {
   return new Promise((resolve, reject) => {
     const element = document.querySelector(selector);
     if (element) {
@@ -54,26 +57,26 @@ export function waitForElement(selector, timeout = 5000) {
       reject(new Error(`Element ${selector} not found within ${timeout}ms`));
     }, timeout);
   });
-}
+};
 
 /**
  * Check if element is visible
  */
-export function isElementVisible(element) {
+window.Gracula.DOMUtils.isElementVisible = function(element) {
   if (!element) return false;
-  
+
   const style = window.getComputedStyle(element);
-  return style.display !== 'none' && 
-         style.visibility !== 'hidden' && 
+  return style.display !== 'none' &&
+         style.visibility !== 'hidden' &&
          style.opacity !== '0';
-}
+};
 
 /**
  * Get element position relative to viewport
  */
-export function getElementPosition(element) {
+window.Gracula.DOMUtils.getElementPosition = function(element) {
   if (!element) return null;
-  
+
   const rect = element.getBoundingClientRect();
   return {
     top: rect.top,
@@ -83,21 +86,21 @@ export function getElementPosition(element) {
     width: rect.width,
     height: rect.height
   };
-}
+};
 
 /**
  * Escape HTML to prevent XSS
  */
-export function escapeHtml(text) {
+window.Gracula.DOMUtils.escapeHtml = function(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
-}
+};
 
 /**
  * Create element with attributes
  */
-export function createElement(tag, attributes = {}, children = []) {
+window.Gracula.DOMUtils.createElement = function(tag, attributes = {}, children = []) {
   const element = document.createElement(tag);
   
   Object.entries(attributes).forEach(([key, value]) => {
@@ -121,30 +124,19 @@ export function createElement(tag, attributes = {}, children = []) {
   });
   
   return element;
-}
+};
 
 /**
  * Trigger input event on element
  */
-export function triggerInputEvent(element) {
+window.Gracula.DOMUtils.triggerInputEvent = function(element) {
   if (!element) return;
-  
+
   const event = new Event('input', { bubbles: true, cancelable: true });
   element.dispatchEvent(event);
-  
+
   // Also trigger change event for some platforms
   const changeEvent = new Event('change', { bubbles: true, cancelable: true });
   element.dispatchEvent(changeEvent);
-}
-
-export default {
-  safeQuerySelector,
-  safeQuerySelectorAll,
-  waitForElement,
-  isElementVisible,
-  getElementPosition,
-  escapeHtml,
-  createElement,
-  triggerInputEvent
 };
 

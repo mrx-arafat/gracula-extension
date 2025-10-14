@@ -1,4 +1,3 @@
 // Tone Entity Index
-
-export { Tone } from './model/Tone.js';
+// All exports are available via window.Gracula
 

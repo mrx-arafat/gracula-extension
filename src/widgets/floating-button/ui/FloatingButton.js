@@ -1,10 +1,9 @@
 // Floating Button Widget
 // The purple vampire button that appears near input fields
 
-import { createElement, getElementPosition } from '../../../shared/lib/index.js';
-import { logger } from '../../../shared/lib/index.js';
+window.Gracula = window.Gracula || {};
 
-export class FloatingButton {
+window.Gracula.FloatingButton = class {
   constructor(options = {}) {
     this.onClick = options.onClick || (() => {});
     this.inputField = options.inputField || null;
@@ -20,7 +19,7 @@ export class FloatingButton {
       this.element.remove();
     }
 
-    this.element = createElement('div', {
+    this.element = window.Gracula.DOMUtils.createElement('div', {
       id: 'gracula-floating-btn',
       className: 'gracula-btn-visible'
     });
@@ -33,14 +32,14 @@ export class FloatingButton {
     // Add click listener
     this.element.addEventListener('click', (e) => {
       e.stopPropagation();
-      logger.info('Floating button clicked');
+      window.Gracula.logger.info('Floating button clicked');
       this.onClick();
     });
 
     document.body.appendChild(this.element);
     this.isVisible = true;
 
-    logger.success('Floating button rendered');
+    window.Gracula.logger.success('Floating button rendered');
 
     return this.element;
   }
@@ -53,16 +52,12 @@ export class FloatingButton {
 
     this.inputField = inputField;
 
-    const inputPos = getElementPosition(inputField);
-    if (!inputPos) return;
-
-    // Position button to the right of input field
-    const buttonTop = inputPos.top + (inputPos.height / 2) - 25; // Center vertically
-    const buttonLeft = inputPos.right + 10; // 10px to the right
-
+    // Position button at bottom right corner of viewport
     this.element.style.position = 'fixed';
-    this.element.style.top = `${buttonTop}px`;
-    this.element.style.left = `${buttonLeft}px`;
+    this.element.style.bottom = '20px';
+    this.element.style.right = '20px';
+    this.element.style.top = 'auto';
+    this.element.style.left = 'auto';
     this.element.style.zIndex = '999999';
   }
 
@@ -107,5 +102,5 @@ export class FloatingButton {
   }
 }
 
-export default FloatingButton;
+
 

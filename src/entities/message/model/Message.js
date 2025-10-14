@@ -1,7 +1,9 @@
 // Message Entity
 // Represents a single message in a conversation
 
-export class Message {
+window.Gracula = window.Gracula || {};
+
+window.Gracula.Message = class {
   constructor(data = {}) {
     this.id = data.id || this.generateId();
     this.text = data.text || '';
@@ -28,26 +30,37 @@ export class Message {
    * Check if message is valid (has text and meets criteria)
    */
   isValid() {
-    return this.text && 
-           this.text.length > 2 && 
-           this.text.length < 500 &&
-           !this.isTimestamp() &&
-           !this.isSystemMessage();
+    if (typeof this.text !== 'string') {
+      return false;
+    }
+
+    const trimmed = this.text.trim();
+    if (trimmed.length === 0 || trimmed.length > 2000) {
+      return false;
+    }
+
+    if (this.isTimestamp() || this.isSystemMessage()) {
+      return false;
+    }
+
+    return true;
   }
 
   /**
    * Check if text looks like a timestamp
    */
   isTimestamp() {
-    return /^\d{1,2}:\d{2}/.test(this.text) || 
-           this.text === 'Today' || 
-           this.text === 'Yesterday';
+    const value = (this.text || '').trim();
+    return /^\d{1,2}:\d{2}/.test(value) ||
+           value === 'Today' ||
+           value === 'Yesterday';
   }
 
   /**
    * Check if message is a system message
    */
   isSystemMessage() {
+    const value = (this.text || '').trim();
     const systemPatterns = [
       /joined the group/i,
       /left the group/i,
@@ -55,7 +68,7 @@ export class Message {
       /added you/i,
       /removed/i
     ];
-    return systemPatterns.some(pattern => pattern.test(this.text));
+    return systemPatterns.some(pattern => pattern.test(value));
   }
 
   /**
@@ -97,5 +110,5 @@ export class Message {
   }
 }
 
-export default Message;
+
 

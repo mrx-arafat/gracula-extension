@@ -1,6 +1,4 @@
 // Shared Library Index
-// Central export point for all utilities
-
-export { logger } from './logger.js';
-export * from './dom-utils.js';
+// All utilities are already available via window.Gracula
+// This file is kept for compatibility
 

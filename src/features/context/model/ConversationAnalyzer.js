@@ -1,9 +1,9 @@
 // Conversation Analysis System
 // Analyzes conversation patterns and flow
 
-import { logger } from '../../../shared/lib/index.js';
+window.Gracula = window.Gracula || {};
 
-export class ConversationAnalyzer {
+window.Gracula.ConversationAnalyzer = class {
   constructor() {
     this.messages = [];
   }
@@ -14,6 +14,12 @@ export class ConversationAnalyzer {
   analyze(messages) {
     this.messages = messages;
 
+    const messageLength = this.getMessageLengthStats();
+    const emojiUsage = this.getEmojiUsage();
+    const languageMix = this.detectLanguageMix();
+    const pacing = this.getPacing();
+    const styleMarkers = this.detectStyleMarkers();
+
     return {
       messageCount: messages.length,
       speakers: this.identifySpeakers(),
@@ -22,7 +28,12 @@ export class ConversationAnalyzer {
       conversationFlow: this.analyzeFlow(),
       sentiment: this.analyzeSentiment(),
       topics: this.extractTopics(),
-      urgency: this.detectUrgency()
+      urgency: this.detectUrgency(),
+      messageLength,
+      emojiUsage,
+      languageMix,
+      pacing,
+      styleMarkers
     };
   }
 
@@ -54,13 +65,13 @@ export class ConversationAnalyzer {
     // Look for questions in recent messages
     for (let i = this.messages.length - 1; i >= 0; i--) {
       const msg = this.messages[i];
-      
+
       if (msg.hasQuestion && msg.hasQuestion()) {
         // Check if there's a response after this question
         const hasResponse = this.messages
           .slice(i + 1)
           .some(m => m.speaker !== msg.speaker);
-        
+
         if (!hasResponse) {
           return {
             hasQuestion: true,
@@ -83,7 +94,7 @@ export class ConversationAnalyzer {
     }
 
     const speakers = this.identifySpeakers();
-    
+
     if (speakers.length === 1) {
       return { type: 'monologue', description: 'One person speaking' };
     }
@@ -121,15 +132,15 @@ export class ConversationAnalyzer {
 
     this.messages.forEach(msg => {
       const text = msg.text.toLowerCase();
-      
+
       positiveWords.forEach(word => {
         if (text.includes(word)) positiveCount++;
       });
-      
+
       negativeWords.forEach(word => {
         if (text.includes(word)) negativeCount++;
       });
-      
+
       questionWords.forEach(word => {
         if (text.includes(word)) questionCount++;
       });
@@ -144,6 +155,316 @@ export class ConversationAnalyzer {
     } else {
       return { tone: 'neutral', confidence: 'medium' };
     }
+  }
+
+  getMessageLengthStats() {
+    if (!Array.isArray(this.messages) || this.messages.length === 0) {
+      return {
+        averageChars: 0,
+        averageWords: 0,
+        medianChars: 0,
+        medianWords: 0,
+        style: 'empty'
+      };
+    }
+
+    const charLengths = [];
+    const wordCounts = [];
+
+    this.messages.forEach(message => {
+      const text = (message?.text || '').trim();
+      if (!text) {
+        return;
+      }
+
+      charLengths.push(text.length);
+      wordCounts.push(this.countWords(text));
+    });
+
+    if (charLengths.length === 0) {
+      return {
+        averageChars: 0,
+        averageWords: 0,
+        medianChars: 0,
+        medianWords: 0,
+        style: 'empty'
+      };
+    }
+
+    const averageChars = Math.round(charLengths.reduce((sum, value) => sum + value, 0) / charLengths.length);
+    const averageWords = Math.round(wordCounts.reduce((sum, value) => sum + value, 0) / wordCounts.length);
+    const medianChars = this.getMedian(charLengths);
+    const medianWords = this.getMedian(wordCounts);
+
+    return {
+      averageChars,
+      averageWords,
+      medianChars,
+      medianWords,
+      style: this.getLengthStyle(averageChars)
+    };
+  }
+
+  getEmojiUsage() {
+    if (!Array.isArray(this.messages) || this.messages.length === 0) {
+      return { total: 0, usageLevel: 'none', topEmojis: [] };
+    }
+
+    const emojiRegex = /[\u203C-\u3299\u1F000-\u1FAFF\u1F300-\u1F9FF\u1F600-\u1F64F\u1F680-\u1F6FF\u2600-\u27BF]/g;
+    const frequencies = new Map();
+    let total = 0;
+
+    this.messages.forEach(message => {
+      const text = message?.text;
+      if (typeof text !== 'string') {
+        return;
+      }
+
+      const matches = text.match(emojiRegex);
+      if (!matches) {
+        return;
+      }
+
+      matches.forEach(symbol => {
+        total += 1;
+        frequencies.set(symbol, (frequencies.get(symbol) || 0) + 1);
+      });
+    });
+
+    const topEmojis = Array.from(frequencies.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([symbol, count]) => `${symbol} x${count}`);
+
+    const density = this.messages.length ? total / this.messages.length : 0;
+    let usageLevel = 'none';
+
+    if (density >= 1) {
+      usageLevel = 'heavy';
+    } else if (density >= 0.3) {
+      usageLevel = 'moderate';
+    } else if (total > 0) {
+      usageLevel = 'light';
+    }
+
+    return { total, usageLevel, topEmojis };
+  }
+
+  detectLanguageMix() {
+    if (!Array.isArray(this.messages) || this.messages.length === 0) {
+      return { languages: [], style: 'unknown' };
+    }
+
+    const languages = new Set();
+    const romanisedBanglaPatterns = /(ami|tumi|valo|bhalo|kintu|kemon|korbo|korchi|ache|achhi|parbo|hobey|hobena|na|hoye|kor|korle|korish)/i;
+
+    this.messages.forEach(message => {
+      const text = (message?.text || '').trim();
+      if (!text) {
+        return;
+      }
+
+      if (/[\u0985-\u09B9]/.test(text)) {
+        languages.add('Bangla (Bengali script)');
+      }
+
+      if (romanisedBanglaPatterns.test(text)) {
+        languages.add('Romanized Bangla');
+      }
+
+      if (/[a-z]/i.test(text)) {
+        languages.add('English');
+      }
+    });
+
+    const list = Array.from(languages);
+    let style = 'unknown';
+
+    if (list.length === 1) {
+      style = list[0];
+    } else if (list.length > 1) {
+      style = 'mixed';
+    }
+
+    return { languages: list, style };
+  }
+
+  getPacing() {
+    const timestamps = Array.isArray(this.messages)
+      ? this.messages
+        .map(message => this.toDate(message?.timestamp))
+        .filter(Boolean)
+      : [];
+
+    if (timestamps.length < 2) {
+      return { averageGapSeconds: null, tempo: 'unknown' };
+    }
+
+    let totalGapSeconds = 0;
+    let intervalCount = 0;
+
+    for (let i = 1; i < timestamps.length; i += 1) {
+      const current = timestamps[i];
+      const previous = timestamps[i - 1];
+      const gapSeconds = (current.getTime() - previous.getTime()) / 1000;
+
+      if (gapSeconds > 0) {
+        totalGapSeconds += gapSeconds;
+        intervalCount += 1;
+      }
+    }
+
+    if (intervalCount === 0) {
+      return { averageGapSeconds: null, tempo: 'unknown' };
+    }
+
+    const averageGapSeconds = Math.round(totalGapSeconds / intervalCount);
+    let tempo = 'steady';
+
+    if (averageGapSeconds <= 90) {
+      tempo = 'rapid';
+    } else if (averageGapSeconds >= 600) {
+      tempo = 'slow';
+    }
+
+    return { averageGapSeconds, tempo };
+  }
+
+  detectStyleMarkers() {
+    if (!Array.isArray(this.messages) || this.messages.length === 0) {
+      return { register: 'unknown', notes: [] };
+    }
+
+    let lowercaseOnly = 0;
+    let uppercaseShouts = 0;
+    let repeatedPunctuation = 0;
+    const slangSamples = new Set();
+    const slangRegex = /\b(lol|lmao|rofl|haha|xd|idk|ikr|tbh|omg|wtf|brb|gonna|wanna|nah|yea|pls|plz|bro|dude|sis|bestie)\b/i;
+
+    this.messages.forEach(message => {
+      const text = (message?.text || '').trim();
+      if (!text) {
+        return;
+      }
+
+      if (text === text.toLowerCase() && /[a-z]/.test(text)) {
+        lowercaseOnly += 1;
+      }
+
+      if (/[A-Z]{3,}/.test(text) && text === text.toUpperCase()) {
+        uppercaseShouts += 1;
+      }
+
+      if (/[!?]{2,}/.test(text)) {
+        repeatedPunctuation += 1;
+      }
+
+      const slangMatch = text.match(slangRegex);
+      if (slangMatch) {
+        slangSamples.add(slangMatch[0].toLowerCase());
+      }
+    });
+
+    const total = this.messages.length || 1;
+    const notes = [];
+
+    if (lowercaseOnly / total > 0.4) {
+      notes.push('prefers lowercase replies');
+    }
+
+    if (uppercaseShouts > 0) {
+      notes.push('occasional ALL CAPS emphasis');
+    }
+
+    if (repeatedPunctuation / total > 0.3) {
+      notes.push('frequent !!! or ???');
+    }
+
+    if (slangSamples.size > 0) {
+      notes.push(`uses slang such as ${Array.from(slangSamples).slice(0, 3).join(', ')}`);
+    }
+
+    let register = 'neutral';
+    if (slangSamples.size > 0 || lowercaseOnly / total > 0.4) {
+      register = 'casual';
+    } else if (uppercaseShouts > 0) {
+      register = 'intense';
+    }
+
+    return { register, notes };
+  }
+
+  countWords(value) {
+    if (typeof value !== 'string') {
+      return 0;
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return 0;
+    }
+
+    return trimmed.split(/\s+/).filter(Boolean).length;
+  }
+
+  getMedian(values = []) {
+    const numeric = values
+      .filter(value => typeof value === 'number' && !Number.isNaN(value))
+      .sort((a, b) => a - b);
+
+    if (numeric.length === 0) {
+      return 0;
+    }
+
+    const middle = Math.floor(numeric.length / 2);
+
+    if (numeric.length % 2 === 0) {
+      return Math.round((numeric[middle - 1] + numeric[middle]) / 2);
+    }
+
+    return numeric[middle];
+  }
+
+  getLengthStyle(averageChars) {
+    if (!Number.isFinite(averageChars) || averageChars <= 0) {
+      return 'empty';
+    }
+
+    if (averageChars <= 35) {
+      return 'very short';
+    }
+
+    if (averageChars <= 65) {
+      return 'short';
+    }
+
+    if (averageChars <= 120) {
+      return 'medium';
+    }
+
+    return 'long';
+  }
+
+  toDate(value) {
+    if (!value) {
+      return null;
+    }
+
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      return value;
+    }
+
+    if (typeof value === 'number') {
+      const fromNumber = new Date(value);
+      return Number.isNaN(fromNumber.getTime()) ? null : fromNumber;
+    }
+
+    if (typeof value === 'string') {
+      const fromString = new Date(value);
+      return Number.isNaN(fromString.getTime()) ? null : fromString;
+    }
+
+    return null;
   }
 
   /**
@@ -179,7 +500,7 @@ export class ConversationAnalyzer {
    */
   detectUrgency() {
     const urgentWords = ['urgent', 'asap', 'immediately', 'now', 'quick', 'hurry', 'emergency', 'important', '!!!', '!!'];
-    
+
     let urgencyScore = 0;
 
     this.messages.forEach(msg => {
@@ -187,7 +508,7 @@ export class ConversationAnalyzer {
       urgentWords.forEach(word => {
         if (text.includes(word)) urgencyScore++;
       });
-      
+
       // Check for multiple exclamation marks
       const exclamationCount = (text.match(/!/g) || []).length;
       if (exclamationCount > 2) urgencyScore += 2;
@@ -207,19 +528,44 @@ export class ConversationAnalyzer {
    */
   getSummary() {
     const analysis = this.analyze(this.messages);
-    
+
+    const participants = Array.isArray(analysis.speakers) && analysis.speakers.length
+      ? analysis.speakers.join(', ')
+      : 'Unknown';
+
+    const topics = Array.isArray(analysis.topics) && analysis.topics.length
+      ? analysis.topics.join(', ')
+      : 'None';
+
+    const languageMix = analysis.languageMix?.languages?.length
+      ? analysis.languageMix.languages.join(', ')
+      : 'Unknown';
+
+    const averageLength = analysis.messageLength
+      ? `${analysis.messageLength.averageWords || 0} words (~${analysis.messageLength.averageChars || 0} chars, ${analysis.messageLength.style})`
+      : '0 words';
+
+    const styleNotes = analysis.styleMarkers?.notes?.length
+      ? analysis.styleMarkers.notes.join('; ')
+      : '';
+
     return {
       totalMessages: analysis.messageCount,
-      participants: analysis.speakers.join(', '),
+      participants,
       lastSpeaker: analysis.lastSpeaker,
       conversationType: analysis.conversationFlow.type,
       sentiment: analysis.sentiment.tone,
       hasQuestion: analysis.hasUnansweredQuestion.hasQuestion,
       urgency: analysis.urgency.level,
-      topics: analysis.topics.join(', ')
+      topics,
+      averageLength,
+      languageMix,
+      messageTempo: analysis.pacing?.tempo || 'unknown',
+      emojiUsage: analysis.emojiUsage?.usageLevel || 'none',
+      styleNotes
     };
   }
 }
 
-export default ConversationAnalyzer;
+
 

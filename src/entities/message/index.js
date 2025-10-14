@@ -1,4 +1,3 @@
 // Message Entity Index
-
-export { Message } from './model/Message.js';
+// All exports are available via window.Gracula
 

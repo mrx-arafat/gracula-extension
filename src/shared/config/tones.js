@@ -1,7 +1,10 @@
 // Tone Configuration
 // Defines all available reply tones with their prompts
 
-export const TONES = [
+window.Gracula = window.Gracula || {};
+window.Gracula.Config = window.Gracula.Config || {};
+
+window.Gracula.Config.TONES = [
   {
     id: 'default',
     name: 'Default',
@@ -70,5 +73,5 @@ export const TONES = [
   }
 ];
 
-export default TONES;
+
 

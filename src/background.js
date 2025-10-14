@@ -49,7 +49,7 @@ async function handleGenerateReplies(tone, context, enhancedContext) {
   const prompt = buildPrompt(tone, context, enhancedContext);
 
   // Call AI API
-  const replies = await callAIAPI(prompt);
+  const replies = await callAIAPI(prompt, { enhancedContext, metrics: enhancedContext?.metrics });
 
   return replies;
 }
@@ -57,22 +57,43 @@ async function handleGenerateReplies(tone, context, enhancedContext) {
 function buildPrompt(tone, context, enhancedContext) {
   let prompt = '';
 
-  // Add enhanced context analysis if available
-  if (enhancedContext && enhancedContext.analysis) {
-    const analysis = enhancedContext.analysis;
-    const summary = enhancedContext.summary;
+  const analysis = enhancedContext?.analysis;
+  const summary = enhancedContext?.summary || {};
+  const metrics = enhancedContext?.metrics;
+  const styleMarkers = analysis?.styleMarkers;
+  const emojiUsage = analysis?.emojiUsage;
+  const lengthStats = analysis?.messageLength;
 
+  const formatPace = (seconds) => {
+    if (typeof seconds !== 'number' || Number.isNaN(seconds)) {
+      return 'unknown tempo';
+    }
+
+    const rounded = Math.round(seconds);
+
+    if (rounded <= 90) {
+      return `rapid (~${rounded}s gaps)`;
+    }
+
+    if (rounded <= 600) {
+      return `steady (~${rounded}s gaps)`;
+    }
+
+    return `slow (~${rounded}s gaps)`;
+  };
+
+  if (analysis && Object.keys(summary).length > 0) {
     prompt += '=== CONVERSATION ANALYSIS ===\n';
-    prompt += `Participants: ${summary.participants}\n`;
-    prompt += `Last Speaker: ${summary.lastSpeaker}\n`;
-    prompt += `Conversation Type: ${summary.conversationType}\n`;
-    prompt += `Sentiment: ${summary.sentiment}\n`;
+    prompt += `Participants: ${summary.participants || 'Unknown'}\n`;
+    prompt += `Last Speaker: ${summary.lastSpeaker || 'Unknown'}\n`;
+    prompt += `Conversation Type: ${summary.conversationType || 'Unknown'}\n`;
+    prompt += `Sentiment: ${summary.sentiment || 'Neutral'}\n`;
 
-    if (analysis.hasUnansweredQuestion && analysis.hasUnansweredQuestion.hasQuestion) {
+    if (analysis.hasUnansweredQuestion?.hasQuestion) {
       prompt += `⚠️ UNANSWERED QUESTION: "${analysis.hasUnansweredQuestion.question}" (asked by ${analysis.hasUnansweredQuestion.askedBy})\n`;
     }
 
-    if (analysis.urgency && analysis.urgency.level !== 'low') {
+    if (analysis.urgency?.level && analysis.urgency.level !== 'low') {
       prompt += `⚠️ URGENCY LEVEL: ${analysis.urgency.level}\n`;
     }
 
@@ -83,8 +104,50 @@ function buildPrompt(tone, context, enhancedContext) {
     prompt += '\n';
   }
 
-  // Add conversation context
-  if (context && context.length > 0) {
+  if (metrics || styleMarkers || emojiUsage) {
+    prompt += '=== STYLE METRICS ===\n';
+
+    if (metrics?.recommendedReplyLength) {
+      const rec = metrics.recommendedReplyLength;
+      prompt += `Recommended reply: ~${rec.words} words (~${rec.chars} chars, ${rec.sentences} sentence${rec.sentences === 1 ? '' : 's'}) based on ${rec.basis}.\n`;
+    } else if (lengthStats?.averageWords) {
+      prompt += `Typical message length: ~${lengthStats.averageWords} words (${lengthStats.style || 'short'}).\n`;
+    }
+
+    if (metrics?.recentIncomingAverageChars || metrics?.recentOutgoingAverageChars) {
+      const incoming = metrics.recentIncomingAverageChars ? `${metrics.recentIncomingAverageChars} chars` : 'n/a';
+      const outgoing = metrics.recentOutgoingAverageChars ? `${metrics.recentOutgoingAverageChars} chars` : 'n/a';
+      prompt += `Recent incoming avg: ${incoming}; your replies avg: ${outgoing}.\n`;
+    }
+
+    if (metrics?.languageHints?.length) {
+      prompt += `Language mix: ${metrics.languageHints.join(', ')}.\n`;
+    }
+
+    if (metrics?.messagePaceSeconds) {
+      prompt += `Message pace: ${formatPace(metrics.messagePaceSeconds)}.\n`;
+    }
+
+    if (emojiUsage?.usageLevel) {
+      const topEmojis = emojiUsage.topEmojis?.length ? ` (top: ${emojiUsage.topEmojis.join(', ')})` : '';
+      prompt += `Emoji usage: ${emojiUsage.usageLevel}${topEmojis}.\n`;
+    }
+
+    if (styleMarkers?.notes?.length) {
+      prompt += `Style notes: ${styleMarkers.notes.join('; ')}.\n`;
+    }
+
+    if (metrics?.shortMessageExamples?.length) {
+      prompt += 'Recent message samples:\n';
+      metrics.shortMessageExamples.forEach(example => {
+        prompt += `- ${example}\n`;
+      });
+    }
+
+    prompt += '\n';
+  }
+
+  if (Array.isArray(context) && context.length > 0) {
     prompt += '=== CONVERSATION HISTORY ===\n';
     context.forEach((msg) => {
       prompt += `${msg}\n`;
@@ -92,52 +155,78 @@ function buildPrompt(tone, context, enhancedContext) {
     prompt += '\n';
   }
 
-  // Add tone instruction
   prompt += '=== YOUR TASK ===\n';
   prompt += `${tone.prompt}\n\n`;
 
-  // Add special instructions based on analysis
-  if (enhancedContext && enhancedContext.analysis) {
-    const analysis = enhancedContext.analysis;
+  const recommended = metrics?.recommendedReplyLength;
 
-    if (analysis.hasUnansweredQuestion && analysis.hasUnansweredQuestion.hasQuestion) {
-      prompt += '⚠️ IMPORTANT: There is an unanswered question. Make sure to address it in your reply.\n';
+  if (recommended) {
+    prompt += `Match the conversation length guidance: aim for about ${recommended.words} words (~${recommended.chars} characters) across ${recommended.sentences} sentence${recommended.sentences === 1 ? '' : 's'}.`;
+    if (recommended.basis) {
+      prompt += ` (Based on ${recommended.basis}.)`;
     }
-
-    if (analysis.urgency && analysis.urgency.level === 'high') {
-      prompt += '⚠️ IMPORTANT: This conversation seems urgent. Respond accordingly.\n';
-    }
+    prompt += '\n';
+  } else if (lengthStats?.style) {
+    prompt += `Keep replies ${lengthStats.style} and no longer than two sentences.\n`;
+  } else {
+    prompt += 'Keep each reply concise (1-2 sentences max).\n';
   }
 
-  // Add instruction for multiple replies
+  if (metrics?.languageHints?.length) {
+    prompt += `Stay within this language mix: ${metrics.languageHints.join(', ')}.\n`;
+  }
+
+  if (styleMarkers?.register && styleMarkers.register !== 'neutral') {
+    prompt += `Tone register: ${styleMarkers.register}. Mirror this vibe.\n`;
+  }
+
+  if (styleMarkers?.notes?.length) {
+    prompt += `Follow these style cues: ${styleMarkers.notes.join('; ')}.\n`;
+  }
+
+  if (emojiUsage?.usageLevel === 'none') {
+    prompt += 'Avoid new emojis unless already used in the thread.\n';
+  } else if (emojiUsage?.usageLevel) {
+    const emojiExamples = emojiUsage.topEmojis?.map(sample => sample.split(' ')[0]).join(' ');
+    const suffix = emojiExamples ? ` (examples: ${emojiExamples})` : '';
+    prompt += `Match the ${emojiUsage.usageLevel} emoji frequency${suffix}.\n`;
+  }
+
+  if (analysis?.hasUnansweredQuestion?.hasQuestion) {
+    prompt += '⚠️ IMPORTANT: There is an unanswered question. Make sure to address it in your reply.\n';
+  }
+
+  if (analysis?.urgency?.level === 'high') {
+    prompt += '⚠️ IMPORTANT: This conversation seems urgent. Respond accordingly.\n';
+  }
+
   prompt += '\nGenerate 3 different reply options. Each reply should be on a new line, numbered 1., 2., and 3.\n';
-  prompt += 'Keep each reply concise (1-2 sentences max).\n';
   prompt += 'Make replies contextually relevant based on the conversation analysis above.\n\n';
   prompt += 'Replies:\n';
 
   return prompt;
 }
 
-async function callAIAPI(prompt) {
+async function callAIAPI(prompt, options = {}) {
   // Check which provider to use
   try {
     if (apiConfig.provider === 'openai') {
       console.log('🧛 Gracula: Using OpenAI API');
-      return await callOpenAIAPI(prompt);
+      return await callOpenAIAPI(prompt, options);
     } else {
       console.log('🧛 Gracula: Using Hugging Face API');
-      return await callHuggingFaceAPI(prompt);
+      return await callHuggingFaceAPI(prompt, options);
     }
   } catch (error) {
     console.error(`🧛 Gracula: ${apiConfig.provider} API error:`, error);
 
     // Fallback to mock responses for demo
     console.log('🧛 Gracula: Using fallback mock responses');
-    return generateMockReplies(prompt);
+    return generateMockReplies(prompt, options);
   }
 }
 
-async function callOpenAIAPI(prompt) {
+async function callOpenAIAPI(prompt, options = {}) {
   if (!apiConfig.apiKey) {
     throw new Error('OpenAI API key is required. Please add it in the extension settings.');
   }
@@ -149,15 +238,39 @@ async function callOpenAIAPI(prompt) {
     'Authorization': `Bearer ${apiConfig.apiKey}`
   };
 
+  const metrics = options.metrics || options.enhancedContext?.metrics || null;
+  const analysis = options.enhancedContext?.analysis || {};
+  const recommended = metrics?.recommendedReplyLength;
+
+  const deriveTokens = (wordsEstimate) => {
+    const safeWords = Math.max(6, Math.round(wordsEstimate || 0));
+    const perReplyTokens = Math.max(18, Math.round(safeWords * 1.5));
+    return Math.min(180, Math.max(90, perReplyTokens * 3 + 20));
+  };
+
+  let maxTokens = 200;
+
+  if (recommended) {
+    const estimatedWords = recommended.words || Math.round((recommended.chars || 80) / 5);
+    maxTokens = deriveTokens(estimatedWords);
+  } else if (metrics?.averageWords) {
+    maxTokens = deriveTokens(metrics.averageWords);
+  } else if (analysis?.messageLength?.averageWords) {
+    maxTokens = deriveTokens(analysis.messageLength.averageWords);
+  }
+
+  console.log('\ud83e\udddb Gracula: OpenAI max_tokens set to', maxTokens);
+
+
   const response = await fetch(url, {
     method: 'POST',
-    headers: headers,
+    headers,
     body: JSON.stringify({
       model: apiConfig.model || 'gpt-3.5-turbo',
       messages: [
         {
           role: 'system',
-          content: 'You are a helpful assistant that generates natural, conversational message replies. Always provide exactly 3 different reply options, numbered 1., 2., and 3. Keep each reply concise (1-2 sentences max).'
+          content: 'You are a helpful assistant that generates natural, conversational message replies. Always provide exactly 3 different reply options, numbered 1., 2., and 3. Match the conversation length, pacing, and style guidance provided.'
         },
         {
           role: 'user',
@@ -165,7 +278,7 @@ async function callOpenAIAPI(prompt) {
         }
       ],
       temperature: 0.7,
-      max_tokens: 200,
+      max_tokens: maxTokens,
       n: 1
     })
   });
@@ -193,7 +306,7 @@ async function callOpenAIAPI(prompt) {
   return replies;
 }
 
-async function callHuggingFaceAPI(prompt) {
+async function callHuggingFaceAPI(prompt, options = {}) {
   const url = `${apiConfig.huggingfaceEndpoint}${apiConfig.huggingfaceModel}`;
 
   const headers = {
@@ -205,13 +318,36 @@ async function callHuggingFaceAPI(prompt) {
     headers['Authorization'] = `Bearer ${apiConfig.apiKey}`;
   }
 
+  const metrics = options.metrics || options.enhancedContext?.metrics || null;
+  const analysis = options.enhancedContext?.analysis || {};
+  const recommended = metrics?.recommendedReplyLength;
+
+  const deriveTokens = (wordsEstimate) => {
+    const safeWords = Math.max(6, Math.round(wordsEstimate || 0));
+    const perReplyTokens = Math.max(18, Math.round(safeWords * 1.5));
+    return Math.min(150, Math.max(75, perReplyTokens * 3 + 15));
+  };
+
+  let maxNewTokens = 150;
+
+  if (recommended) {
+    const estimatedWords = recommended.words || Math.round((recommended.chars || 80) / 5);
+    maxNewTokens = deriveTokens(estimatedWords);
+  } else if (metrics?.averageWords) {
+    maxNewTokens = deriveTokens(metrics.averageWords);
+  } else if (analysis?.messageLength?.averageWords) {
+    maxNewTokens = deriveTokens(analysis.messageLength.averageWords);
+  }
+
+  console.log('\ud83e\udddb Gracula: HuggingFace max_new_tokens set to', maxNewTokens);
+
   const response = await fetch(url, {
     method: 'POST',
-    headers: headers,
+    headers,
     body: JSON.stringify({
       inputs: prompt,
       parameters: {
-        max_new_tokens: 150,
+        max_new_tokens: maxNewTokens,
         temperature: 0.7,
         top_p: 0.9,
         return_full_text: false
@@ -246,7 +382,7 @@ function parseReplies(text) {
   // Try to extract numbered replies
   const lines = text.split('\n').filter(line => line.trim());
   const replies = [];
-  
+
   for (const line of lines) {
     // Match patterns like "1.", "1)", "Reply 1:", etc.
     const match = line.match(/^(?:\d+[\.\):]?\s*|Reply\s*\d+:\s*)(.*)/i);
@@ -256,23 +392,23 @@ function parseReplies(text) {
       // Add non-empty lines that aren't headers
       replies.push(line.trim());
     }
-    
+
     if (replies.length >= 3) break;
   }
-  
+
   // If we didn't get 3 replies, split by sentences
   if (replies.length < 3) {
     const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 10);
     return sentences.slice(0, 3).map(s => s.trim() + '.');
   }
-  
+
   return replies.slice(0, 3);
 }
 
 function generateMockReplies(prompt) {
   // Fallback mock replies for demo purposes
   // In production, this would only be used if API fails
-  
+
   const mockReplies = {
     angry: [
       "I can't believe this is happening! This is completely unacceptable.",
@@ -330,18 +466,18 @@ function generateMockReplies(prompt) {
       "I hear you! Let's talk about this."
     ]
   };
-  
+
   // Try to detect tone from prompt
   const promptLower = prompt.toLowerCase();
   let selectedReplies = mockReplies.default;
-  
+
   for (const [tone, replies] of Object.entries(mockReplies)) {
     if (promptLower.includes(tone)) {
       selectedReplies = replies;
       break;
     }
   }
-  
+
   return selectedReplies;
 }
 

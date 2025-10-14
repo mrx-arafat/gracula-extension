@@ -1,18 +1,27 @@
 // Platform Configuration
 // Defines all supported messaging platforms with their selectors
 
-export const PLATFORMS = {
+console.log('🧛 [PLATFORMS CONFIG] Platforms config script loading...');
+
+// Initialize global namespace
+window.Gracula = window.Gracula || {};
+window.Gracula.Config = window.Gracula.Config || {};
+
+console.log('🧛 [PLATFORMS CONFIG] Creating PLATFORMS config...');
+
+window.Gracula.Config.PLATFORMS = {
   whatsapp: {
     name: 'WhatsApp',
     domain: 'web.whatsapp.com',
     inputSelectors: [
-      'div[contenteditable="true"][data-tab="10"]',
-      'div[contenteditable="true"][role="textbox"]',
-      'div.copyable-text[contenteditable="true"]',
-      'div[contenteditable="true"][data-lexical-editor="true"]',
-      'div[contenteditable="true"]._ak1l',
-      'div[contenteditable="true"].selectable-text',
+      'footer div[contenteditable="true"][data-tab="10"]',
+      'footer div[contenteditable="true"][role="textbox"]',
+      'footer div.copyable-text[contenteditable="true"]',
+      'footer div[contenteditable="true"][data-lexical-editor="true"]',
+      'footer div[contenteditable="true"]._ak1l',
+      'footer div[contenteditable="true"].selectable-text',
       'footer div[contenteditable="true"]',
+      'div[contenteditable="true"][data-tab="10"]:not(header *):not([data-tab="3"])',
       'div[data-tab="10"]'
     ],
     messageSelectors: [
@@ -29,7 +38,7 @@ export const PLATFORMS = {
     ],
     // Speaker detection selectors
     speakerSelectors: {
-      messageContainer: 'div[data-id^="true_"]',
+      messageContainer: 'div[data-id]',
       incomingMessage: 'div.message-in',
       outgoingMessage: 'div.message-out',
       senderName: 'span[dir="auto"][role="button"]',
@@ -185,5 +194,6 @@ export const PLATFORMS = {
   }
 };
 
-export default PLATFORMS;
+console.log('✅ [PLATFORMS CONFIG] PLATFORMS config created successfully');
+console.log('🧛 [PLATFORMS CONFIG] Available platforms:', Object.keys(window.Gracula.Config.PLATFORMS));
 

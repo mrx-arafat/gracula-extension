@@ -1,10 +1,9 @@
 // Reply List Widget
 // Displays generated replies with insert/copy actions
 
-import { escapeHtml } from '../../../shared/lib/index.js';
-import { logger } from '../../../shared/lib/index.js';
+window.Gracula = window.Gracula || {};
 
-export class ReplyList {
+window.Gracula.ReplyList = class {
   constructor(options = {}) {
     this.onInsert = options.onInsert || (() => {});
     this.onCopy = options.onCopy || (() => {});
@@ -60,20 +59,41 @@ export class ReplyList {
     const list = container.querySelector('.gracula-replies-list');
     if (!list) return;
 
-    list.innerHTML = replies.map((reply, index) => `
-      <div class="gracula-reply-card" data-reply-index="${index}">
-        <div class="gracula-reply-text">${escapeHtml(reply)}</div>
-        <div class="gracula-reply-actions">
-          <button class="gracula-reply-btn gracula-insert-btn" data-reply="${escapeHtml(reply)}">
-            Insert
-          </button>
-          <button class="gracula-reply-btn gracula-copy-btn" data-reply="${escapeHtml(reply)}">
-            Copy
-          </button>
-        </div>
-      </div>
-    `).join('');
+    // Clear any existing listeners before rebuilding DOM
+    list.innerHTML = '';
 
+    // Build fresh DOM with unique IDs
+    const frag = document.createDocumentFragment();
+    replies.forEach((reply, index) => {
+      const card = document.createElement('div');
+      card.className = 'gracula-reply-card';
+      card.dataset.replyIndex = index;
+
+      const text = document.createElement('div');
+      text.className = 'gracula-reply-text';
+      text.textContent = reply; // textContent avoids double-escaping
+
+      const actions = document.createElement('div');
+      actions.className = 'gracula-reply-actions';
+
+      const insertBtn = document.createElement('button');
+      insertBtn.className = 'gracula-reply-btn gracula-insert-btn';
+      insertBtn.textContent = 'Insert';
+      insertBtn.dataset.reply = reply;
+
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'gracula-reply-btn gracula-copy-btn';
+      copyBtn.textContent = 'Copy';
+      copyBtn.dataset.reply = reply;
+
+      actions.appendChild(insertBtn);
+      actions.appendChild(copyBtn);
+      card.appendChild(text);
+      card.appendChild(actions);
+      frag.appendChild(card);
+    });
+
+    list.appendChild(frag);
     this.attachListeners(container);
   }
 
@@ -100,15 +120,19 @@ export class ReplyList {
     const copyButtons = container.querySelectorAll('.gracula-copy-btn');
 
     insertButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         const reply = btn.dataset.reply;
-        logger.info('Insert reply clicked');
+        window.Gracula.logger.info('Insert reply clicked');
         this.onInsert(reply);
-      });
+      }, { once: true });
     });
 
     copyButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         const reply = btn.dataset.reply;
         this.copyToClipboard(reply, btn);
       });
@@ -121,7 +145,7 @@ export class ReplyList {
   async copyToClipboard(text, button) {
     try {
       await navigator.clipboard.writeText(text);
-      logger.success('Reply copied to clipboard');
+      window.Gracula.logger.success('Reply copied to clipboard');
       
       // Show feedback
       const originalText = button.textContent;
@@ -135,10 +159,10 @@ export class ReplyList {
 
       this.onCopy(text);
     } catch (error) {
-      logger.error('Failed to copy to clipboard:', error);
+      window.Gracula.logger.error('Failed to copy to clipboard:', error);
     }
   }
 }
 
-export default ReplyList;
+
 

@@ -1,4 +1,3 @@
 // Tone Selector Widget Index
-
-export { ToneSelector } from './ui/ToneSelector.js';
+// All exports are available via window.Gracula
 

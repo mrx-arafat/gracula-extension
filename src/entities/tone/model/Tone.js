@@ -1,7 +1,9 @@
 // Tone Entity
 // Represents a reply tone with its configuration
 
-export class Tone {
+window.Gracula = window.Gracula || {};
+
+window.Gracula.Tone = class {
   constructor(config) {
     this.id = config.id;
     this.name = config.name;
@@ -55,5 +57,5 @@ export class Tone {
   }
 }
 
-export default Tone;
+
 
