@@ -87,6 +87,25 @@ window.Gracula.Message = class {
   }
 
   /**
+   * Get date string for grouping messages by day
+   */
+  getDateString() {
+    if (!this.timestamp) return null;
+    const date = this.timestamp instanceof Date ? this.timestamp : new Date(this.timestamp);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const dateStr = date.toDateString();
+    const todayStr = today.toDateString();
+    const yesterdayStr = yesterday.toDateString();
+
+    if (dateStr === todayStr) return 'Today';
+    if (dateStr === yesterdayStr) return 'Yesterday';
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+
+  /**
    * Get formatted representation for AI context
    */
   toContextString() {

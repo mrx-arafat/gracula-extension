@@ -49,6 +49,10 @@ window.Gracula.ContextExtractor = class {
       }
     });
 
+    // Remove duplicates FIRST (before sorting)
+    this.messages = this.removeDuplicates(this.messages);
+
+    // Sort by timestamp (oldest to newest)
     this.messages.sort((a, b) => {
       if (a.timestamp && b.timestamp) {
         return a.timestamp - b.timestamp;
@@ -57,9 +61,7 @@ window.Gracula.ContextExtractor = class {
       return (a.metadata?.index || 0) - (b.metadata?.index || 0);
     });
 
-    // Remove duplicates
-    this.messages = this.removeDuplicates(this.messages);
-
+    // Keep only the most recent MAX_MESSAGES
     if (this.messages.length > MAX_MESSAGES) {
       this.messages = this.messages.slice(-MAX_MESSAGES);
     }
@@ -74,61 +76,77 @@ window.Gracula.ContextExtractor = class {
    * Find the main chat container (exclude chat list sidebar)
    */
   findMainChatContainer() {
-    const chatList = document.querySelector('grid[aria-label*="Chat list"], [role="grid"][aria-label*="Chat list"]');
-    const candidateSelectors = [
-      '.copyable-area',
-      '[data-testid="conversation-panel-body"]',
-      '[role="application"] [role="rowgroup"]',
-      '[role="application"] [role="list"]'
-    ];
-
-    const isValidContainer = (element) => {
-      if (!element) {
-        return false;
-      }
-
-      if (chatList && (chatList === element || chatList.contains(element))) {
-        return false;
-      }
-
-      const hasMessageNodes = element.querySelector('[data-id]')
-        || element.querySelector('[role="row"] span.selectable-text.copyable-text');
-
-      return !!hasMessageNodes;
-    };
-
-    for (const selector of candidateSelectors) {
-      const candidates = document.querySelectorAll(selector);
-      for (const candidate of candidates) {
-        if (isValidContainer(candidate)) {
-          window.Gracula.logger.debug('🧛 [CONTEXT] Found main chat container via selector:', selector);
-          return candidate;
+    // Strategy 1: Look for the main chat area using [role="main"]
+    // This is the actual DOM element that contains the chat messages
+    const mainArea = document.querySelector('[role="main"]');
+    if (mainArea) {
+      const rows = mainArea.querySelectorAll('[role="row"]');
+      if (rows.length > 0) {
+        // Verify it has actual message content
+        for (const row of rows) {
+          const hasMessageText = row.querySelector('span.selectable-text.copyable-text');
+          if (hasMessageText) {
+            window.Gracula.logger.debug('🧛 [CONTEXT] Found main chat container via [role="main"]');
+            return mainArea;
+          }
         }
       }
     }
 
-    // Fallback: Try legacy sibling scan using contentinfo
-    const contentInfo = document.querySelector('contentinfo');
-    if (contentInfo && contentInfo.parentElement) {
-      const siblings = contentInfo.parentElement.children;
-      for (let i = 0; i < siblings.length; i += 1) {
-        const sibling = siblings[i];
-        if (sibling !== contentInfo
-            && sibling.tagName.toLowerCase() !== 'banner'
-            && isValidContainer(sibling)) {
-          window.Gracula.logger.debug('🧛 [CONTEXT] Found main chat container via contentinfo sibling');
-          return sibling;
+    // Strategy 2: Find the chat list grid and look for its sibling that contains messages
+    const chatListGrid = document.querySelector('[role="grid"][aria-label*="Chat list"]');
+    if (chatListGrid && chatListGrid.parentElement) {
+      const parent = chatListGrid.parentElement;
+      // Look for siblings that contain message rows
+      for (let i = 0; i < parent.children.length; i++) {
+        const sibling = parent.children[i];
+        if (sibling !== chatListGrid) {
+          const rows = sibling.querySelectorAll('[role="row"]');
+          if (rows.length > 0) {
+            // Verify it has actual message content
+            for (const row of rows) {
+              const hasMessageText = row.querySelector('span.selectable-text.copyable-text');
+              if (hasMessageText) {
+                window.Gracula.logger.debug('🧛 [CONTEXT] Found main chat container via chat list sibling');
+                return sibling;
+              }
+            }
+          }
         }
       }
     }
 
-    // Final fallback: search generics that are not part of the chat list
-    const allGenerics = document.querySelectorAll('generic');
-    for (const container of allGenerics) {
-      if (isValidContainer(container)) {
-        window.Gracula.logger.debug('🧛 [CONTEXT] Found main chat container via generic scan');
-        return container;
+    // Strategy 3: Search all elements with [role="row"] and find the container with most message rows
+    const allRows = document.querySelectorAll('[role="row"]');
+    let bestContainer = null;
+    let maxMessageRows = 0;
+
+    for (const row of allRows) {
+      // Check if this row has actual message content
+      const hasMessageText = row.querySelector('span.selectable-text.copyable-text');
+      if (hasMessageText) {
+        // Find the parent container that holds multiple message rows
+        let parent = row.parentElement;
+        while (parent && parent !== document.body) {
+          const siblingRows = parent.querySelectorAll('[role="row"]');
+          let messageRowCount = 0;
+          for (const sibRow of siblingRows) {
+            if (sibRow.querySelector('span.selectable-text.copyable-text')) {
+              messageRowCount++;
+            }
+          }
+          if (messageRowCount > maxMessageRows) {
+            maxMessageRows = messageRowCount;
+            bestContainer = parent;
+          }
+          parent = parent.parentElement;
+        }
       }
+    }
+
+    if (bestContainer && maxMessageRows > 0) {
+      window.Gracula.logger.debug('🧛 [CONTEXT] Found main chat container via row parent scan with', maxMessageRows, 'message rows');
+      return bestContainer;
     }
 
     window.Gracula.logger.warn('🧛 [CONTEXT] Could not find main chat container, using document');
@@ -216,8 +234,28 @@ window.Gracula.ContextExtractor = class {
       textSegments = this.cleanTextSegments(textSegments);
 
       if (textSegments.length === 0) {
-        const fallbackText = element.innerText || element.textContent || '';
-        const cleanedFallback = this.cleanTextSegments([fallbackText]);
+        // Use a more intelligent fallback that extracts only the actual message text
+        const allText = element.innerText || element.textContent || '';
+
+        // Split by newlines and filter out CSS class names and timestamps
+        const lines = allText.split('\n').map(line => line.trim()).filter(Boolean);
+        const cleanedLines = lines.filter(line => {
+          // Skip lines that are just CSS class names or timestamps
+          if (/^(tail-in|tail-out|msg-check|msg-dblcheck|Delivered|Read|Seen)$/.test(line)) {
+            return false;
+          }
+          // Skip time patterns like "4:16 pm"
+          if (/^\d{1,2}:\d{2}\s*(am|pm)$/.test(line)) {
+            return false;
+          }
+          // Skip empty or very short lines
+          if (line.length < 2) {
+            return false;
+          }
+          return true;
+        });
+
+        const cleanedFallback = this.cleanTextSegments(cleanedLines);
         if (cleanedFallback.length > 0) {
           textSegments = cleanedFallback;
         }
@@ -374,23 +412,79 @@ window.Gracula.ContextExtractor = class {
    * Remove duplicate messages
    */
   removeDuplicates(messages) {
-    const seen = new Set();
-    return messages.filter(msg => {
-      const timestampKey = msg.timestamp instanceof Date ? msg.timestamp.getTime() : msg.timestamp;
-      const key = msg.id
-        || `${timestampKey}_${msg.speaker || 'unknown'}_${(msg.text || '').slice(0, 100)}`;
+    window.Gracula.logger.debug(`🧛 [DEDUP] Starting deduplication with ${messages.length} messages`);
 
-      if (!key) {
-        return true;
-      }
+    const seen = new Map(); // Map of key -> message
+    const result = [];
+    let duplicateCount = 0;
 
+    for (const msg of messages) {
+      // Create a composite key using speaker + text (most reliable for WhatsApp)
+      // This ensures we catch duplicates even if timestamps or IDs differ
+      const textKey = (msg.text || '').trim().toLowerCase();
+      const speakerKey = (msg.speaker || 'unknown').trim().toLowerCase();
+      const key = `${speakerKey}::${textKey}`;
+
+      // If we've seen this key before, skip it
       if (seen.has(key)) {
-        return false;
+        duplicateCount++;
+        window.Gracula.logger.debug(`🧛 [DEDUP] Skipping duplicate: ${speakerKey}: ${textKey.substring(0, 50)}...`);
+        continue;
       }
 
-      seen.add(key);
-      return true;
-    });
+      seen.set(key, msg);
+      result.push(msg);
+    }
+
+    window.Gracula.logger.debug(`🧛 [DEDUP] Deduplication complete: ${messages.length} -> ${result.length} messages (removed ${duplicateCount})`);
+
+    return result;
+  }
+
+  hashText(text) {
+    if (!text) return '0';
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) {
+      const char = text.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash).toString(36);
+  }
+
+  /**
+   * Get messages with date separators for better chronological understanding
+   */
+  getMessagesWithDateSeparators() {
+    if (this.messages.length === 0) {
+      return [];
+    }
+
+    const result = [];
+    let currentDate = null;
+
+    for (const msg of this.messages) {
+      const msgDate = msg.getDateString?.();
+
+      // Add date separator if date changed
+      if (msgDate && msgDate !== currentDate) {
+        currentDate = msgDate;
+        // Create a pseudo-message for date separator
+        result.push({
+          id: `date_${currentDate}`,
+          text: `--- ${currentDate} ---`,
+          speaker: 'system',
+          timestamp: msg.timestamp,
+          isOutgoing: false,
+          type: 'date-separator',
+          isDateSeparator: true
+        });
+      }
+
+      result.push(msg);
+    }
+
+    return result;
   }
 
   computeMetrics(messages = [], analysis = null, summary = null) {

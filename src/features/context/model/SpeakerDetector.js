@@ -118,33 +118,32 @@ window.Gracula.SpeakerDetector = class {
       return null;
     }
 
-    const labelElement = messageElement.querySelector('generic:first-child, span[aria-label]');
-    const labelText = labelElement?.textContent?.trim();
-    const ariaLabel = labelElement?.getAttribute?.('aria-label');
-    const candidateSource = labelText && labelText.includes(':') ? labelText : ariaLabel;
-    const fallbackSource = candidateSource && candidateSource.includes(':') ? candidateSource : (messageElement.textContent || '');
-    const sourceText = fallbackSource;
-
-    if (!sourceText) {
-      return null;
+    // Strategy 1: Look for generic elements with speaker labels
+    const generics = messageElement.querySelectorAll('generic');
+    for (const generic of generics) {
+      const text = generic.textContent?.trim();
+      if (text && text.endsWith(':') && text.length < 100) {
+        const cleaned = this.sanitizeSpeakerName(text);
+        if (cleaned && cleaned !== ':') {
+          return cleaned;
+        }
+      }
     }
 
-    const colonIndex = sourceText.indexOf(':');
-    if (colonIndex <= 0 || colonIndex > 120) {
-      return null;
+    // Strategy 2: Check full text content for "Speaker: message" pattern
+    const fullText = messageElement.textContent || '';
+    const colonIndex = fullText.indexOf(':');
+
+    if (colonIndex > 0 && colonIndex < 120) {
+      const potentialSpeaker = fullText.substring(0, colonIndex);
+      const cleaned = this.sanitizeSpeakerName(potentialSpeaker);
+
+      if (cleaned && cleaned.length > 0) {
+        return cleaned;
+      }
     }
 
-    const potentialSpeaker = sourceText.substring(0, colonIndex);
-    const cleaned = this.sanitizeSpeakerName(potentialSpeaker);
-
-    if (!cleaned) {
-      return null;
-    }
-
-    // Remove common day or contextual words accidentally captured
-    const stripped = cleaned.replace(/\b(Yesterday|Today|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/gi, '').trim();
-
-    return stripped || null;
+    return null;
   }
 
   /**
@@ -332,7 +331,15 @@ window.Gracula.SpeakerDetector = class {
       const container = element.closest(selector);
       if (container) return true;
 
-      // Additional WhatsApp-specific checks
+      // WhatsApp-specific: Check if message does NOT contain "You:"
+      const messageRow = element.closest('[role="row"]') || element;
+      const textContent = messageRow.textContent || '';
+
+      // If it doesn't have "You:" and has a colon, it's likely incoming
+      if (!textContent.includes('You:') && textContent.includes(':')) {
+        return true;
+      }
+
       // Check for "tail-in" class (WhatsApp's incoming message tail)
       const hasTailIn = element.querySelector('.tail-in') || element.classList.contains('tail-in');
       if (hasTailIn) return true;

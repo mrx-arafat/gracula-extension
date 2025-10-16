@@ -187,15 +187,17 @@ Friend: Want to grab dinner?">${this.getFullContext()}</textarea>
 
 
   /**
-   * Get context preview (last 3 messages)
+   * Get context preview (all messages)
    */
   getPreview() {
     if (this.context.length === 0) {
       return '<em>No recent messages found. Click Edit to add context manually.</em>';
     }
 
-    const preview = this.context.slice(-3).join('\n');
-    return window.Gracula.DOMUtils.escapeHtml(preview.length > 200 ? preview.substring(0, 200) + '...' : preview);
+    // Show all messages, not just last 3
+    const preview = this.context.join('\n');
+    // Limit display to 500 chars to prevent modal overflow, but show all messages
+    return window.Gracula.DOMUtils.escapeHtml(preview.length > 500 ? preview.substring(0, 500) + '...' : preview);
   }
 
   /**
