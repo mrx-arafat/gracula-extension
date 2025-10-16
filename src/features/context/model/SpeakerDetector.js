@@ -7,7 +7,7 @@ window.Gracula.SpeakerDetector = class {
   constructor(platform) {
     this.platform = platform;
     this.speakers = new Map(); // Map of speaker IDs to names
-    this.currentUser = 'Me';
+    this.currentUser = 'You';
   }
 
   extractPrePlainMetadata(element) {
@@ -71,6 +71,81 @@ window.Gracula.SpeakerDetector = class {
     return synonyms.includes(normalized) || normalized === this.currentUser.toLowerCase();
   }
 
+  sanitizeSpeakerName(name) {
+    if (!name || typeof name !== 'string') {
+      return null;
+    }
+
+    let value = name.replace(/\s+/g, ' ').trim();
+
+    if (!value) {
+      return null;
+    }
+
+    value = value
+      .replace(/tail-(?:in|out)/gi, '')
+      .replace(/msg-(?:dblcheck|check|time)/gi, '')
+      .replace(/view reactions$/i, '')
+      .replace(/view reactions$/i, '')
+      .replace(/^(delivered|read|seen)$/i, '')
+      .trim();
+
+
+    if (value.includes('View reactions')) {
+      value = value.replace(/reaction[\s\S]*view reactions/i, '').trim();
+    }
+
+    value = value.replace(/:\s*$/, '').trim();
+
+    if (!value) {
+      return null;
+    }
+
+    if (value.length > 120) {
+      value = value.substring(0, 120).trim();
+    }
+
+    return value;
+  }
+
+
+
+  /**
+   * Extract speaker name from message text (WhatsApp format: "Name: message")
+   */
+  extractSpeakerFromText(messageElement) {
+    if (!messageElement) {
+      return null;
+    }
+
+    const labelElement = messageElement.querySelector('generic:first-child, span[aria-label]');
+    const labelText = labelElement?.textContent?.trim();
+    const ariaLabel = labelElement?.getAttribute?.('aria-label');
+    const candidateSource = labelText && labelText.includes(':') ? labelText : ariaLabel;
+    const fallbackSource = candidateSource && candidateSource.includes(':') ? candidateSource : (messageElement.textContent || '');
+    const sourceText = fallbackSource;
+
+    if (!sourceText) {
+      return null;
+    }
+
+    const colonIndex = sourceText.indexOf(':');
+    if (colonIndex <= 0 || colonIndex > 120) {
+      return null;
+    }
+
+    const potentialSpeaker = sourceText.substring(0, colonIndex);
+    const cleaned = this.sanitizeSpeakerName(potentialSpeaker);
+
+    if (!cleaned) {
+      return null;
+    }
+
+    // Remove common day or contextual words accidentally captured
+    const stripped = cleaned.replace(/\b(Yesterday|Today|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/gi, '').trim();
+
+    return stripped || null;
+  }
 
   /**
    * Detect speaker for a message element
@@ -87,51 +162,89 @@ window.Gracula.SpeakerDetector = class {
       return { ...base, strategy, ...details };
     };
 
-    if (!hasSelectors) {
-      const fallback = this.detectSpeakerFallback(messageElement, buildMeta('fallback-no-selectors'));
-      if (!fallback.timestamp) {
-        fallback.timestamp = prePlainMeta?.timestamp || timestampFromSelectors || null;
-      }
-      return fallback;
-    }
+    const messageText = messageElement?.textContent?.substring(0, 120) || 'N/A';
+    console.log('🧛 [SPEAKER] Detecting speaker for:', messageText);
 
-    if (selectors.outgoingMessage) {
-      const isOutgoing = this.isOutgoingMessage(messageElement, selectors.outgoingMessage);
-      if (isOutgoing) {
-        return {
-          speaker: this.currentUser,
-          isOutgoing: true,
-          timestamp: prePlainMeta?.timestamp || timestampFromSelectors || null,
-          meta: buildMeta('platform-outgoing', { selector: selectors.outgoingMessage })
-        };
-      }
-    }
+    const selectorName = selectors.senderName
+      ? this.extractSenderName(messageElement, selectors.senderName)
+      : null;
+    const prePlainName = this.sanitizeSpeakerName(prePlainMeta?.speakerName);
+    const resolvedName = selectorName || prePlainName || null;
 
-    if (selectors.incomingMessage) {
-      const isIncoming = this.isIncomingMessage(messageElement, selectors.incomingMessage);
-      if (isIncoming) {
-        const senderName = this.extractSenderName(messageElement, selectors.senderName)
-          || prePlainMeta?.speakerName
-          || 'Other';
+    const outgoingDetected = selectors.outgoingMessage
+      ? this.isOutgoingMessage(messageElement, selectors.outgoingMessage)
+      : false;
 
-        const isCurrent = this.isCurrentUserLabel(senderName);
-
-        return {
-          speaker: isCurrent ? this.currentUser : senderName,
-          isOutgoing: isCurrent,
-          timestamp: prePlainMeta?.timestamp || timestampFromSelectors || null,
-          meta: buildMeta('platform-incoming', {
-            selector: selectors.incomingMessage,
-            resolvedName: senderName
-          })
-        };
-      }
-    }
-
-    if (prePlainMeta) {
-      const isCurrent = this.isCurrentUserLabel(prePlainMeta.speakerName);
+    if (outgoingDetected) {
+      console.log('🧛 [SPEAKER] ✅ Detected as OUTGOING (You)');
       return {
-        speaker: isCurrent ? this.currentUser : (prePlainMeta.speakerName || 'Other'),
+        speaker: this.currentUser,
+        isOutgoing: true,
+        timestamp: prePlainMeta?.timestamp || timestampFromSelectors || null,
+        meta: buildMeta('platform-outgoing', {
+          selector: selectors.outgoingMessage,
+          resolvedName
+        })
+      };
+    }
+
+    const incomingDetected = selectors.incomingMessage
+      ? this.isIncomingMessage(messageElement, selectors.incomingMessage)
+      : false;
+
+    if (incomingDetected) {
+      const incomingName = resolvedName || 'Other';
+      const isCurrent = this.isCurrentUserLabel(incomingName);
+      console.log('🧛 [SPEAKER] ✅ Detected as INCOMING, sender:', incomingName);
+
+      return {
+        speaker: isCurrent ? this.currentUser : incomingName,
+        isOutgoing: isCurrent,
+        timestamp: prePlainMeta?.timestamp || timestampFromSelectors || null,
+        meta: buildMeta('platform-incoming', {
+          selector: selectors.incomingMessage,
+          resolvedName: incomingName
+        })
+      };
+    }
+
+    if (resolvedName) {
+      const isCurrent = this.isCurrentUserLabel(resolvedName);
+      console.log('🧛 [SPEAKER] Using resolved sender name:', resolvedName, isCurrent ? '(YOU)' : '(OTHER)');
+      return {
+        speaker: isCurrent ? this.currentUser : resolvedName,
+        isOutgoing: isCurrent,
+        timestamp: prePlainMeta?.timestamp || timestampFromSelectors || null,
+        meta: buildMeta('resolved-sender', { resolvedName })
+      };
+    }
+
+    const speakerFromText = this.extractSpeakerFromText(messageElement);
+    if (speakerFromText) {
+      const isYou = this.isCurrentUserLabel(speakerFromText);
+      console.log('🧛 [SPEAKER] ✅ Extracted from text:', speakerFromText, isYou ? '(YOU)' : '(OTHER)');
+      return {
+        speaker: isYou ? this.currentUser : speakerFromText,
+        isOutgoing: isYou,
+        timestamp: prePlainMeta?.timestamp || timestampFromSelectors || null,
+        meta: buildMeta('text-extraction', { extractedName: speakerFromText })
+      };
+    }
+
+    if (!hasSelectors) {
+      const fallbackNoSelectors = this.detectSpeakerFallback(messageElement, buildMeta('fallback-no-selectors'));
+      if (!fallbackNoSelectors.timestamp) {
+        fallbackNoSelectors.timestamp = prePlainMeta?.timestamp || timestampFromSelectors || null;
+      }
+      console.log('🧛 [SPEAKER] No selectors, using fallback:', fallbackNoSelectors.speaker);
+      return fallbackNoSelectors;
+    }
+
+    if (prePlainMeta?.speakerName) {
+      const isCurrent = this.isCurrentUserLabel(prePlainMeta.speakerName);
+      console.log('🧛 [SPEAKER] Using prePlainMeta, speaker:', prePlainMeta.speakerName);
+      return {
+        speaker: isCurrent ? this.currentUser : prePlainMeta.speakerName,
         isOutgoing: isCurrent,
         timestamp: prePlainMeta.timestamp || timestampFromSelectors || null,
         meta: buildMeta('preplain-detection')
@@ -142,6 +255,7 @@ window.Gracula.SpeakerDetector = class {
     if (!fallback.timestamp) {
       fallback.timestamp = prePlainMeta?.timestamp || timestampFromSelectors || null;
     }
+    console.log('🧛 [SPEAKER] Using fallback:', fallback.speaker);
     return fallback;
   }
 
@@ -157,7 +271,50 @@ window.Gracula.SpeakerDetector = class {
 
       // Check if element is inside an outgoing message container
       const container = element.closest(selector);
-      return !!container;
+      if (container) return true;
+
+      // WhatsApp-specific: Check for "You:" label in the message
+      // This is the most reliable indicator in current WhatsApp Web
+      const messageRow = element.closest('[role="row"]') || element;
+      const textContent = messageRow.textContent || '';
+
+      // Check for "You:" at the beginning of message content
+      if (textContent.includes('You:') || textContent.startsWith('You:')) {
+        return true;
+      }
+
+      // Check for generic element with text "You"
+      const youLabel = messageRow.querySelector('generic');
+      if (youLabel && youLabel.textContent?.trim() === 'You') {
+        return true;
+      }
+
+      // Check for check mark icons (msg-check, msg-dblcheck)
+      const hasCheckMark = element.querySelector('span[data-icon="msg-check"], span[data-icon="msg-dblcheck"], img[alt="msg-check"], img[alt="msg-dblcheck"]');
+      if (hasCheckMark) return true;
+
+      // Check for "Delivered" or "Read" text (indicates outgoing message)
+      if (textContent.includes('Delivered') || textContent.includes('Read') || textContent.includes('Sent')) {
+        return true;
+      }
+
+      // Check for "tail-out" class (WhatsApp's outgoing message tail)
+      const hasTailOut = element.querySelector('.tail-out') || element.classList.contains('tail-out');
+      if (hasTailOut) return true;
+
+      // Check if message is positioned on the right (outgoing messages are typically right-aligned)
+      const messageContainer = element.closest('[data-id]');
+      if (messageContainer) {
+        const computedStyle = window.getComputedStyle(messageContainer);
+        const justifyContent = computedStyle.justifyContent;
+
+        // Outgoing messages often have flex-end or right alignment
+        if (justifyContent === 'flex-end' || justifyContent === 'end') {
+          return true;
+        }
+      }
+
+      return false;
     } catch (error) {
       return false;
     }
@@ -173,7 +330,26 @@ window.Gracula.SpeakerDetector = class {
       }
 
       const container = element.closest(selector);
-      return !!container;
+      if (container) return true;
+
+      // Additional WhatsApp-specific checks
+      // Check for "tail-in" class (WhatsApp's incoming message tail)
+      const hasTailIn = element.querySelector('.tail-in') || element.classList.contains('tail-in');
+      if (hasTailIn) return true;
+
+      // Check if message is positioned on the left (incoming messages are typically left-aligned)
+      const messageContainer = element.closest('[data-id]');
+      if (messageContainer) {
+        const computedStyle = window.getComputedStyle(messageContainer);
+        const justifyContent = computedStyle.justifyContent;
+
+        // Incoming messages often have flex-start or left alignment
+        if (justifyContent === 'flex-start' || justifyContent === 'start') {
+          return true;
+        }
+      }
+
+      return false;
     } catch (error) {
       return false;
     }
@@ -192,11 +368,19 @@ window.Gracula.SpeakerDetector = class {
 
       const senderElement = container.querySelector(senderSelector);
       if (senderElement) {
-        const name = senderElement.textContent.trim();
-        if (name && name.length > 0 && name.length < 50) {
-          // Cache the speaker
-          this.speakers.set(name, name);
-          return name;
+        const candidates = [
+          senderElement.textContent,
+          senderElement.getAttribute?.('aria-label'),
+          senderElement.getAttribute?.('title'),
+          senderElement.getAttribute?.('data-testid')
+        ];
+
+        for (const candidate of candidates) {
+          const cleanedName = this.sanitizeSpeakerName(candidate);
+          if (cleanedName) {
+            this.speakers.set(cleanedName, cleanedName);
+            return cleanedName;
+          }
         }
       }
     } catch (error) {

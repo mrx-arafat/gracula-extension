@@ -90,7 +90,7 @@ window.Gracula.Message = class {
    * Get formatted representation for AI context
    */
   toContextString() {
-    const speaker = this.isFromUser() ? 'Me' : (this.speaker || 'Other');
+    const speaker = this.isFromUser() ? 'You' : (this.speaker || 'Other');
     return `${speaker}: ${this.text}`;
   }
 

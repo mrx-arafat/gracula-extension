@@ -328,25 +328,18 @@ window.Gracula.GraculaApp = class {
    * Insert reply into input field
    */
   insertReply(reply) {
-    console.log('🧛 [INSERT] insertReply called with:', reply);
-    console.log('🧛 [INSERT] isInserting flag:', this.isInserting);
-    console.trace('🧛 [INSERT] Stack trace:');
-
     // Prevent duplicate inserts
     if (this.isInserting) {
-      console.log('🧛 [INSERT] BLOCKED - Insert already in progress');
       window.Gracula.logger.warn('Insert already in progress');
       return;
     }
 
     if (!this.currentInputField) {
-      console.log('🧛 [INSERT] BLOCKED - No input field found');
       window.Gracula.logger.warn('No input field found');
       return;
     }
 
     this.isInserting = true;
-    console.log('🧛 [INSERT] Flag set to true');
 
     let field = this.currentInputField;
 
@@ -359,12 +352,9 @@ window.Gracula.GraculaApp = class {
     }
 
     const normalizedReply = reply || '';
-    console.log('🧛 [INSERT] About to insert into field:', field);
-    console.log('🧛 [INSERT] Field type:', field.tagName, 'contentEditable:', field.contentEditable);
 
     try {
       if (field.contentEditable === 'true') {
-        console.log('🧛 [INSERT] Using contentEditable path');
         field.focus();
 
         // Clear the field first
@@ -391,10 +381,8 @@ window.Gracula.GraculaApp = class {
           data: normalizedReply,
           inputType: 'insertText'
         });
-        console.log('🧛 [INSERT] Dispatching input event');
         field.dispatchEvent(inputEvent);
       } else {
-        console.log('🧛 [INSERT] Using textarea/input path');
         const prototype = Object.getPrototypeOf(field);
         const valueSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
         if (valueSetter) {
@@ -404,25 +392,20 @@ window.Gracula.GraculaApp = class {
         }
 
         const inputEvent = new Event('input', { bubbles: true, cancelable: true });
-        console.log('🧛 [INSERT] Dispatching input event');
         field.dispatchEvent(inputEvent);
       }
 
-      console.log('🧛 [INSERT] SUCCESS - Reply inserted');
       window.Gracula.logger.success('Reply inserted');
     } catch (error) {
-      console.log('🧛 [INSERT] ERROR:', error);
       window.Gracula.logger.error('Failed to insert reply:', error);
     } finally {
       // Close modal and reset flag
       if (this.modal) {
-        console.log('🧛 [INSERT] Closing modal');
         this.modal.close();
         this.modal = null;
       }
 
       setTimeout(() => {
-        console.log('🧛 [INSERT] Resetting isInserting flag to false');
         this.isInserting = false;
       }, 300);
     }

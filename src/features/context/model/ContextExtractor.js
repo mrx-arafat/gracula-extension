@@ -71,11 +71,80 @@ window.Gracula.ContextExtractor = class {
   }
 
   /**
+   * Find the main chat container (exclude chat list sidebar)
+   */
+  findMainChatContainer() {
+    const chatList = document.querySelector('grid[aria-label*="Chat list"], [role="grid"][aria-label*="Chat list"]');
+    const candidateSelectors = [
+      '.copyable-area',
+      '[data-testid="conversation-panel-body"]',
+      '[role="application"] [role="rowgroup"]',
+      '[role="application"] [role="list"]'
+    ];
+
+    const isValidContainer = (element) => {
+      if (!element) {
+        return false;
+      }
+
+      if (chatList && (chatList === element || chatList.contains(element))) {
+        return false;
+      }
+
+      const hasMessageNodes = element.querySelector('[data-id]')
+        || element.querySelector('[role="row"] span.selectable-text.copyable-text');
+
+      return !!hasMessageNodes;
+    };
+
+    for (const selector of candidateSelectors) {
+      const candidates = document.querySelectorAll(selector);
+      for (const candidate of candidates) {
+        if (isValidContainer(candidate)) {
+          window.Gracula.logger.debug('🧛 [CONTEXT] Found main chat container via selector:', selector);
+          return candidate;
+        }
+      }
+    }
+
+    // Fallback: Try legacy sibling scan using contentinfo
+    const contentInfo = document.querySelector('contentinfo');
+    if (contentInfo && contentInfo.parentElement) {
+      const siblings = contentInfo.parentElement.children;
+      for (let i = 0; i < siblings.length; i += 1) {
+        const sibling = siblings[i];
+        if (sibling !== contentInfo
+            && sibling.tagName.toLowerCase() !== 'banner'
+            && isValidContainer(sibling)) {
+          window.Gracula.logger.debug('🧛 [CONTEXT] Found main chat container via contentinfo sibling');
+          return sibling;
+        }
+      }
+    }
+
+    // Final fallback: search generics that are not part of the chat list
+    const allGenerics = document.querySelectorAll('generic');
+    for (const container of allGenerics) {
+      if (isValidContainer(container)) {
+        window.Gracula.logger.debug('🧛 [CONTEXT] Found main chat container via generic scan');
+        return container;
+      }
+    }
+
+    window.Gracula.logger.warn('🧛 [CONTEXT] Could not find main chat container, using document');
+    return document;
+  }
+
+  /**
    * Find all message elements on the page
    */
   findMessageElements() {
     const uniqueElements = new Set();
     const containerSelector = this.platform?.speakerSelectors?.messageContainer;
+
+    // Find the main chat container first (exclude chat list)
+    const mainChatContainer = this.findMainChatContainer();
+    window.Gracula.logger.debug('🧛 [CONTEXT] Using chat container:', mainChatContainer.tagName || 'document');
 
     const addElement = (node) => {
       if (!node) return;
@@ -106,7 +175,8 @@ window.Gracula.ContextExtractor = class {
 
     const collect = (selector, logInvalid = true) => {
       try {
-        document.querySelectorAll(selector).forEach(addElement);
+        // Query ONLY within the main chat container, not the entire document
+        mainChatContainer.querySelectorAll(selector).forEach(addElement);
       } catch (error) {
         if (logInvalid) {
           window.Gracula.logger.debug(`Invalid selector: ${selector}`);
@@ -122,6 +192,7 @@ window.Gracula.ContextExtractor = class {
     // Strategy 2: Generic fallback selectors
     MESSAGE_CONTAINER_FALLBACKS.forEach(selector => collect(selector, false));
 
+    window.Gracula.logger.debug(`🧛 [CONTEXT] Collected ${uniqueElements.size} unique message containers`);
     return Array.from(uniqueElements);
   }
 
@@ -139,24 +210,29 @@ window.Gracula.ContextExtractor = class {
         const nodes = element.querySelectorAll(messageTextSelector);
         textSegments = Array.from(nodes)
           .map(node => node.innerText || node.textContent || '')
-          .map(value => value.replace(/\s+/g, ' ').trim())
           .filter(Boolean);
       }
 
+      textSegments = this.cleanTextSegments(textSegments);
+
       if (textSegments.length === 0) {
         const fallbackText = element.innerText || element.textContent || '';
-        const cleaned = fallbackText.replace(/\s+/g, ' ').trim();
-        if (cleaned) {
-          textSegments = [cleaned];
+        const cleanedFallback = this.cleanTextSegments([fallbackText]);
+        if (cleanedFallback.length > 0) {
+          textSegments = cleanedFallback;
         }
       }
 
-      const text = textSegments.join('\n').trim();
+      let text = textSegments.join('\n').trim();
+
+      const speakerInfo = this.speakerDetector.detectSpeaker(element) || {};
+
+      text = this.stripSpeakerPrefix(text, speakerInfo);
+
       if (!text || text.length === 0) {
         return null;
       }
 
-      const speakerInfo = this.speakerDetector.detectSpeaker(element) || {};
       const timestampFromSelector = this.speakerDetector.extractTimestamp(
         element,
         this.platform?.speakerSelectors?.timestamp
@@ -195,6 +271,104 @@ window.Gracula.ContextExtractor = class {
       return null;
     }
   }
+
+  cleanTextSegments(segments = []) {
+    if (!Array.isArray(segments) || segments.length === 0) {
+      return [];
+    }
+
+    const noisePatterns = [
+      /^tail-(?:in|out)$/i,
+      /^msg-(?:dblcheck|check|time)$/i,
+      /^reaction\s+.+view reactions$/i,
+      /^view reactions$/i,
+      /^delivered$/i,
+      /^read$/i,
+      /^seen$/i,
+      /^forwarded$/i,
+      /^starred$/i,
+      /^pinned$/i,
+      /^removed$/i,
+      /^muted chat$/i,
+      /^typing…?$/i,
+      /^end-to-end encrypted$/i,
+      /^\d{1,2}:\d{2}\s*(?:am|pm)?$/i
+    ];
+
+    const cleaned = segments
+      .map(segment => (segment || '').replace(/\s+/g, ' ').trim())
+      .map(segment => segment.replace(/tail-(?:in|out)/gi, '').trim())
+      .map(segment => segment.replace(/msg-(?:dblcheck|check|time)/gi, '').trim())
+      .map(segment => (segment.includes('View reactions') ? segment.replace(/reaction[\s\S]*view reactions/i, '') : segment).trim())
+      .map(segment => segment.replace(/view reactions$/i, '').trim())
+      .map(segment => segment.replace(/\s+/g, ' ').trim())
+      .filter(Boolean)
+      .filter(segment => !noisePatterns.some(pattern => pattern.test(segment)))
+      .map(segment => segment.replace(/\s+/g, ' ').trim());
+
+    const unique = [];
+    const seen = new Set();
+
+    cleaned.forEach(segment => {
+      if (!seen.has(segment)) {
+        seen.add(segment);
+        unique.push(segment);
+      }
+    });
+
+    return unique;
+  }
+
+  stripSpeakerPrefix(text, speakerInfo = {}) {
+    if (!text || typeof text !== 'string') {
+      return '';
+    }
+
+    let result = text.trim();
+    if (!result) {
+      return result;
+    }
+
+    const prefixes = new Set();
+    const maybeAdd = (value) => {
+      if (!value || typeof value !== 'string') {
+        return;
+      }
+      prefixes.add(value.trim());
+    };
+
+    maybeAdd(speakerInfo.speaker);
+    maybeAdd(speakerInfo.displayName);
+    maybeAdd(speakerInfo.label);
+
+    if (speakerInfo.isOutgoing) {
+      maybeAdd('You');
+      maybeAdd('Me');
+    } else {
+      maybeAdd('You');
+    }
+
+    prefixes.forEach(prefix => {
+      const escaped = this.escapeRegExp(prefix);
+      if (!escaped) {
+        return;
+      }
+      const regex = new RegExp(`^${escaped}\\s*:\\s*`, 'i');
+      if (regex.test(result)) {
+        result = result.replace(regex, '').trim();
+      }
+    });
+
+    return result;
+  }
+
+  escapeRegExp(value) {
+    if (!value || typeof value !== 'string') {
+      return '';
+    }
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
 
   /**
    * Remove duplicate messages

@@ -14,36 +14,48 @@ window.Gracula.Config.PLATFORMS = {
     name: 'WhatsApp',
     domain: 'web.whatsapp.com',
     inputSelectors: [
+      // Most specific: footer with data-tab="10" and contenteditable
       'footer div[contenteditable="true"][data-tab="10"]',
+      // Lexical editor in footer
+      'footer div[data-lexical-editor="true"][contenteditable="true"]',
+      // Any contenteditable in footer with role textbox
       'footer div[contenteditable="true"][role="textbox"]',
-      'footer div.copyable-text[contenteditable="true"]',
-      'footer div[contenteditable="true"][data-lexical-editor="true"]',
-      'footer div[contenteditable="true"]._ak1l',
-      'footer div[contenteditable="true"].selectable-text',
+      // Generic footer contenteditable
       'footer div[contenteditable="true"]',
-      'div[contenteditable="true"][data-tab="10"]:not(header *):not([data-tab="3"])',
-      'div[data-tab="10"]'
+      // Fallback: data-tab 10 not in header
+      'div[contenteditable="true"][data-tab="10"]:not(header *)'
     ],
     messageSelectors: [
-      // Primary selectors for message text
+      // Primary: message bubbles with copyable text
       'div[data-id] span.selectable-text.copyable-text',
-      'div.message-in span.selectable-text',
-      'div.message-out span.selectable-text',
-      'span[dir="ltr"].selectable-text.copyable-text',
-      'div._akbu span.selectable-text',
+      // Message text within specific message classes
+      'div.message-in span.selectable-text.copyable-text',
+      'div.message-out span.selectable-text.copyable-text',
+      // Generic selectable copyable text
       'span.selectable-text.copyable-text',
-      // Fallback selectors
-      'div[role="row"] span[dir="auto"]',
+      // Fallback: any selectable text
       'span.selectable-text'
     ],
     // Speaker detection selectors
     speakerSelectors: {
-      messageContainer: 'div[data-id]',
-      incomingMessage: 'div.message-in',
-      outgoingMessage: 'div.message-out',
-      senderName: 'span[dir="auto"][role="button"]',
-      timestamp: 'span[data-testid="msg-time"]',
-      messageText: 'span.selectable-text.copyable-text'
+      // Message container - WhatsApp uses role="row" for messages
+      messageContainer: '[role="row"], div[data-id^="true_"]',
+      // Incoming messages (from others) - no "You:" label, no check marks
+      incomingMessage: '[role="row"]:not(:has(generic:contains("You:"))), div.message-in, div[data-id]:not(:has(> div > span[data-icon="msg-dblcheck"])):not(:has(> div > span[data-icon="msg-check"]))',
+      // Outgoing messages (from me) - has "You:" label or check marks
+      outgoingMessage: '[role="row"]:has(generic:contains("You:")), div.message-out, div[data-id]:has(> div > span[data-icon="msg-dblcheck"]), div[data-id]:has(> div > span[data-icon="msg-check"])',
+      // Sender name in group chats or individual chats
+      senderName: 'generic:first-child, span[aria-label$=":"], span[aria-label^="You"], span[aria-label^="Me"]',
+      // Timestamp element
+      timestamp: 'span[data-testid="msg-time"], generic:last-child',
+      // Message text content
+      messageText: 'span.selectable-text.copyable-text',
+      // Metadata attribute containing sender and timestamp
+      metadataAttribute: 'data-pre-plain-text',
+      // Check mark icons (indicates outgoing message)
+      checkMarkIcons: ['msg-check', 'msg-dblcheck', 'msg-time'],
+      // "You:" label selector
+      youLabelSelector: 'generic:contains("You:")'
     }
   },
   instagram: {
