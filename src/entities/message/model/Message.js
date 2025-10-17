@@ -13,6 +13,7 @@ window.Gracula.Message = class {
     this.isOutgoing = data.isOutgoing || false;
     this.element = data.element || null; // Reference to DOM element
     this.metadata = data.metadata || {};
+    this.dateLabel = data.dateLabel || null; // Date label from WhatsApp (e.g., "Today", "Monday")
   }
 
   generateId() {
@@ -88,8 +89,15 @@ window.Gracula.Message = class {
 
   /**
    * Get date string for grouping messages by day
+   * Uses the dateLabel from WhatsApp if available, otherwise calculates from timestamp
    */
   getDateString() {
+    // If we have a dateLabel from WhatsApp, use it directly
+    if (this.dateLabel) {
+      return this.dateLabel;
+    }
+
+    // Fallback to timestamp-based calculation
     if (!this.timestamp) return null;
     const date = this.timestamp instanceof Date ? this.timestamp : new Date(this.timestamp);
     const today = new Date();

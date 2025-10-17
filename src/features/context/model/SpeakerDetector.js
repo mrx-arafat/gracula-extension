@@ -13,9 +13,18 @@ window.Gracula.SpeakerDetector = class {
   extractPrePlainMetadata(element) {
     if (!element || typeof element.getAttribute !== 'function') return null;
 
-    const raw = element.getAttribute('data-pre-plain-text')
+    // First try to get from the element itself
+    let raw = element.getAttribute('data-pre-plain-text')
       || element.dataset?.prePlainText
       || null;
+
+    // If not found on the element, search in child elements
+    if (!raw) {
+      const childWithAttr = element.querySelector('[data-pre-plain-text]');
+      if (childWithAttr) {
+        raw = childWithAttr.getAttribute('data-pre-plain-text');
+      }
+    }
 
     if (!raw) return null;
 
@@ -118,27 +127,49 @@ window.Gracula.SpeakerDetector = class {
       return null;
     }
 
-    // Strategy 1: Look for generic elements with speaker labels
-    const generics = messageElement.querySelectorAll('generic');
-    for (const generic of generics) {
-      const text = generic.textContent?.trim();
-      if (text && text.endsWith(':') && text.length < 100) {
-        const cleaned = this.sanitizeSpeakerName(text);
-        if (cleaned && cleaned !== ':') {
+    // Strategy 1: Look for span elements with aria-label containing speaker name
+    const ariaLabels = messageElement.querySelectorAll('[aria-label]');
+    for (const elem of ariaLabels) {
+      const label = elem.getAttribute('aria-label');
+      if (label && label.endsWith(':') && label.length < 100 && label.length > 1) {
+        const cleaned = this.sanitizeSpeakerName(label);
+        if (cleaned && cleaned !== ':' && !this.isCurrentUserLabel(cleaned)) {
           return cleaned;
         }
       }
     }
 
-    // Strategy 2: Check full text content for "Speaker: message" pattern
-    const fullText = messageElement.textContent || '';
+    // Strategy 2: Look for clickable elements (sender names are usually clickable)
+    const clickables = messageElement.querySelectorAll('[role="button"], a, [tabindex]');
+    for (const elem of clickables) {
+      const text = elem.textContent?.trim();
+      // Skip if it's a timestamp pattern or too long
+      if (text && !text.match(/^\d{1,2}:\d{2}\s*(am|pm)?$/i) && text.length > 2 && text.length < 50) {
+        const cleaned = this.sanitizeSpeakerName(text);
+        if (cleaned && !this.isCurrentUserLabel(cleaned)) {
+          return cleaned;
+        }
+      }
+    }
+
+    // Strategy 3: Check text content but filter out timestamps first
+    let fullText = messageElement.textContent || '';
+
+    // Remove common timestamp patterns before looking for speaker names
+    fullText = fullText
+      .replace(/\d{1,2}:\d{2}\s*(am|pm)/gi, '') // Remove timestamps like "12:30 pm"
+      .replace(/tail-(in|out)/gi, '') // Remove WhatsApp tail classes
+      .replace(/msg-(check|dblcheck|time)/gi, '') // Remove message status indicators
+      .trim();
+
+    // Now look for the first colon
     const colonIndex = fullText.indexOf(':');
 
-    if (colonIndex > 0 && colonIndex < 120) {
+    if (colonIndex > 0 && colonIndex < 50) {
       const potentialSpeaker = fullText.substring(0, colonIndex);
       const cleaned = this.sanitizeSpeakerName(potentialSpeaker);
 
-      if (cleaned && cleaned.length > 0) {
+      if (cleaned && cleaned.length > 2 && cleaned.length < 50 && !this.isCurrentUserLabel(cleaned)) {
         return cleaned;
       }
     }

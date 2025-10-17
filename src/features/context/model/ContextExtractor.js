@@ -37,14 +37,25 @@ window.Gracula.ContextExtractor = class {
       return this.messages;
     }
 
-    // Find all message elements
-    const messageElements = this.findMessageElements();
-    window.Gracula.logger.info(`Found ${messageElements.length} potential message elements`);
+    // Find the main chat container
+    const mainChatContainer = this.findMainChatContainer();
 
-    // Process each message
+    // Build a map of date labels to their positions in the DOM
+    const dateLabelMap = this.buildDateLabelMap(mainChatContainer);
+
+    // Find all message elements
+    const messageElements = this.findMessageElements(mainChatContainer);
+    window.Gracula.logger.debug(`🧛 [CONTEXT] Found ${messageElements.length} message elements`);
+
+    // Process each message element
     messageElements.forEach((element, index) => {
       const message = this.processMessageElement(element, index);
       if (message && message.isValid()) {
+        // Assign the date label based on the element's position
+        const dateLabel = this.getDateLabelForElement(element, dateLabelMap);
+        if (dateLabel) {
+          message.dateLabel = dateLabel;
+        }
         this.messages.push(message);
       }
     });
@@ -66,10 +77,74 @@ window.Gracula.ContextExtractor = class {
       this.messages = this.messages.slice(-MAX_MESSAGES);
     }
 
+    // Analyze conversation for context
+    const analysis = this.analyzer.analyze(this.messages);
+    this.lastSpeaker = analysis.lastSpeaker;
+    this.conversationAnalysis = analysis;
+
     window.Gracula.logger.success(`Extracted ${this.messages.length} valid messages`);
+    window.Gracula.logger.debug(`📊 Last speaker: ${this.lastSpeaker}`);
+    window.Gracula.logger.debug(`📊 Conversation type: ${analysis.conversationFlow.type}`);
+    window.Gracula.logger.debug(`📊 Topics: ${analysis.topics.join(', ') || 'None'}`);
     window.Gracula.logger.groupEnd();
 
     return this.messages;
+  }
+
+  /**
+   * Build a map of date labels to their positions in the DOM
+   * Returns an array of {dateLabel, element} objects in DOM order
+   */
+  buildDateLabelMap(container) {
+    const dateLabelMap = [];
+    const seenDates = new Set(); // Track dates we've already added to avoid duplicates
+
+    // Find all div elements that might be date separators
+    const allDivs = container.querySelectorAll('div');
+
+    allDivs.forEach(element => {
+      const text = (element.textContent || '').trim();
+
+      // Check if the text matches common date patterns and is short (date separators are usually short)
+      if (text.length < 20 && (text === 'Today' || text === 'Yesterday' || text === 'Monday' || text === 'Tuesday' ||
+          text === 'Wednesday' || text === 'Thursday' || text === 'Friday' || text === 'Saturday' ||
+          text === 'Sunday' || /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(text))) {
+
+        // Only add if we haven't seen this date yet (avoid duplicates from nested divs)
+        if (!seenDates.has(text)) {
+          dateLabelMap.push({ dateLabel: text, element });
+          seenDates.add(text);
+          window.Gracula.logger.debug(`🧛 [CONTEXT] Found date separator: ${text}`);
+        }
+      }
+    });
+
+    return dateLabelMap;
+  }
+
+  /**
+   * Get the date label for a message element based on its position in the DOM
+   */
+  getDateLabelForElement(messageElement, dateLabelMap) {
+    if (!dateLabelMap || dateLabelMap.length === 0) return null;
+
+    // Find the closest date separator that comes before this message element
+    let closestDateLabel = null;
+
+    for (const { dateLabel, element } of dateLabelMap) {
+      // Check if the date separator comes before the message element in the DOM
+      const position = element.compareDocumentPosition(messageElement);
+
+      // DOCUMENT_POSITION_FOLLOWING (4) means the message element comes after the date separator
+      if (position & Node.DOCUMENT_POSITION_FOLLOWING) {
+        closestDateLabel = dateLabel;
+      } else {
+        // Once we find a date separator that comes after the message, stop
+        break;
+      }
+    }
+
+    return closestDateLabel;
   }
 
   /**
@@ -215,11 +290,49 @@ window.Gracula.ContextExtractor = class {
   }
 
   /**
+   * Check if a message element is a quoted/forwarded message
+   */
+  isQuotedMessage(element) {
+    if (!element) return false;
+
+    // Check for WhatsApp quoted message indicators
+    // Quoted messages have a button with text "Quoted message"
+    const quotedButton = element.querySelector('button');
+    if (quotedButton) {
+      const buttonText = quotedButton.textContent || quotedButton.innerText || '';
+      if (buttonText.includes('Quoted message') || buttonText.includes('quoted')) {
+        return true;
+      }
+    }
+
+    // Check for aria-label containing "Quoted"
+    const quotedElements = element.querySelectorAll('[aria-label*="Quoted"], [aria-label*="quoted"]');
+    if (quotedElements.length > 0) {
+      return true;
+    }
+
+    // Check if the element has nested quoted message structure
+    // WhatsApp quoted messages often have a specific nested div structure
+    const hasQuotedStructure = element.querySelector('[data-quoted], .quoted-message, [class*="quoted"]');
+    if (hasQuotedStructure) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
    * Process a single message element
    */
   processMessageElement(element, index) {
     try {
       if (!element) return null;
+
+      // Skip quoted/forwarded messages
+      if (this.isQuotedMessage(element)) {
+        window.Gracula.logger.debug('🧛 [CONTEXT] Skipping quoted message');
+        return null;
+      }
 
       const messageTextSelector = this.platform?.speakerSelectors?.messageText;
       let textSegments = [];
@@ -775,10 +888,126 @@ window.Gracula.ContextExtractor = class {
   }
 
   /**
-   * Get context as formatted strings for AI
+   * Get context as formatted strings for AI with date grouping and topic awareness
    */
   getContextStrings() {
-    return this.messages.map(msg => msg.toContextString());
+    if (this.messages.length === 0) {
+      return [];
+    }
+
+    const contextLines = [];
+
+    // Group messages by date
+    const messagesByDate = this.groupMessagesByDate();
+
+    // Build context with date separators
+    for (const [dateLabel, messages] of Object.entries(messagesByDate)) {
+      contextLines.push(`\n📅 ${dateLabel}`);
+      messages.forEach(msg => {
+        contextLines.push(msg.toContextString());
+      });
+    }
+
+    // Add conversation summary at the end
+    if (this.conversationAnalysis) {
+      contextLines.push(''); // Empty line
+      contextLines.push('📊 CONVERSATION CONTEXT:');
+
+      const analysis = this.conversationAnalysis;
+
+      // Last speaker (who you're responding to)
+      // Find the last message that is NOT from "You"
+      const lastFriendMessage = this.getLastMessageNotFrom('You');
+      if (lastFriendMessage) {
+        contextLines.push(`⏰ Last message from ${lastFriendMessage.speaker}: "${lastFriendMessage.text}"`);
+      }
+
+      // Topics
+      if (analysis.topics && analysis.topics.length > 0) {
+        contextLines.push(`🎯 Main topics: ${analysis.topics.join(', ')}`);
+      }
+
+      // Unanswered question
+      if (analysis.hasUnansweredQuestion && analysis.hasUnansweredQuestion.hasQuestion) {
+        contextLines.push(`❓ Unanswered question from ${analysis.hasUnansweredQuestion.askedBy}: "${analysis.hasUnansweredQuestion.question}"`);
+      }
+
+      // Conversation flow
+      if (analysis.conversationFlow) {
+        contextLines.push(`🔄 Conversation style: ${analysis.conversationFlow.description}`);
+      }
+
+      // Sentiment/Tone
+      if (analysis.sentiment) {
+        contextLines.push(`💭 Overall tone: ${analysis.sentiment.tone}`);
+      }
+    }
+
+    return contextLines;
+  }
+
+  /**
+   * Group messages by date
+   */
+  groupMessagesByDate() {
+    const grouped = {};
+    const dateOrder = [];
+
+    this.messages.forEach(msg => {
+      const dateStr = msg.getDateString() || 'Unknown';
+      if (!grouped[dateStr]) {
+        grouped[dateStr] = [];
+        dateOrder.push(dateStr);
+      }
+      grouped[dateStr].push(msg);
+    });
+
+    // Return in chronological order
+    const result = {};
+    dateOrder.forEach(date => {
+      result[date] = grouped[date];
+    });
+
+    return result;
+  }
+
+  /**
+   * Get the last message from a specific speaker
+   */
+  getLastMessageFrom(speaker) {
+    for (let i = this.messages.length - 1; i >= 0; i--) {
+      if (this.messages[i].speaker === speaker) {
+        return this.messages[i];
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Get the last message NOT from a specific speaker
+   * Only considers messages from "Today" to ensure we're responding to recent context
+   */
+  getLastMessageNotFrom(speaker) {
+    // Iterate from the end (most recent) to find the last message from a friend
+    for (let i = this.messages.length - 1; i >= 0; i--) {
+      const message = this.messages[i];
+
+      // Skip messages from the specified speaker (e.g., "You")
+      if (message.speaker === speaker) {
+        continue;
+      }
+
+      // Only consider messages from "Today"
+      const dateString = message.getDateString();
+
+      if (dateString !== 'Today') {
+        continue;
+      }
+
+      // Return the first (chronologically last) message that matches
+      return message;
+    }
+    return null;
   }
 
   /**
