@@ -6,6 +6,7 @@ window.Gracula = window.Gracula || {};
 window.Gracula.ConversationAnalyzer = class {
   constructor() {
     this.messages = [];
+    this.topicAnalyzer = new window.Gracula.TopicAnalyzer();
   }
 
   /**
@@ -20,6 +21,9 @@ window.Gracula.ConversationAnalyzer = class {
     const pacing = this.getPacing();
     const styleMarkers = this.detectStyleMarkers();
 
+    // Enhanced topic analysis
+    const topicAnalysis = this.topicAnalyzer.analyze(messages, 'auto');
+
     return {
       messageCount: messages.length,
       speakers: this.identifySpeakers(),
@@ -27,7 +31,8 @@ window.Gracula.ConversationAnalyzer = class {
       hasUnansweredQuestion: this.hasUnansweredQuestion(),
       conversationFlow: this.analyzeFlow(),
       sentiment: this.analyzeSentiment(),
-      topics: this.extractTopics(),
+      topics: this.extractTopics(), // Keep for backward compatibility
+      topicAnalysis, // New enhanced topic analysis
       urgency: this.detectUrgency(),
       messageLength,
       emojiUsage,

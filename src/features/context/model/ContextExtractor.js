@@ -1096,8 +1096,48 @@ window.Gracula.ContextExtractor = class {
         contextLines.push(`📌 Context: ${lastFriendSpeaker} sent the last message - you should respond`);
       }
 
-      // Topics
-      if (analysis.topics && analysis.topics.length > 0) {
+      // Enhanced Topics
+      if (analysis.topicAnalysis && analysis.topicAnalysis.summary) {
+        contextLines.push(`🎯 Topic: ${analysis.topicAnalysis.summary}`);
+
+        // Show detected entities for technical conversations
+        if (analysis.topicAnalysis.entities) {
+          const entities = analysis.topicAnalysis.entities;
+          if (entities.tools && entities.tools.length > 0) {
+            contextLines.push(`🔧 Tools: ${entities.tools.join(', ')}`);
+          }
+          if (entities.technologies && entities.technologies.length > 0) {
+            contextLines.push(`💻 Technologies: ${entities.technologies.join(', ')}`);
+          }
+        }
+
+        // Show language mixing info with relationship context
+        if (analysis.topicAnalysis.languageAnalysis && analysis.topicAnalysis.languageAnalysis.mixingLevel !== 'none') {
+          const langInfo = analysis.topicAnalysis.languageAnalysis;
+          let langDisplay = `🌐 Language: ${langInfo.primaryLanguage} (${langInfo.mixingLevel} mixing)`;
+
+          // Add relationship intimacy indicator
+          if (langInfo.relationshipType && langInfo.relationshipType !== 'neutral') {
+            const relationshipEmojis = {
+              'very_close': '👥💯',
+              'close': '👥',
+              'friendly': '🤝',
+              'formal': '🎩'
+            };
+            const emoji = relationshipEmojis[langInfo.relationshipType] || '';
+            langDisplay += ` ${emoji}`;
+          }
+
+          contextLines.push(langDisplay);
+
+          // Show detected Bangla words for context
+          if (langInfo.detectedBanglaWords && langInfo.detectedBanglaWords.length > 0) {
+            const banglaWords = langInfo.detectedBanglaWords.slice(0, 5).join(', ');
+            contextLines.push(`🗣️ Bangla terms: ${banglaWords}`);
+          }
+        }
+      } else if (analysis.topics && analysis.topics.length > 0) {
+        // Fallback to old topic extraction
         contextLines.push(`🎯 Main topics: ${analysis.topics.join(', ')}`);
       }
 
