@@ -524,6 +524,38 @@ window.Gracula.ConversationAnalyzer = class {
   }
 
   /**
+   * Get the last message from a specific speaker
+   */
+  getLastMessageFrom(speaker) {
+    for (let i = this.messages.length - 1; i >= 0; i--) {
+      if (this.messages[i].speaker === speaker) {
+        return this.messages[i];
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Get the last message NOT from a specific speaker
+   */
+  getLastMessageNotFrom(speaker) {
+    for (let i = this.messages.length - 1; i >= 0; i--) {
+      if (this.messages[i].speaker !== speaker) {
+        return this.messages[i];
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Determine who sent the last message
+   */
+  getLastMessageSender() {
+    if (this.messages.length === 0) return null;
+    return this.messages[this.messages.length - 1].speaker;
+  }
+
+  /**
    * Get conversation summary
    */
   getSummary() {
@@ -549,6 +581,24 @@ window.Gracula.ConversationAnalyzer = class {
       ? analysis.styleMarkers.notes.join('; ')
       : '';
 
+    // Get the last message from "You" (the user)
+    const yourLastMessageObj = this.getLastMessageFrom('You');
+    const lastUserMessage = yourLastMessageObj ? yourLastMessageObj.text : '';
+
+    // Get the last message from a friend (not from "You")
+    const lastFriendMessageObj = this.getLastMessageNotFrom('You');
+    const lastFriendMessage = lastFriendMessageObj ? lastFriendMessageObj.text : '';
+    const lastFriendSpeaker = lastFriendMessageObj ? lastFriendMessageObj.speaker : '';
+
+    // Get the last message from anyone (for context)
+    const lastAnyMessage = this.messages.length > 0
+      ? this.messages[this.messages.length - 1].text
+      : '';
+
+    // Determine who sent the last message
+    const lastMessageSender = this.getLastMessageSender();
+    const isYourLastMessage = lastMessageSender === 'You';
+
     return {
       totalMessages: analysis.messageCount,
       participants,
@@ -562,7 +612,12 @@ window.Gracula.ConversationAnalyzer = class {
       languageMix,
       messageTempo: analysis.pacing?.tempo || 'unknown',
       emojiUsage: analysis.emojiUsage?.usageLevel || 'none',
-      styleNotes
+      styleNotes,
+      lastMessage: lastAnyMessage,  // Last message from anyone
+      lastUserMessage: lastUserMessage,  // Last message from "You"
+      lastFriendMessage: lastFriendMessage,  // Last message from a friend
+      lastFriendSpeaker: lastFriendSpeaker,  // Who sent the friend's last message
+      isYourLastMessage: isYourLastMessage  // Whether YOU sent the last message
     };
   }
 }

@@ -417,7 +417,16 @@ function generateMockReplies(prompt, options = {}) {
   const analysis = enhancedContext.analysis || {};
   const metrics = enhancedContext.metrics || {};
 
-  const lastMessage = summary.lastMessage || '';
+  // Use YOUR last message (what you're continuing from)
+  const yourLastMessage = summary.lastUserMessage || '';
+  // Get the last message from a friend
+  const lastFriendMessage = summary.lastFriendMessage || '';
+  const lastFriendSpeaker = summary.lastFriendSpeaker || '';
+  // Also get the last message from anyone (for additional context)
+  const lastAnyMessage = summary.lastMessage || '';
+  // Determine who sent the last message
+  const isYourLastMessage = summary.isYourLastMessage || false;
+
   const topics = summary.topics || [];
   const languageMix = analysis.languageMix || [];
   const styleMarkers = analysis.styleMarkers || {};
@@ -436,12 +445,18 @@ function generateMockReplies(prompt, options = {}) {
   }
 
   console.log('🧛 Gracula: Detected tone:', detectedTone);
-  console.log('🧛 Gracula: Last message:', lastMessage);
+  console.log('🧛 Gracula: Your last message:', yourLastMessage);
+  console.log('🧛 Gracula: Last message from friend:', lastFriendMessage);
+  console.log('🧛 Gracula: Is your last message?', isYourLastMessage);
   console.log('🧛 Gracula: Topics:', topics.join(', '));
 
   // Generate context-aware replies
   const replies = generateContextualReplies(detectedTone, {
-    lastMessage,
+    yourLastMessage,
+    lastFriendMessage,
+    lastFriendSpeaker,
+    lastAnyMessage,
+    isYourLastMessage,
     topics,
     languageMix,
     styleMarkers,
@@ -452,7 +467,16 @@ function generateMockReplies(prompt, options = {}) {
 }
 
 function generateContextualReplies(tone, context) {
-  const { lastMessage, topics, languageMix, styleMarkers, emojiUsage } = context;
+  const {
+    yourLastMessage,
+    lastFriendMessage,
+    lastFriendSpeaker,
+    lastAnyMessage,
+    isYourLastMessage,
+    topics,
+    styleMarkers,
+    emojiUsage
+  } = context;
 
   // Helper to add emojis based on usage level
   const addEmoji = (text, emoji) => {
@@ -483,25 +507,34 @@ function generateContextualReplies(tone, context) {
     };
   };
 
-  const messageAnalysis = analyzeMessage(lastMessage);
+  // Determine which message to analyze based on context
+  // If YOU sent the last message, analyze what you said
+  // If a FRIEND sent the last message, analyze what they said
+  const contextMessage = isYourLastMessage ? yourLastMessage : lastFriendMessage;
+  const lastMessageAnalysis = analyzeMessage(contextMessage);
 
   // Extract topic keywords for reference
   const topicKeywords = topics.slice(0, 2); // Use first 2 topics
   const hasTopic = topicKeywords.length > 0;
   const primaryTopic = topicKeywords[0] || '';
 
+  // Log context for debugging
+  console.log('🧛 Gracula: Context analysis - isYourLastMessage:', isYourLastMessage);
+  console.log('🧛 Gracula: Analyzing message:', contextMessage);
+  console.log('🧛 Gracula: Message analysis:', lastMessageAnalysis);
+
   // Generate replies based on tone
   let replies = [];
 
   switch (tone) {
     case 'default':
-      if (messageAnalysis.isQuestion && hasTopic) {
+      if (lastMessageAnalysis.isQuestion && hasTopic) {
         replies = [
           applyStyle(`Hmm, ${primaryTopic} er byapare ektu dekhi`),
           applyStyle(`Let me check about ${primaryTopic}`),
           applyStyle(`Good question, I'll find out about ${primaryTopic}`)
         ];
-      } else if (messageAnalysis.isNegative && hasTopic) {
+      } else if (lastMessageAnalysis.isNegative && hasTopic) {
         replies = [
           applyStyle(`Oh, ${primaryTopic} nai? Let me see what we can do`),
           applyStyle(`No worries about ${primaryTopic}, we'll figure it out`),

@@ -5,6 +5,8 @@ window.Gracula = window.Gracula || {};
 
 
 const MAX_MESSAGES = 50;
+const RECENT_MESSAGE_WINDOW = 28;
+const MIN_RECENT_MESSAGE_COUNT = 6;
 const MESSAGE_CONTAINER_FALLBACKS = [
   '[data-id]',
   'div[class*="message"]',
@@ -27,13 +29,13 @@ window.Gracula.ContextExtractor = class {
    * Extract conversation context from the page
    */
   extract() {
-    window.Gracula.logger.group('Extracting Conversation Context');
+    // window.Gracula.logger.group('Extracting Conversation Context');
 
     this.messages = [];
 
     if (!this.platform) {
-      window.Gracula.logger.warn('No platform detected');
-      window.Gracula.logger.groupEnd();
+      // window.Gracula.logger.warn('No platform detected');
+      // window.Gracula.logger.groupEnd();
       return this.messages;
     }
 
@@ -45,7 +47,7 @@ window.Gracula.ContextExtractor = class {
 
     // Find all message elements
     const messageElements = this.findMessageElements(mainChatContainer);
-    window.Gracula.logger.debug(`🧛 [CONTEXT] Found ${messageElements.length} message elements`);
+    // window.Gracula.logger.debug(`🧛 [CONTEXT] Found ${messageElements.length} message elements`);
 
     // Process each message element
     messageElements.forEach((element, index) => {
@@ -63,30 +65,34 @@ window.Gracula.ContextExtractor = class {
     // Remove duplicates FIRST (before sorting)
     this.messages = this.removeDuplicates(this.messages);
 
+    // Normalize timestamps using date labels (Today/Yesterday/Monday...)
+    this.normalizeTimestampsByDateLabels();
+
     // Sort by timestamp (oldest to newest)
     this.messages.sort((a, b) => {
-      if (a.timestamp && b.timestamp) {
-        return a.timestamp - b.timestamp;
+      const aTime = a?.timestamp instanceof Date ? a.timestamp.getTime() : (typeof a?.timestamp === 'number' ? a.timestamp : (a?.timestamp ? new Date(a.timestamp).getTime() : 0));
+      const bTime = b?.timestamp instanceof Date ? b.timestamp.getTime() : (typeof b?.timestamp === 'number' ? b.timestamp : (b?.timestamp ? new Date(b.timestamp).getTime() : 0));
+
+      if (aTime && bTime) {
+        return aTime - bTime;
       }
 
-      return (a.metadata?.index || 0) - (b.metadata?.index || 0);
+      return (a?.metadata?.index || 0) - (b?.metadata?.index || 0);
     });
 
-    // Keep only the most recent MAX_MESSAGES
-    if (this.messages.length > MAX_MESSAGES) {
-      this.messages = this.messages.slice(-MAX_MESSAGES);
-    }
+    // Limit to the most recent exchange window for analysis
+    this.messages = this.applyConversationWindow(this.messages);
 
     // Analyze conversation for context
     const analysis = this.analyzer.analyze(this.messages);
     this.lastSpeaker = analysis.lastSpeaker;
     this.conversationAnalysis = analysis;
 
-    window.Gracula.logger.success(`Extracted ${this.messages.length} valid messages`);
-    window.Gracula.logger.debug(`📊 Last speaker: ${this.lastSpeaker}`);
-    window.Gracula.logger.debug(`📊 Conversation type: ${analysis.conversationFlow.type}`);
-    window.Gracula.logger.debug(`📊 Topics: ${analysis.topics.join(', ') || 'None'}`);
-    window.Gracula.logger.groupEnd();
+    // window.Gracula.logger.success(`Extracted ${this.messages.length} valid messages`);
+    // window.Gracula.logger.debug(`📊 Last speaker: ${this.lastSpeaker}`);
+    // window.Gracula.logger.debug(`📊 Conversation type: ${analysis.conversationFlow.type}`);
+    // window.Gracula.logger.debug(`📊 Topics: ${analysis.topics.join(', ') || 'None'}`);
+    // window.Gracula.logger.groupEnd();
 
     return this.messages;
   }
@@ -114,7 +120,7 @@ window.Gracula.ContextExtractor = class {
         if (!seenDates.has(text)) {
           dateLabelMap.push({ dateLabel: text, element });
           seenDates.add(text);
-          window.Gracula.logger.debug(`🧛 [CONTEXT] Found date separator: ${text}`);
+          // window.Gracula.logger.debug(`🧛 [CONTEXT] Found date separator: ${text}`);
         }
       }
     });
@@ -148,6 +154,140 @@ window.Gracula.ContextExtractor = class {
   }
 
   /**
+   * Normalize message timestamps using the inferred date labels (Today/Yesterday/Monday...)
+   * This fixes mis-ordering when WhatsApp only shows time-of-day in bubbles.
+   */
+  normalizeTimestampsByDateLabels() {
+    if (!Array.isArray(this.messages) || this.messages.length === 0) return;
+
+    const toDate = (value) => {
+      if (!value) return null;
+      if (value instanceof Date) return value;
+      if (typeof value === 'number') return new Date(value);
+      const d = new Date(value);
+      return Number.isNaN(d.getTime()) ? null : d;
+    };
+
+    for (const msg of this.messages) {
+      if (!msg || !msg.timestamp || !msg.dateLabel) continue;
+
+      const baseDate = this.resolveDateForLabel(msg.dateLabel);
+      if (!baseDate) continue;
+
+      const ts = toDate(msg.timestamp);
+      if (!ts) continue;
+
+      const adjusted = new Date(
+        baseDate.getFullYear(),
+        baseDate.getMonth(),
+        baseDate.getDate(),
+        ts.getHours(),
+        ts.getMinutes(),
+        ts.getSeconds(),
+        ts.getMilliseconds()
+      );
+
+      msg.timestamp = adjusted;
+    }
+  }
+
+  /**
+   * Limit conversation analysis to the trailing window that contains the most recent exchange.
+   */
+  applyConversationWindow(messages) {
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return [];
+    }
+
+    const capped = messages.length > MAX_MESSAGES
+      ? messages.slice(-MAX_MESSAGES)
+      : messages.slice();
+
+    const total = capped.length;
+    if (total <= MIN_RECENT_MESSAGE_COUNT) {
+      return capped;
+    }
+
+    let startIndex = 0;
+    let seenUser = false;
+    let seenFriend = false;
+    let collected = 0;
+
+    for (let i = total - 1; i >= 0; i--) {
+      const message = capped[i];
+      collected += 1;
+
+      if (this.isMessageFromUser(message)) {
+        seenUser = true;
+      } else {
+        seenFriend = true;
+      }
+
+      const hasPair = seenUser && seenFriend;
+      const reachedMinimum = collected >= MIN_RECENT_MESSAGE_COUNT;
+      const reachedWindow = collected >= RECENT_MESSAGE_WINDOW;
+
+      if (reachedWindow || (hasPair && reachedMinimum)) {
+        startIndex = i;
+        break;
+      }
+
+      if (i === 0) {
+        startIndex = 0;
+      }
+    }
+
+    const windowed = capped.slice(startIndex);
+    // window.Gracula.logger.debug(
+    //   `🧛 [CONTEXT] Applying recent window: total=${total}, startIndex=${startIndex}, windowSize=${windowed.length}`
+    // );
+
+    return windowed;
+  }
+
+
+  /**
+   * Resolve a concrete Date (at 00:00) for a WhatsApp date label like Today/Yesterday/Monday
+   */
+  resolveDateForLabel(label) {
+    if (!label || typeof label !== 'string') return null;
+    const text = label.trim();
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const lower = text.toLowerCase();
+    if (lower === 'today') return new Date(today);
+    if (lower === 'yesterday') {
+      const d = new Date(today);
+      d.setDate(d.getDate() - 1);
+      return d;
+    }
+
+    const weekdays = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+    const idx = weekdays.indexOf(lower);
+    if (idx !== -1) {
+      const current = today.getDay();
+      let diff = (current - idx + 7) % 7;
+      if (diff === 0) diff = 7; // if same weekday label, assume previous week
+      const d = new Date(today);
+      d.setDate(d.getDate() - diff);
+      return d;
+    }
+
+    // Try generic date parse (e.g., Oct 20, 2025)
+    const parsed = new Date(text);
+    if (!Number.isNaN(parsed.getTime())) {
+      parsed.setHours(0, 0, 0, 0);
+      return parsed;
+    }
+
+    return null;
+  }
+
+
+
+  /**
    * Find the main chat container (exclude chat list sidebar)
    */
   findMainChatContainer() {
@@ -161,7 +301,7 @@ window.Gracula.ContextExtractor = class {
         for (const row of rows) {
           const hasMessageText = row.querySelector('span.selectable-text.copyable-text');
           if (hasMessageText) {
-            window.Gracula.logger.debug('🧛 [CONTEXT] Found main chat container via [role="main"]');
+          // window.Gracula.logger.debug('🧛 [CONTEXT] Found main chat container via [role="main"]');
             return mainArea;
           }
         }
@@ -182,7 +322,7 @@ window.Gracula.ContextExtractor = class {
             for (const row of rows) {
               const hasMessageText = row.querySelector('span.selectable-text.copyable-text');
               if (hasMessageText) {
-                window.Gracula.logger.debug('🧛 [CONTEXT] Found main chat container via chat list sibling');
+                // window.Gracula.logger.debug('🧛 [CONTEXT] Found main chat container via chat list sibling');
                 return sibling;
               }
             }
@@ -220,11 +360,11 @@ window.Gracula.ContextExtractor = class {
     }
 
     if (bestContainer && maxMessageRows > 0) {
-      window.Gracula.logger.debug('🧛 [CONTEXT] Found main chat container via row parent scan with', maxMessageRows, 'message rows');
+      // window.Gracula.logger.debug('🧛 [CONTEXT] Found main chat container via row parent scan with', maxMessageRows, 'message rows');
       return bestContainer;
     }
 
-    window.Gracula.logger.warn('🧛 [CONTEXT] Could not find main chat container, using document');
+    // window.Gracula.logger.warn('🧛 [CONTEXT] Could not find main chat container, using document');
     return document;
   }
 
@@ -237,7 +377,7 @@ window.Gracula.ContextExtractor = class {
 
     // Find the main chat container first (exclude chat list)
     const mainChatContainer = this.findMainChatContainer();
-    window.Gracula.logger.debug('🧛 [CONTEXT] Using chat container:', mainChatContainer.tagName || 'document');
+    // window.Gracula.logger.debug('🧛 [CONTEXT] Using chat container:', mainChatContainer.tagName || 'document');
 
     const addElement = (node) => {
       if (!node) return;
@@ -272,7 +412,7 @@ window.Gracula.ContextExtractor = class {
         mainChatContainer.querySelectorAll(selector).forEach(addElement);
       } catch (error) {
         if (logInvalid) {
-          window.Gracula.logger.debug(`Invalid selector: ${selector}`);
+          // window.Gracula.logger.debug(`Invalid selector: ${selector}`);
         }
       }
     };
@@ -285,7 +425,7 @@ window.Gracula.ContextExtractor = class {
     // Strategy 2: Generic fallback selectors
     MESSAGE_CONTAINER_FALLBACKS.forEach(selector => collect(selector, false));
 
-    window.Gracula.logger.debug(`🧛 [CONTEXT] Collected ${uniqueElements.size} unique message containers`);
+    // window.Gracula.logger.debug(`🧛 [CONTEXT] Collected ${uniqueElements.size} unique message containers`);
     return Array.from(uniqueElements);
   }
 
@@ -294,6 +434,21 @@ window.Gracula.ContextExtractor = class {
    */
   isQuotedMessage(element) {
     if (!element) return false;
+
+    // If the bubble contains real message text outside of the quoted block, treat it as a normal message.
+    const primaryTextNodes = Array.from(element.querySelectorAll('span.selectable-text.copyable-text'));
+    const hasOwnText = primaryTextNodes.some(node => {
+      const text = (node.textContent || '').trim();
+      if (!text) return false;
+      const inQuotedButton = node.closest('[role="button"][aria-label*="Quoted"]');
+      const quotedContainer = node.closest('[data-quoted], .quoted-message, [class*="quoted"]');
+      const isInsideQuotedPreview = quotedContainer && !quotedContainer.isSameNode(element);
+      return !inQuotedButton && !isInsideQuotedPreview;
+    });
+
+    if (hasOwnText) {
+      return false;
+    }
 
     // Check for WhatsApp quoted message indicators
     // Quoted messages have a button with text "Quoted message"
@@ -330,7 +485,7 @@ window.Gracula.ContextExtractor = class {
 
       // Skip quoted/forwarded messages
       if (this.isQuotedMessage(element)) {
-        window.Gracula.logger.debug('🧛 [CONTEXT] Skipping quoted message');
+      // window.Gracula.logger.debug('🧛 [CONTEXT] Skipping quoted message');
         return null;
       }
 
@@ -915,11 +1070,30 @@ window.Gracula.ContextExtractor = class {
 
       const analysis = this.conversationAnalysis;
 
-      // Last speaker (who you're responding to)
-      // Find the last message that is NOT from "You"
-      const lastFriendMessage = this.getLastMessageNotFrom('You');
+      // Get summary from ConversationAnalyzer (which has the correct last messages)
+      const summary = this.analyzer.getSummary();
+
+      // Use the summary data which has already calculated the correct last messages
+      const isYourLastMessage = summary.isYourLastMessage || false;
+      const lastUserMessage = summary.lastUserMessage || '';
+      const lastFriendMessage = summary.lastFriendMessage || '';
+      const lastFriendSpeaker = summary.lastFriendSpeaker || '';
+
+      // YOUR last message (what you're continuing from)
+      if (lastUserMessage) {
+        contextLines.push(`💬 Your last message: "${lastUserMessage}"`);
+      }
+
+      // Last message from a friend (who you're responding to)
       if (lastFriendMessage) {
-        contextLines.push(`⏰ Last message from ${lastFriendMessage.speaker}: "${lastFriendMessage.text}"`);
+        contextLines.push(`⏰ Last reply from ${lastFriendSpeaker}: "${lastFriendMessage}"`);
+      }
+
+      // Context indicator: who sent the last message
+      if (isYourLastMessage) {
+        contextLines.push(`📌 Context: You sent the last message - continue your thought or wait for a reply`);
+      } else if (lastFriendMessage) {
+        contextLines.push(`📌 Context: ${lastFriendSpeaker} sent the last message - you should respond`);
       }
 
       // Topics
@@ -962,7 +1136,27 @@ window.Gracula.ContextExtractor = class {
       grouped[dateStr].push(msg);
     });
 
-    // Return in chronological order
+    // Define date priority for sorting (most recent first)
+    const datePriority = {
+      'Today': 1,
+      'Yesterday': 2,
+      'Monday': 3,
+      'Tuesday': 4,
+      'Wednesday': 5,
+      'Thursday': 6,
+      'Friday': 7,
+      'Saturday': 8,
+      'Sunday': 9
+    };
+
+    // Sort dates by priority (most recent first)
+    dateOrder.sort((a, b) => {
+      const priorityA = datePriority[a] || 999;
+      const priorityB = datePriority[b] || 999;
+      return priorityA - priorityB;
+    });
+
+    // Return in reverse chronological order (most recent first)
     const result = {};
     dateOrder.forEach(date => {
       result[date] = grouped[date];
@@ -1008,6 +1202,14 @@ window.Gracula.ContextExtractor = class {
       return message;
     }
     return null;
+  }
+
+  /**
+   * Get who sent the last message
+   */
+  getLastMessageSender() {
+    if (this.messages.length === 0) return null;
+    return this.messages[this.messages.length - 1].speaker;
   }
 
   /**

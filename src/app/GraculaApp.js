@@ -1,11 +1,11 @@
 // Gracula Application
 // Main application orchestrator
 
-console.log('🧛 [GRACULA APP CLASS] GraculaApp.js script loading...');
+// console.log('🧛 [GRACULA APP CLASS] GraculaApp.js script loading...');
 
 window.Gracula = window.Gracula || {};
 
-console.log('🧛 [GRACULA APP CLASS] Defining GraculaApp class...');
+// console.log('🧛 [GRACULA APP CLASS] Defining GraculaApp class...');
 
 window.Gracula.GraculaApp = class {
   constructor() {
@@ -27,68 +27,68 @@ window.Gracula.GraculaApp = class {
    * Initialize the application
    */
   async init() {
-    console.log('🧛 [GRACULA APP] init() called');
+    // console.log('🧛 [GRACULA APP] init() called');
 
     if (this.isInitialized) {
-      console.log('⚠️ [GRACULA APP] Already initialized, skipping');
+      // console.log('⚠️ [GRACULA APP] Already initialized, skipping');
       return;
     }
 
     try {
       // Check if logger exists
       if (!window.Gracula?.logger) {
-        console.error('❌ [GRACULA APP] ERROR: window.Gracula.logger not found!');
+        // console.error('❌ [GRACULA APP] ERROR: window.Gracula.logger not found!');
         return;
       }
 
-      window.Gracula.logger.separator();
-      window.Gracula.logger.info('EXTENSION LOADED');
-      window.Gracula.logger.info('Version 2.0.0 - FSD Architecture');
-      window.Gracula.logger.info('Waiting for page to fully load...');
-      window.Gracula.logger.separator();
+      // window.Gracula.logger.separator();
+      // window.Gracula.logger.info('EXTENSION LOADED');
+      // window.Gracula.logger.info('Version 2.0.0 - FSD Architecture');
+      // window.Gracula.logger.info('Waiting for page to fully load...');
+      // window.Gracula.logger.separator();
 
       // Check if detectPlatform exists
       if (!window.Gracula?.detectPlatform) {
-        console.error('❌ [GRACULA APP] ERROR: window.Gracula.detectPlatform not found!');
+        // console.error('❌ [GRACULA APP] ERROR: window.Gracula.detectPlatform not found!');
         return;
       }
 
       // Detect platform
-      console.log('🧛 [GRACULA APP] Detecting platform...');
+      // console.log('🧛 [GRACULA APP] Detecting platform...');
       this.platform = window.Gracula.detectPlatform();
 
       if (!this.platform) {
-        window.Gracula.logger.warn('Platform not supported');
-        console.log('⚠️ [GRACULA APP] Current URL:', window.location.href);
+        // window.Gracula.logger.warn('Platform not supported');
+        // console.log('⚠️ [GRACULA APP] Current URL:', window.location.href);
         return;
       }
 
-      window.Gracula.logger.success(`Platform detected: ${this.platform.name}`);
-      console.log('✅ [GRACULA APP] Platform:', this.platform);
+      // window.Gracula.logger.success(`Platform detected: ${this.platform.name}`);
+      // console.log('✅ [GRACULA APP] Platform:', this.platform);
 
       // Check if ContextExtractor exists
       if (!window.Gracula?.ContextExtractor) {
-        console.error('❌ [GRACULA APP] ERROR: window.Gracula.ContextExtractor not found!');
+        // console.error('❌ [GRACULA APP] ERROR: window.Gracula.ContextExtractor not found!');
         return;
       }
 
       // Initialize context extractor
-      console.log('🧛 [GRACULA APP] Creating ContextExtractor...');
+      // console.log('🧛 [GRACULA APP] Creating ContextExtractor...');
       this.contextExtractor = new window.Gracula.ContextExtractor(this.platform);
-      console.log('✅ [GRACULA APP] ContextExtractor created');
+      // console.log('✅ [GRACULA APP] ContextExtractor created');
 
       // Delay initialization to let page load
       setTimeout(() => {
-        console.log('🧛 [GRACULA APP] Starting delayed initialization...');
-        window.Gracula.logger.info('Starting initialization...');
+        // console.log('🧛 [GRACULA APP] Starting delayed initialization...');
+        // window.Gracula.logger.info('Starting initialization...');
         this.showLoadingNotification();
         this.observeInputFields();
         this.isInitialized = true;
-        console.log('✅ [GRACULA APP] Initialization complete');
+        // console.log('✅ [GRACULA APP] Initialization complete');
       }, 3000);
     } catch (error) {
-      console.error('❌ [GRACULA APP] ERROR during init():', error);
-      console.error('❌ [GRACULA APP] Error stack:', error.stack);
+      // console.error('❌ [GRACULA APP] ERROR during init():', error);
+      // console.error('❌ [GRACULA APP] Error stack:', error.stack);
     }
   }
 
@@ -96,7 +96,7 @@ window.Gracula.GraculaApp = class {
    * Show loading notification
    */
   showLoadingNotification() {
-    window.Gracula.logger.success('Ready! Look for the purple button.');
+    // window.Gracula.logger.success('Ready! Look for the purple button.');
 
     const notification = document.createElement('div');
     notification.style.cssText = `
@@ -132,7 +132,7 @@ window.Gracula.GraculaApp = class {
    * Observe input fields
    */
   observeInputFields() {
-    window.Gracula.logger.info('Setting up input field detection...');
+    // window.Gracula.logger.info('Setting up input field detection...');
 
     // Initial checks with delays
     setTimeout(() => this.findAndAttachToInputField(), 1000);
@@ -147,7 +147,7 @@ window.Gracula.GraculaApp = class {
       }
     }, 3000);
 
-    window.Gracula.logger.info('Using lightweight polling for input detection');
+    // window.Gracula.logger.info('Using lightweight polling for input detection');
   }
 
   /**
@@ -161,7 +161,7 @@ window.Gracula.GraculaApp = class {
     if (inputField && inputField !== this.currentInputField) {
       this.currentInputField = inputField;
       this.attachFloatingButton(inputField);
-      window.Gracula.logger.success('Attached to input field');
+      // window.Gracula.logger.success('Attached to input field');
     }
   }
 
@@ -190,14 +190,14 @@ window.Gracula.GraculaApp = class {
       }
     });
 
-    window.Gracula.logger.success('Floating button attached');
+    // window.Gracula.logger.success('Floating button attached');
   }
 
   /**
    * Handle button click
    */
   handleButtonClick() {
-    window.Gracula.logger.info('Button clicked - Opening modal');
+    // window.Gracula.logger.info('Button clicked - Opening modal');
     
     // Extract context
     this.extractContext();
@@ -216,7 +216,7 @@ window.Gracula.GraculaApp = class {
     this.context = this.contextExtractor.getSimpleContext();
     this.enhancedContext = this.contextExtractor.getEnhancedContext();
 
-    window.Gracula.logger.success(`Context extracted: ${this.context.length} messages`);
+    // window.Gracula.logger.success(`Context extracted: ${this.context.length} messages`);
   }
 
   /**
@@ -240,13 +240,13 @@ window.Gracula.GraculaApp = class {
       showEnhanced: true,
       onContextUpdate: (newContext) => {
         this.context = newContext;
-        window.Gracula.logger.info('Context manually updated');
+        // window.Gracula.logger.info('Context manually updated');
       }
     });
 
     this.replyList = new window.Gracula.ReplyList({
       onInsert: (reply) => this.insertReply(reply),
-      onCopy: (reply) => window.Gracula.logger.info('Reply copied')
+      onCopy: (reply) => { /* Reply copied */ }
     });
 
     // Build modal content
@@ -258,7 +258,7 @@ window.Gracula.GraculaApp = class {
 
     // Create and show modal
     this.modal = new window.Gracula.Modal({
-      onClose: () => window.Gracula.logger.info('Modal closed')
+      onClose: () => { /* Modal closed */ }
     });
 
     this.modal.render(content);
@@ -270,14 +270,14 @@ window.Gracula.GraculaApp = class {
       this.contextViewer.attachListeners(modalBody);
     }
 
-    window.Gracula.logger.success('Modal opened');
+    // window.Gracula.logger.success('Modal opened');
   }
 
   /**
    * Handle tone selection
    */
   async handleToneSelection(tone) {
-    window.Gracula.logger.info(`Generating ${tone.name} replies...`);
+    // window.Gracula.logger.info(`Generating ${tone.name} replies...`);
 
     const modalBody = this.modal.getBody();
     if (!modalBody) return;
@@ -292,9 +292,9 @@ window.Gracula.GraculaApp = class {
       // Display replies
       this.replyList.displayReplies(replies, modalBody);
       
-      window.Gracula.logger.success('Replies generated successfully');
+      // window.Gracula.logger.success('Replies generated successfully');
     } catch (error) {
-      window.Gracula.logger.error('Error generating replies:', error);
+      // window.Gracula.logger.error('Error generating replies:', error);
       
       const errorMessage = error.message.includes('API key') 
         ? 'Please add your OpenAI API key in the extension settings.'
@@ -330,12 +330,12 @@ window.Gracula.GraculaApp = class {
   insertReply(reply) {
     // Prevent duplicate inserts
     if (this.isInserting) {
-      window.Gracula.logger.warn('Insert already in progress');
+      // window.Gracula.logger.warn('Insert already in progress');
       return;
     }
 
     if (!this.currentInputField) {
-      window.Gracula.logger.warn('No input field found');
+      // window.Gracula.logger.warn('No input field found');
       return;
     }
 
@@ -395,9 +395,9 @@ window.Gracula.GraculaApp = class {
         field.dispatchEvent(inputEvent);
       }
 
-      window.Gracula.logger.success('Reply inserted');
+      // window.Gracula.logger.success('Reply inserted');
     } catch (error) {
-      window.Gracula.logger.error('Failed to insert reply:', error);
+      // window.Gracula.logger.error('Failed to insert reply:', error);
     } finally {
       // Close modal and reset flag
       if (this.modal) {
@@ -412,6 +412,6 @@ window.Gracula.GraculaApp = class {
   }
 };
 
-console.log('✅ [GRACULA APP CLASS] GraculaApp class defined successfully');
-console.log('🧛 [GRACULA APP CLASS] Verifying class:', typeof window.Gracula.GraculaApp);
+// console.log('✅ [GRACULA APP CLASS] GraculaApp class defined successfully');
+// console.log('🧛 [GRACULA APP CLASS] Verifying class:', typeof window.Gracula.GraculaApp);
 

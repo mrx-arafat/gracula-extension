@@ -32,14 +32,14 @@ window.Gracula.FloatingButton = class {
     // Add click listener
     this.element.addEventListener('click', (e) => {
       e.stopPropagation();
-      window.Gracula.logger.info('Floating button clicked');
+      // window.Gracula.logger.info('Floating button clicked');
       this.onClick();
     });
 
     document.body.appendChild(this.element);
     this.isVisible = true;
 
-    window.Gracula.logger.success('Floating button rendered');
+    // window.Gracula.logger.success('Floating button rendered');
 
     return this.element;
   }

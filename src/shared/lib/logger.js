@@ -1,14 +1,14 @@
 // Logging Utility
 // Centralized logging with consistent formatting
 
-console.log('🧛 [LOGGER] Logger script loading...');
+// console.log('🧛 [LOGGER] Logger script loading...');
 
 window.Gracula = window.Gracula || {};
 
 const PREFIX = '🧛 Gracula:';
-const ENABLED = true; // Set to false to disable all logs
+const ENABLED = false; // Set to false to disable all logs
 
-console.log('🧛 [LOGGER] Creating logger object...');
+// console.log('🧛 [LOGGER] Creating logger object...');
 
 window.Gracula.logger = {
   info: (...args) => {
@@ -44,6 +44,6 @@ window.Gracula.logger = {
   }
 };
 
-console.log('✅ [LOGGER] Logger object created successfully');
-console.log('🧛 [LOGGER] Logger methods:', Object.keys(window.Gracula.logger));
+// console.log('✅ [LOGGER] Logger object created successfully');
+// console.log('🧛 [LOGGER] Logger methods:', Object.keys(window.Gracula.logger));
 
