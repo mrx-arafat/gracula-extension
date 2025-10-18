@@ -471,20 +471,47 @@ function generateContextualReplies(tone, context) {
     return text;
   };
 
+  // Analyze last message for better context
+  const analyzeMessage = (msg) => {
+    if (!msg) return { isQuestion: false, isNegative: false, topic: null };
+    const msgLower = msg.toLowerCase();
+    return {
+      isQuestion: /\?|ki|keno|kobe|kothay|how|what|when|where/.test(msgLower),
+      isNegative: /nai|na|not|no|can't|couldn't|won't/.test(msgLower),
+      isPositive: /yes|hoo|thik|okay|good|great|nice/.test(msgLower),
+      hasUrgency: /asap|jaldi|taratari|now|urgent/.test(msgLower)
+    };
+  };
+
+  const messageAnalysis = analyzeMessage(lastMessage);
+
   // Extract topic keywords for reference
   const topicKeywords = topics.slice(0, 2); // Use first 2 topics
   const hasTopic = topicKeywords.length > 0;
+  const primaryTopic = topicKeywords[0] || '';
 
   // Generate replies based on tone
   let replies = [];
 
   switch (tone) {
     case 'default':
-      if (hasTopic) {
+      if (messageAnalysis.isQuestion && hasTopic) {
         replies = [
-          applyStyle(`Okay, let me check about the ${topicKeywords[0]} thing`),
-          applyStyle(`Got it, I'll look into ${topicKeywords[0]}`),
-          applyStyle(`Alright, sounds good`)
+          applyStyle(`Hmm, ${primaryTopic} er byapare ektu dekhi`),
+          applyStyle(`Let me check about ${primaryTopic}`),
+          applyStyle(`Good question, I'll find out about ${primaryTopic}`)
+        ];
+      } else if (messageAnalysis.isNegative && hasTopic) {
+        replies = [
+          applyStyle(`Oh, ${primaryTopic} nai? Let me see what we can do`),
+          applyStyle(`No worries about ${primaryTopic}, we'll figure it out`),
+          applyStyle(`Okay, ${primaryTopic} na thakle alternative dekhbo`)
+        ];
+      } else if (hasTopic) {
+        replies = [
+          applyStyle(`Okay, let me check about the ${primaryTopic} thing`),
+          applyStyle(`Got it, I'll look into ${primaryTopic}`),
+          applyStyle(`Alright, sounds good about ${primaryTopic}`)
         ];
       } else {
         replies = [
