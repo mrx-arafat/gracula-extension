@@ -405,80 +405,257 @@ function parseReplies(text) {
   return replies.slice(0, 3);
 }
 
-function generateMockReplies(prompt) {
+function generateMockReplies(prompt, options = {}) {
   // Fallback mock replies for demo purposes
   // In production, this would only be used if API fails
 
-  const mockReplies = {
-    angry: [
-      "I can't believe this is happening! This is completely unacceptable.",
-      "Are you serious right now? This is so frustrating!",
-      "This is ridiculous. I'm really not happy about this situation."
-    ],
-    chill: [
-      "Hey, no worries! Let's just take it easy and see what happens.",
-      "Yeah, sounds good to me. Whatever works!",
-      "Cool, cool. I'm down for whatever."
-    ],
-    confused: [
-      "Wait, I'm not sure I understand. Can you explain that again?",
-      "Hmm, I'm a bit confused. What exactly do you mean?",
-      "Sorry, could you clarify? I'm not following."
-    ],
-    excited: [
-      "OMG YES! This is amazing! I'm so excited!",
-      "WOW! That's incredible! I can't wait!",
-      "This is SO COOL! I'm totally pumped about this!"
-    ],
-    flirty: [
-      "Well aren't you interesting... I'd love to know more 😉",
-      "You always know how to make me smile. What's your secret?",
-      "Is it just me, or is this conversation getting more fun?"
-    ],
-    formal: [
-      "Thank you for your message. I appreciate you reaching out.",
-      "I understand your point. Let me consider this carefully.",
-      "That is certainly worth discussing. I look forward to your thoughts."
-    ],
-    funny: [
-      "Haha! That's hilarious! You should do stand-up comedy!",
-      "LOL! You're killing me here! 😂",
-      "That's the funniest thing I've heard all day! More please!"
-    ],
-    genz: [
-      "No cap, that's actually fire! Let's gooo! 🔥",
-      "Fr fr, this hits different. I'm here for it!",
-      "Bestie, you're literally slaying rn! Period!"
-    ],
-    lyrical: [
-      "Like a gentle breeze on a summer's day, your words dance through my thoughts.",
-      "In the symphony of our conversation, each word is a note of beauty.",
-      "Your message flows like poetry, painting colors in my mind."
-    ],
-    creative: [
-      "You're absolutely brilliant! That's such a creative idea!",
-      "Wow, I'm genuinely impressed! You have such a unique perspective!",
-      "That's amazing! You're so talented and thoughtful!"
-    ],
-    default: [
-      "Thanks for your message! I appreciate you reaching out.",
-      "That's interesting! Tell me more about that.",
-      "I hear you! Let's talk about this."
-    ]
-  };
+  console.log('🧛 Gracula: Generating context-aware mock replies');
 
-  // Try to detect tone from prompt
+  // Extract context information
+  const enhancedContext = options.enhancedContext || {};
+  const summary = enhancedContext.summary || {};
+  const analysis = enhancedContext.analysis || {};
+  const metrics = enhancedContext.metrics || {};
+
+  const lastMessage = summary.lastMessage || '';
+  const topics = summary.topics || [];
+  const languageMix = analysis.languageMix || [];
+  const styleMarkers = analysis.styleMarkers || {};
+  const emojiUsage = analysis.emojiUsage || 'none';
+
+  // Detect tone from prompt
   const promptLower = prompt.toLowerCase();
-  let selectedReplies = mockReplies.default;
+  let detectedTone = 'default';
 
-  for (const [tone, replies] of Object.entries(mockReplies)) {
+  const tones = ['angry', 'chill', 'confused', 'excited', 'flirty', 'formal', 'funny', 'motivational', 'sarcastic', 'short'];
+  for (const tone of tones) {
     if (promptLower.includes(tone)) {
-      selectedReplies = replies;
+      detectedTone = tone;
       break;
     }
   }
 
-  return selectedReplies;
+  console.log('🧛 Gracula: Detected tone:', detectedTone);
+  console.log('🧛 Gracula: Last message:', lastMessage);
+  console.log('🧛 Gracula: Topics:', topics.join(', '));
+
+  // Generate context-aware replies
+  const replies = generateContextualReplies(detectedTone, {
+    lastMessage,
+    topics,
+    languageMix,
+    styleMarkers,
+    emojiUsage
+  });
+
+  return replies;
+}
+
+function generateContextualReplies(tone, context) {
+  const { lastMessage, topics, languageMix, styleMarkers, emojiUsage } = context;
+
+  // Helper to add emojis based on usage level
+  const addEmoji = (text, emoji) => {
+    if (emojiUsage === 'heavy' || emojiUsage === 'moderate') {
+      return `${text} ${emoji}`;
+    }
+    return text;
+  };
+
+  // Helper to apply lowercase style if preferred
+  const applyStyle = (text) => {
+    if (styleMarkers.prefersLowercase) {
+      // Keep first letter capitalized, rest lowercase
+      return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+    }
+    return text;
+  };
+
+  // Extract topic keywords for reference
+  const topicKeywords = topics.slice(0, 2); // Use first 2 topics
+  const hasTopic = topicKeywords.length > 0;
+
+  // Generate replies based on tone
+  let replies = [];
+
+  switch (tone) {
+    case 'default':
+      if (hasTopic) {
+        replies = [
+          applyStyle(`Okay, let me check about the ${topicKeywords[0]} thing`),
+          applyStyle(`Got it, I'll look into ${topicKeywords[0]}`),
+          applyStyle(`Alright, sounds good`)
+        ];
+      } else {
+        replies = [
+          applyStyle("Okay, got it"),
+          applyStyle("Alright, sounds good"),
+          applyStyle("Sure, let me know")
+        ];
+      }
+      break;
+
+    case 'funny':
+      if (hasTopic) {
+        replies = [
+          addEmoji(applyStyle(`Haha ${topicKeywords[0]}? That's hilarious!`), '😂'),
+          addEmoji(applyStyle(`LOL bhai, ${topicKeywords[0]} nai mane shob shesh!`), '🤣'),
+          addEmoji(applyStyle(`${topicKeywords[0]} er jonno etoh tension? Chill koro!`), '😄')
+        ];
+      } else {
+        replies = [
+          addEmoji(applyStyle("Haha that's funny!"), '😂'),
+          addEmoji(applyStyle("LOL bhai!"), '🤣'),
+          addEmoji(applyStyle("Chill koro!"), '😄')
+        ];
+      }
+      break;
+
+    case 'chill':
+      if (hasTopic) {
+        replies = [
+          applyStyle(`Yeah no worries about ${topicKeywords[0]}, we'll figure it out`),
+          applyStyle(`Chill bhai, ${topicKeywords[0]} hoye jabe`),
+          applyStyle(`Relax, it's all good`)
+        ];
+      } else {
+        replies = [
+          applyStyle("Yeah no worries, we'll figure it out"),
+          applyStyle("Chill bhai, hoye jabe"),
+          applyStyle("Relax, it's all good")
+        ];
+      }
+      break;
+
+    case 'confused':
+      if (hasTopic) {
+        replies = [
+          addEmoji(applyStyle(`Wait, ${topicKeywords[0]} ki? I'm confused`), '🤔'),
+          applyStyle(`Hmm, ${topicKeywords[0]} er byapare ektu explain koro`),
+          applyStyle(`Sorry bhai, ${topicKeywords[0]} ta bujhlam na`)
+        ];
+      } else {
+        replies = [
+          addEmoji(applyStyle("Wait, what? I'm confused"), '🤔'),
+          applyStyle("Hmm, ektu explain koro"),
+          applyStyle("Sorry bhai, bujhlam na")
+        ];
+      }
+      break;
+
+    case 'excited':
+      if (hasTopic) {
+        replies = [
+          addEmoji(applyStyle(`OMG YES! ${topicKeywords[0]}! This is amazing!`), '🤩'),
+          addEmoji(applyStyle(`WOW! ${topicKeywords[0]} hoye gese? I'm so excited!`), '😍'),
+          addEmoji(applyStyle(`This is SO COOL! Let's do this!`), '🔥')
+        ];
+      } else {
+        replies = [
+          addEmoji(applyStyle("OMG YES! This is amazing!"), '🤩'),
+          addEmoji(applyStyle("WOW! I'm so excited!"), '😍'),
+          addEmoji(applyStyle("This is SO COOL!"), '🔥')
+        ];
+      }
+      break;
+
+    case 'angry':
+      if (hasTopic) {
+        replies = [
+          addEmoji(applyStyle(`Seriously? ${topicKeywords[0]} nai? This is frustrating!`), '😠'),
+          applyStyle(`Bhai this ${topicKeywords[0]} situation is ridiculous`),
+          applyStyle(`I can't believe this is happening with ${topicKeywords[0]}`)
+        ];
+      } else {
+        replies = [
+          addEmoji(applyStyle("Seriously? This is frustrating!"), '😠'),
+          applyStyle("Bhai this is ridiculous"),
+          applyStyle("I can't believe this is happening")
+        ];
+      }
+      break;
+
+    case 'sarcastic':
+      if (hasTopic) {
+        replies = [
+          addEmoji(applyStyle(`Oh great, ${topicKeywords[0]} nai. What a surprise!`), '🙄'),
+          applyStyle(`Wow, ${topicKeywords[0]} er jonno etoh effort. Amazing.`),
+          applyStyle(`Sure, because ${topicKeywords[0]} always works perfectly, right?`)
+        ];
+      } else {
+        replies = [
+          addEmoji(applyStyle("Oh great. What a surprise!"), '🙄'),
+          applyStyle("Wow. Amazing."),
+          applyStyle("Sure, that always works perfectly, right?")
+        ];
+      }
+      break;
+
+    case 'motivational':
+      if (hasTopic) {
+        replies = [
+          addEmoji(applyStyle(`Don't worry! We'll find ${topicKeywords[0]}! You got this!`), '💪'),
+          addEmoji(applyStyle(`Keep trying bhai! ${topicKeywords[0]} hoye jabe!`), '🔥'),
+          applyStyle(`Stay positive! We'll solve this ${topicKeywords[0]} issue together!`)
+        ];
+      } else {
+        replies = [
+          addEmoji(applyStyle("Don't worry! You got this!"), '💪'),
+          addEmoji(applyStyle("Keep trying bhai! Hoye jabe!"), '🔥'),
+          applyStyle("Stay positive! We'll solve this together!")
+        ];
+      }
+      break;
+
+    case 'formal':
+      if (hasTopic) {
+        replies = [
+          applyStyle(`Thank you for the update regarding ${topicKeywords[0]}.`),
+          applyStyle(`I understand the ${topicKeywords[0]} situation. Let me look into this.`),
+          applyStyle(`I appreciate you informing me about ${topicKeywords[0]}.`)
+        ];
+      } else {
+        replies = [
+          applyStyle("Thank you for the update."),
+          applyStyle("I understand. Let me look into this."),
+          applyStyle("I appreciate you informing me.")
+        ];
+      }
+      break;
+
+    case 'flirty':
+      replies = [
+        addEmoji(applyStyle("Well aren't you interesting... tell me more"), '😉'),
+        applyStyle("You always know how to make me smile"),
+        applyStyle("Is it just me, or is this getting more fun?")
+      ];
+      break;
+
+    case 'short':
+      if (hasTopic) {
+        replies = [
+          applyStyle(`Ok ${topicKeywords[0]}`),
+          applyStyle("Got it"),
+          applyStyle("Sure")
+        ];
+      } else {
+        replies = [
+          applyStyle("Ok"),
+          applyStyle("Got it"),
+          applyStyle("Sure")
+        ];
+      }
+      break;
+
+    default:
+      replies = [
+        applyStyle("Okay, got it"),
+        applyStyle("Alright, sounds good"),
+        applyStyle("Sure, let me know")
+      ];
+  }
+
+  return replies;
 }
 
 console.log('🧛 Gracula Background Script: Loaded');
