@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Group Chat Test - Gracula Extension</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #0b141a;
+            margin: 0;
+            padding: 20px;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #111b21;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        h1 {
+            color: #00a884;
+            margin-bottom: 20px;
+        }
+        .chat-container {
+            background: #0b141a;
+            border-radius: 8px;
+            padding: 20px;
+            min-height: 400px;
+        }
+        .date-label {
+            text-align: center;
+            color: #8696a0;
+            font-size: 12px;
+            margin: 20px 0;
+            padding: 8px;
+            background: #182229;
+            border-radius: 8px;
+        }
+        [role="row"] {
+            margin: 8px 0;
+            display: flex;
+            flex-direction: column;
+        }
+        .message-in {
+            align-self: flex-start;
+            background: #202c33;
+            border-radius: 8px;
+            padding: 8px 12px;
+            max-width: 65%;
+            margin: 4px 0;
+        }
+        .message-out {
+            align-self: flex-end;
+            background: #005c4b;
+            border-radius: 8px;
+            padding: 8px 12px;
+            max-width: 65%;
+            margin: 4px 0;
+        }
+        .sender-name {
+            color: #00a884;
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+        .message-text {
+            color: #e9edef;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        .quoted-message {
+            background: #182229;
+            border-left: 3px solid #00a884;
+            padding: 6px 8px;
+            margin-bottom: 6px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        .quoted-sender {
+            color: #00a884;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        .quoted-text {
+            color: #8696a0;
+            font-size: 12px;
+        }
+        .timestamp {
+            color: #8696a0;
+            font-size: 11px;
+            margin-left: 8px;
+        }
+        .test-controls {
+            margin-top: 20px;
+            padding: 20px;
+            background: #202c33;
+            border-radius: 8px;
+        }
+        button {
+            background: #00a884;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #06cf9c;
+        }
+        .results {
+            margin-top: 20px;
+            padding: 20px;
+            background: #182229;
+            border-radius: 8px;
+            color: #e9edef;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .error {
+            color: #ff6b6b;
+        }
+        .success {
+            color: #00a884;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧛 Gracula Extension - WhatsApp Group Chat Test</h1>
+        
+        <div class="chat-container" id="chat-container">
+            <!-- Date Label -->
+            <div class="date-label">📅 29/9/2025</div>
+            
+            <!-- Message 1: Fahad -->
+            <div role="row" data-id="true_1234567890@g.us_msg1">
+                <div class="message-in">
+                    <div class="sender-name">Fahad</div>
+                    <span class="selectable-text copyable-text">
+                        <span class="message-text" data-pre-plain-text="[10:30 AM, 29/9/2025] Fahad: ">Sorry for being late this time. Diyea disi</span>
+                    </span>
+                    <span class="timestamp">10:30 AM</span>
+                </div>
+            </div>
+            
+            <!-- Message 2: You -->
+            <div role="row" data-id="true_1234567890@g.us_msg2">
+                <div class="message-out">
+                    <span class="selectable-text copyable-text">
+                        <span class="message-text" data-pre-plain-text="[10:32 AM, 29/9/2025] You: ">Pera nai mama chill</span>
+                    </span>
+                    <span class="timestamp">10:32 AM</span>
+                </div>
+            </div>
+            
+            <!-- Date Label -->
+            <div class="date-label">📅 21/9/2025</div>
+            
+            <!-- Message 3: You with reply -->
+            <div role="row" data-id="true_1234567890@g.us_msg3">
+                <div class="message-out">
+                    <div class="quoted-message">
+                        <div class="quoted-sender">Unknown</div>
+                        <div class="quoted-text">@Arafat amar ta goto month ei diye dichilam</div>
+                    </div>
+                    <span class="selectable-text copyable-text">
+                        <span class="message-text" data-pre-plain-text="[3:15 PM, 21/9/2025] You: ">Hoo tui dichos</span>
+                    </span>
+                    <span class="timestamp">3:15 PM</span>
+                </div>
+            </div>
+            
+            <!-- Date Label -->
+            <div class="date-label">📅 22/9/2025</div>
+            
+            <!-- Message 4: You mentioning Fahad -->
+            <div role="row" data-id="true_1234567890@g.us_msg4">
+                <div class="message-out">
+                    <span class="selectable-text copyable-text">
+                        <span class="message-text" data-pre-plain-text="[9:00 AM, 22/9/2025] You: ">@Fahad 100 tk bkash kor</span>
+                    </span>
+                    <span class="timestamp">9:00 AM</span>
+                </div>
+            </div>
+            
+            <!-- Message 5: Fahad reply -->
+            <div role="row" data-id="true_1234567890@g.us_msg5">
+                <div class="message-in">
+                    <div class="sender-name">Fahad</div>
+                    <span class="selectable-text copyable-text">
+                        <span class="message-text" data-pre-plain-text="[9:05 AM, 22/9/2025] Fahad: ">Bkash e vhore klke dicchi</span>
+                    </span>
+                    <span class="timestamp">9:05 AM</span>
+                </div>
+            </div>
+            
+            <!-- Message 6: You -->
+            <div role="row" data-id="true_1234567890@g.us_msg6">
+                <div class="message-out">
+                    <span class="selectable-text copyable-text">
+                        <span class="message-text" data-pre-plain-text="[9:06 AM, 22/9/2025] You: ">Okay</span>
+                    </span>
+                    <span class="timestamp">9:06 AM</span>
+                </div>
+            </div>
+
+            <!-- Date Label -->
+            <div class="date-label">Yesterday</div>
+
+            <!-- Message 7: You -->
+            <div role="row" data-id="true_1234567890@g.us_msg7">
+                <div class="message-out">
+                    <span class="selectable-text copyable-text">
+                        <span class="message-text" data-pre-plain-text="[4:29 PM, 18/10/2025] You: ">Guys New monthly cycle starting.</span>
+                    </span>
+                    <span class="timestamp">4:29 PM</span>
+                </div>
+            </div>
+
+            <!-- Message 8: You -->
+            <div role="row" data-id="true_1234567890@g.us_msg8">
+                <div class="message-out">
+                    <span class="selectable-text copyable-text">
+                        <span class="message-text" data-pre-plain-text="[4:29 PM, 18/10/2025] You: ">01312300321</span>
+                    </span>
+                    <span class="timestamp">4:29 PM</span>
+                </div>
+            </div>
+
+            <!-- Message 9: You -->
+            <div role="row" data-id="true_1234567890@g.us_msg9">
+                <div class="message-out">
+                    <span class="selectable-text copyable-text">
+                        <span class="message-text" data-pre-plain-text="[4:30 PM, 18/10/2025] You: ">send me 100 tk each</span>
+                    </span>
+                    <span class="timestamp">4:30 PM</span>
+                </div>
+            </div>
+
+            <!-- Message 10: Nigash -->
+            <div role="row" data-id="true_1234567890@g.us_msg10">
+                <div class="message-in">
+                    <div class="sender-name">Nigash Khaled CSE 20</div>
+                    <span class="selectable-text copyable-text">
+                        <span class="message-text" data-pre-plain-text="[8:06 PM, 18/10/2025] Nigash Khaled CSE 20: ">Okayy</span>
+                    </span>
+                    <span class="timestamp">8:06 PM</span>
+                </div>
+            </div>
+
+            <!-- Message 11: Saifur -->
+            <div role="row" data-id="true_1234567890@g.us_msg11">
+                <div class="message-in">
+                    <div class="sender-name">Saifur CSE 20</div>
+                    <span class="selectable-text copyable-text">
+                        <span class="message-text" data-pre-plain-text="[11:07 PM, 18/10/2025] Saifur CSE 20: ">Arafat amar bkash e apatoto taka nei</span>
+                    </span>
+                    <span class="timestamp">11:07 PM</span>
+                </div>
+            </div>
+
+            <!-- Message 12: Saifur -->
+            <div role="row" data-id="true_1234567890@g.us_msg12">
+                <div class="message-in">
+                    <div class="sender-name">Saifur CSE 20</div>
+                    <span class="selectable-text copyable-text">
+                        <span class="message-text" data-pre-plain-text="[11:08 PM, 18/10/2025] Saifur CSE 20: ">Toke ami kalke pathai dibo</span>
+                    </span>
+                    <span class="timestamp">11:08 PM</span>
+                </div>
+            </div>
+
+            <!-- Message 13: You -->
+            <div role="row" data-id="true_1234567890@g.us_msg13">
+                <div class="message-out">
+                    <span class="selectable-text copyable-text">
+                        <span class="message-text" data-pre-plain-text="[11:08 PM, 18/10/2025] You: ">Pera nai pore dish</span>
+                    </span>
+                    <span class="timestamp">11:08 PM</span>
+                </div>
+            </div>
+
+            <!-- Date Label -->
+            <div class="date-label">Today</div>
+
+            <!-- Message 14: Nigash -->
+            <div role="row" data-id="true_1234567890@g.us_msg14">
+                <div class="message-in">
+                    <div class="sender-name">Nigash Khaled CSE 20</div>
+                    <span class="selectable-text copyable-text">
+                        <span class="message-text" data-pre-plain-text="[12:55 AM, 19/10/2025] Nigash Khaled CSE 20: ">amar taka ta @Arafat dibe</span>
+                    </span>
+                    <span class="timestamp">12:55 AM</span>
+                </div>
+            </div>
+
+            <!-- Message 15: You (GIF) -->
+            <div role="row" data-id="true_1234567890@g.us_msg15">
+                <div class="message-out">
+                    <span class="selectable-text copyable-text">
+                        <span class="message-text" data-pre-plain-text="[12:59 AM, 19/10/2025] You: ">GIF</span>
+                    </span>
+                    <span class="timestamp">12:59 AM</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="test-controls">
+            <h3 style="color: #00a884; margin-top: 0;">Test Controls</h3>
+            <button onclick="loadExtensionScripts()">Load Extension Scripts</button>
+            <button onclick="testExtraction()">Test Message Extraction</button>
+            <button onclick="testSpeakerDetection()">Test Speaker Detection</button>
+            <button onclick="testDateGrouping()">Test Date Grouping</button>
+            <button onclick="clearResults()">Clear Results</button>
+        </div>
+        
+        <div class="results" id="results">
+            <div class="success">Ready to test. Click "Load Extension Scripts" first.</div>
+        </div>
+    </div>
+
+    <script>
+        let scriptsLoaded = false;
+        
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : '';
+            results.innerHTML += `<div class="${className}">${message}</div>`;
+            results.scrollTop = results.scrollHeight;
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        async function loadExtensionScripts() {
+            clearResults();
+            log('🔄 Loading extension scripts...', 'info');
+            
+            const scripts = [
+                './src/shared/lib/logger.js',
+                './src/shared/config/platforms.js',
+                './src/shared/knowledge/index.js',
+                './src/shared/knowledge/domains/technology.js',
+                './src/shared/knowledge/languages/bangla.js',
+                './src/shared/knowledge/patterns/conversation-patterns.js',
+                './src/shared/knowledge/patterns/semantic-groups.js',
+                './src/entities/platform/model/Platform.js',
+                './src/entities/platform/lib/detector.js',
+                './src/entities/message/model/Message.js',
+                './src/features/context/model/SpeakerDetector.js',
+                './src/features/context/model/TopicAnalyzer.js',
+                './src/features/context/model/ConversationAnalyzer.js',
+                './src/features/context/model/ConversationSummarizer.js',
+                './src/features/context/model/ContextExtractor.js'
+            ];
+            
+            try {
+                for (const script of scripts) {
+                    await loadScript(script);
+                    log(`✅ Loaded: ${script}`, 'success');
+                }
+                scriptsLoaded = true;
+                log('✅ All scripts loaded successfully!', 'success');
+                log('🧛 Gracula namespace available: ' + (typeof window.Gracula !== 'undefined'), 'success');
+            } catch (error) {
+                log(`❌ Error loading scripts: ${error.message}`, 'error');
+                log(`Stack: ${error.stack}`, 'error');
+            }
+        }
+        
+        function loadScript(src) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = resolve;
+                script.onerror = () => reject(new Error(`Failed to load ${src}`));
+                document.head.appendChild(script);
+            });
+        }
+        
+        function testExtraction() {
+            if (!scriptsLoaded) {
+                log('❌ Please load extension scripts first!', 'error');
+                return;
+            }
+            
+            clearResults();
+            log('🧪 Testing message extraction...', 'info');
+            
+            try {
+                // Detect platform
+                const platform = window.Gracula.detectPlatform();
+                log(`Platform detected: ${platform ? platform.name : 'None'}`, platform ? 'success' : 'error');
+                
+                if (!platform) {
+                    log('❌ No platform detected. Creating mock WhatsApp platform...', 'info');
+                    const whatsappConfig = window.Gracula.Config.PLATFORMS.whatsapp;
+                    const mockPlatform = new window.Gracula.Platform(whatsappConfig);
+                    log('✅ Mock platform created', 'success');
+                    
+                    // Test extraction with mock platform
+                    const extractor = new window.Gracula.ContextExtractor(mockPlatform);
+                    const messages = extractor.extract();
+                    
+                    log(`\n📊 Extraction Results:`, 'success');
+                    log(`Total messages extracted: ${messages.length}`, 'info');
+                    
+                    messages.forEach((msg, idx) => {
+                        log(`\n--- Message ${idx + 1} ---`, 'info');
+                        log(`Speaker: ${msg.speaker}`, 'info');
+                        log(`Text: ${msg.text}`, 'info');
+                        log(`Outgoing: ${msg.isOutgoing}`, 'info');
+                        log(`Timestamp: ${msg.timestamp || 'N/A'}`, 'info');
+                        if (msg.metadata?.quotedContext) {
+                            log(`Quoted: ${JSON.stringify(msg.metadata.quotedContext)}`, 'info');
+                        }
+                    });
+                    
+                    // Test context strings
+                    log(`\n📝 Context Strings:`, 'success');
+                    const contextStrings = extractor.getContextStrings();
+                    contextStrings.forEach(str => log(str, 'info'));
+                    
+                } else {
+                    log('✅ Using detected platform', 'success');
+                }
+                
+            } catch (error) {
+                log(`❌ Error during extraction: ${error.message}`, 'error');
+                log(`Stack: ${error.stack}`, 'error');
+            }
+        }
+        
+        function testSpeakerDetection() {
+            if (!scriptsLoaded) {
+                log('❌ Please load extension scripts first!', 'error');
+                return;
+            }
+            
+            clearResults();
+            log('🧪 Testing speaker detection...', 'info');
+            
+            try {
+                const whatsappConfig = window.Gracula.Config.PLATFORMS.whatsapp;
+                const mockPlatform = new window.Gracula.Platform(whatsappConfig);
+                const detector = new window.Gracula.SpeakerDetector(mockPlatform);
+                
+                const messageElements = document.querySelectorAll('[role="row"]');
+                log(`Found ${messageElements.length} message elements`, 'info');
+                
+                messageElements.forEach((el, idx) => {
+                    const result = detector.detectSpeaker(el);
+                    log(`\n--- Message ${idx + 1} ---`, 'info');
+                    log(`Speaker: ${result.speaker}`, 'info');
+                    log(`Outgoing: ${result.isOutgoing}`, 'info');
+                    log(`Strategy: ${result.meta?.strategy || 'N/A'}`, 'info');
+                    log(`Timestamp: ${result.timestamp || 'N/A'}`, 'info');
+                });
+                
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+                log(`Stack: ${error.stack}`, 'error');
+            }
+        }
+        
+        function testDateGrouping() {
+            if (!scriptsLoaded) {
+                log('❌ Please load extension scripts first!', 'error');
+                return;
+            }
+            
+            clearResults();
+            log('🧪 Testing date grouping...', 'info');
+            
+            try {
+                const whatsappConfig = window.Gracula.Config.PLATFORMS.whatsapp;
+                const mockPlatform = new window.Gracula.Platform(whatsappConfig);
+                const extractor = new window.Gracula.ContextExtractor(mockPlatform);
+                const messages = extractor.extract();
+                
+                const grouped = extractor.groupMessagesByDate();
+                
+                log(`\n📅 Date Groups:`, 'success');
+                for (const [date, msgs] of Object.entries(grouped)) {
+                    log(`\n${date}: ${msgs.length} messages`, 'info');
+                    msgs.forEach(msg => {
+                        log(`  ${msg.speaker}: ${msg.text}`, 'info');
+                    });
+                }
+                
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+                log(`Stack: ${error.stack}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
+

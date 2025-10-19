@@ -5,8 +5,8 @@ window.Gracula = window.Gracula || {};
 
 
 const MAX_MESSAGES = 50;
-const RECENT_MESSAGE_WINDOW = 28;
-const MIN_RECENT_MESSAGE_COUNT = 6;
+const RECENT_MESSAGE_WINDOW = 40;
+const MIN_RECENT_MESSAGE_COUNT = 16;
 const MESSAGE_CONTAINER_FALLBACKS = [
   '[data-id]',
   'div[class*="message"]',
@@ -112,16 +112,28 @@ window.Gracula.ContextExtractor = class {
     allDivs.forEach(element => {
       const text = (element.textContent || '').trim();
 
+      // Remove common prefixes like emojis (📅, 📆, etc.) and whitespace
+      const cleanedText = text.replace(/^[📅📆🗓️\s]+/, '').trim();
+
       // Check if the text matches common date patterns and is short (date separators are usually short)
-      if (text.length < 20 && (text === 'Today' || text === 'Yesterday' || text === 'Monday' || text === 'Tuesday' ||
-          text === 'Wednesday' || text === 'Thursday' || text === 'Friday' || text === 'Saturday' ||
-          text === 'Sunday' || /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(text))) {
+      // Check both original text and cleaned text to handle emoji prefixes
+      const isDatePattern = (str) => {
+        return str === 'Today' || str === 'Yesterday' ||
+               str === 'Monday' || str === 'Tuesday' || str === 'Wednesday' ||
+               str === 'Thursday' || str === 'Friday' || str === 'Saturday' || str === 'Sunday' ||
+               /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str) ||
+               /^\d{1,2}\/\d{1,2}\/\d{2}$/.test(str);
+      };
+
+      if (text.length < 30 && (isDatePattern(text) || isDatePattern(cleanedText))) {
+        // Use the cleaned text as the date label (without emoji)
+        const dateLabel = isDatePattern(cleanedText) ? cleanedText : text;
 
         // Only add if we haven't seen this date yet (avoid duplicates from nested divs)
-        if (!seenDates.has(text)) {
-          dateLabelMap.push({ dateLabel: text, element });
-          seenDates.add(text);
-          // window.Gracula.logger.debug(`🧛 [CONTEXT] Found date separator: ${text}`);
+        if (!seenDates.has(dateLabel)) {
+          dateLabelMap.push({ dateLabel, element });
+          seenDates.add(dateLabel);
+          // window.Gracula.logger.debug(`🧛 [CONTEXT] Found date separator: ${dateLabel}`);
         }
       }
     });
@@ -274,6 +286,24 @@ window.Gracula.ContextExtractor = class {
       const d = new Date(today);
       d.setDate(d.getDate() - diff);
       return d;
+    }
+
+    // Try to parse DD/MM/YYYY or DD/MM/YY format (common in WhatsApp)
+    const ddmmyyyyMatch = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+    if (ddmmyyyyMatch) {
+      const day = parseInt(ddmmyyyyMatch[1], 10);
+      const month = parseInt(ddmmyyyyMatch[2], 10) - 1; // months are 0-indexed
+      let year = parseInt(ddmmyyyyMatch[3], 10);
+
+      // Handle 2-digit years
+      if (year < 100) {
+        year += 2000;
+      }
+
+      const parsed = new Date(year, month, day, 0, 0, 0, 0);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+      }
     }
 
     // Try generic date parse (e.g., Oct 20, 2025)
