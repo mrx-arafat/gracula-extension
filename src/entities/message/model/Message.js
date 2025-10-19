@@ -118,7 +118,21 @@ window.Gracula.Message = class {
    */
   toContextString() {
     const speaker = this.isFromUser() ? 'You' : (this.speaker || 'Other');
-    return `${speaker}: ${this.text}`;
+    let contextString = `${speaker}: ${this.text}`;
+
+    // Add quoted context if available
+    if (this.metadata?.quotedContext) {
+      const quoted = this.metadata.quotedContext;
+      contextString += ` [replying to ${quoted.sender}: "${quoted.text}"]`;
+    }
+
+    // Add media context if available
+    if (this.metadata?.mediaAttachments && this.metadata.mediaAttachments.length > 0) {
+      const mediaTypes = this.metadata.mediaAttachments.join(', ');
+      contextString += ` [attached: ${mediaTypes}]`;
+    }
+
+    return contextString;
   }
 
   /**

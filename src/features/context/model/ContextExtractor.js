@@ -22,6 +22,7 @@ window.Gracula.ContextExtractor = class {
     this.platform = platform;
     this.speakerDetector = new window.Gracula.SpeakerDetector(platform);
     this.analyzer = new window.Gracula.ConversationAnalyzer();
+    this.summarizer = new window.Gracula.ConversationSummarizer();
     this.messages = [];
   }
 
@@ -430,6 +431,71 @@ window.Gracula.ContextExtractor = class {
   }
 
   /**
+   * Extract quoted message context if present
+   */
+  extractQuotedContext(element) {
+    if (!element) return null;
+
+    const quotedContainer = element.querySelector('[data-quoted], .quoted-message, [class*="quoted"]');
+    if (!quotedContainer) return null;
+
+    const quotedText = quotedContainer.textContent || quotedContainer.innerText || '';
+    const cleanedText = quotedText.trim();
+
+    if (!cleanedText) return null;
+
+    // Try to extract quoted sender if available
+    const quotedSender = quotedContainer.querySelector('[class*="quoted-author"], [class*="quoted-name"]');
+    const sender = quotedSender ? quotedSender.textContent.trim() : 'Unknown';
+
+    return {
+      text: cleanedText.substring(0, 100), // Limit to 100 chars for context
+      sender
+    };
+  }
+
+  /**
+   * Detect media attachments in a message
+   */
+  detectMediaAttachments(element) {
+    if (!element) return [];
+
+    const media = [];
+
+    // Images
+    if (element.querySelector('img[src*="blob:"], img[src*="media"]')) {
+      media.push('image');
+    }
+
+    // Videos
+    if (element.querySelector('video')) {
+      media.push('video');
+    }
+
+    // Audio/Voice messages
+    if (element.querySelector('audio, [data-icon="audio"], [aria-label*="audio"], [aria-label*="voice"]')) {
+      media.push('audio');
+    }
+
+    // Documents
+    if (element.querySelector('[data-icon="document"], [aria-label*="document"], [class*="document"]')) {
+      media.push('document');
+    }
+
+    // Stickers
+    if (element.querySelector('[data-icon="sticker"], [class*="sticker"]')) {
+      media.push('sticker');
+    }
+
+    // GIFs
+    if (element.querySelector('[aria-label*="GIF"], [class*="gif"]')) {
+      media.push('gif');
+    }
+
+    return [...new Set(media)]; // Remove duplicates
+  }
+
+  /**
    * Check if a message element is a quoted/forwarded message
    */
   isQuotedMessage(element) {
@@ -554,6 +620,12 @@ window.Gracula.ContextExtractor = class {
         || element.dataset?.prePlainText
         || null;
 
+      // Extract quoted context if present
+      const quotedContext = this.extractQuotedContext(element);
+
+      // Detect media attachments
+      const mediaAttachments = this.detectMediaAttachments(element);
+
       const message = new window.Gracula.Message({
         id: messageId,
         text,
@@ -567,7 +639,9 @@ window.Gracula.ContextExtractor = class {
           elementClass: element.className,
           messageSelector: messageTextSelector || 'innerText',
           prePlainText,
-          speakerDetection: speakerInfo.meta || null
+          speakerDetection: speakerInfo.meta || null,
+          quotedContext,
+          mediaAttachments
         }
       });
 
@@ -1048,6 +1122,12 @@ window.Gracula.ContextExtractor = class {
   getContextStrings() {
     if (this.messages.length === 0) {
       return [];
+    }
+
+    // Check if we need summarization for long conversations
+    if (this.summarizer && this.summarizer.needsSummarization(this.messages)) {
+      // Use summarized context
+      return this.summarizer.getSummarizedContext(this.messages, this.conversationAnalysis);
     }
 
     const contextLines = [];

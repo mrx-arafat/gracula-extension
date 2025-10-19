@@ -24,6 +24,10 @@ window.Gracula.ConversationAnalyzer = class {
     // Enhanced topic analysis
     const topicAnalysis = this.topicAnalyzer.analyze(messages, 'auto');
 
+    // New semantic understanding
+    const intent = this.detectIntent();
+    const emotionalState = this.detectEmotionalState();
+
     return {
       messageCount: messages.length,
       speakers: this.identifySpeakers(),
@@ -34,6 +38,8 @@ window.Gracula.ConversationAnalyzer = class {
       topics: this.extractTopics(), // Keep for backward compatibility
       topicAnalysis, // New enhanced topic analysis
       urgency: this.detectUrgency(),
+      intent, // New: semantic intent detection
+      emotionalState, // New: emotional state detection
       messageLength,
       emojiUsage,
       languageMix,
@@ -498,6 +504,123 @@ window.Gracula.ConversationAnalyzer = class {
       .map(([word]) => word);
 
     return topics;
+  }
+
+  /**
+   * Detect semantic intent in the conversation
+   */
+  detectIntent() {
+    if (!Array.isArray(this.messages) || this.messages.length === 0) {
+      return { primary: 'unknown', secondary: [], confidence: 'low' };
+    }
+
+    const intents = {
+      asking_question: 0,
+      requesting_help: 0,
+      making_plans: 0,
+      sharing_info: 0,
+      expressing_emotion: 0,
+      giving_opinion: 0,
+      small_talk: 0,
+      seeking_confirmation: 0
+    };
+
+    // Keywords and patterns for each intent
+    const patterns = {
+      asking_question: /\?|what|why|how|when|where|who|ki|keno|kobe|kothai|ke/i,
+      requesting_help: /help|please|can you|could you|ektu|please help|assist|support/i,
+      making_plans: /let's|we should|planning|meet|tomorrow|schedule|plan|kori|korbo/i,
+      sharing_info: /look|check|see|fyi|here|this is|dekho|dekh|eta/i,
+      expressing_emotion: /love|hate|happy|sad|angry|excited|worried|frustrated|bhalo|kharap/i,
+      giving_opinion: /think|believe|feel|opinion|i would|ami mone kori|amar mote/i,
+      small_talk: /hi|hello|hey|good morning|how are you|kemon acho|ki khobor/i,
+      seeking_confirmation: /right|correct|isn't it|na|naki|taina|okay|ok|thik/i
+    };
+
+    // Analyze last 5 messages for intent
+    const recentMessages = this.messages.slice(-5);
+
+    recentMessages.forEach(msg => {
+      const text = (msg?.text || '').toLowerCase();
+      if (!text) return;
+
+      // Check each pattern
+      Object.keys(patterns).forEach(intent => {
+        if (patterns[intent].test(text)) {
+          intents[intent]++;
+        }
+      });
+    });
+
+    // Find primary intent
+    const sortedIntents = Object.entries(intents)
+      .sort((a, b) => b[1] - a[1])
+      .filter(([_, count]) => count > 0);
+
+    if (sortedIntents.length === 0) {
+      return { primary: 'small_talk', secondary: [], confidence: 'low' };
+    }
+
+    const primary = sortedIntents[0][0];
+    const secondary = sortedIntents.slice(1, 3).map(([intent]) => intent);
+
+    // Determine confidence
+    const totalMatches = sortedIntents.reduce((sum, [_, count]) => sum + count, 0);
+    const primaryScore = sortedIntents[0][1];
+    const confidence = primaryScore / totalMatches > 0.5 ? 'high' : 'medium';
+
+    return { primary, secondary, confidence };
+  }
+
+  /**
+   * Detect emotional state from conversation
+   */
+  detectEmotionalState() {
+    if (!Array.isArray(this.messages) || this.messages.length === 0) {
+      return { state: 'neutral', intensity: 'low', indicators: [] };
+    }
+
+    const emotions = {
+      excited: /excited|amazing|awesome|wow|omg|love it|great|fantastic|🤩|😍|🔥/i,
+      happy: /happy|good|nice|cool|glad|haha|lol|😊|😄|😁/i,
+      worried: /worried|concern|anxious|nervous|chinta|tension/i,
+      frustrated: /frustrated|annoying|ridiculous|can't believe|ugh|😠|😤/i,
+      confused: /confused|don't understand|what do you mean|bujhlam na|🤔/i,
+      grateful: /thanks|thank you|appreciate|dhonnobad|🙏/i,
+      sad: /sad|disappointed|upset|sorry|😢|😞/i
+    };
+
+    const indicators = [];
+    const recentMessages = this.messages.slice(-5);
+
+    // Check for emotional indicators
+    Object.entries(emotions).forEach(([emotion, pattern]) => {
+      recentMessages.forEach(msg => {
+        const text = msg?.text || '';
+        if (pattern.test(text)) {
+          indicators.push(emotion);
+        }
+      });
+    });
+
+    if (indicators.length === 0) {
+      return { state: 'neutral', intensity: 'low', indicators: [] };
+    }
+
+    // Count occurrences
+    const counts = {};
+    indicators.forEach(emotion => {
+      counts[emotion] = (counts[emotion] || 0) + 1;
+    });
+
+    // Find dominant emotion
+    const dominant = Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])[0];
+
+    const state = dominant[0];
+    const intensity = dominant[1] > 2 ? 'high' : (dominant[1] > 1 ? 'medium' : 'low');
+
+    return { state, intensity, indicators: [...new Set(indicators)] };
   }
 
   /**

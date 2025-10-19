@@ -89,6 +89,27 @@ function buildPrompt(tone, context, enhancedContext) {
     prompt += `Conversation Type: ${summary.conversationType || 'Unknown'}\n`;
     prompt += `Sentiment: ${summary.sentiment || 'Neutral'}\n`;
 
+    // Add semantic intent if available
+    if (analysis.intent) {
+      const intentDisplay = analysis.intent.primary.replace(/_/g, ' ');
+      prompt += `User Intent: ${intentDisplay}`;
+      if (analysis.intent.confidence && analysis.intent.confidence !== 'low') {
+        prompt += ` (${analysis.intent.confidence} confidence)`;
+      }
+      if (analysis.intent.secondary && analysis.intent.secondary.length > 0) {
+        const secondary = analysis.intent.secondary.map(i => i.replace(/_/g, ' ')).join(', ');
+        prompt += ` [also: ${secondary}]`;
+      }
+      prompt += '\n';
+    }
+
+    // Add emotional state if detected
+    if (analysis.emotionalState && analysis.emotionalState.state !== 'neutral') {
+      const emotion = analysis.emotionalState.state;
+      const intensity = analysis.emotionalState.intensity;
+      prompt += `Emotional State: ${emotion} (${intensity} intensity)\n`;
+    }
+
     if (analysis.hasUnansweredQuestion?.hasQuestion) {
       prompt += `⚠️ UNANSWERED QUESTION: "${analysis.hasUnansweredQuestion.question}" (asked by ${analysis.hasUnansweredQuestion.askedBy})\n`;
     }
