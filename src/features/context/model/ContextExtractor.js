@@ -538,48 +538,50 @@ window.Gracula.ContextExtractor = class {
     const reactions = [];
 
     try {
-      // WhatsApp reaction button format: button[aria-label*="reaction"]
-      // or elements with text like "reaction ❤. View reactions"
-      const reactionButtons = element.querySelectorAll('button[aria-label*="reaction"], [class*="reaction"]');
+      // WhatsApp reaction button format: <button aria-label="reaction ❤. View reactions">
+      // The button contains an img with class "emoji" and the emoji in the background-position style
+      const reactionButtons = element.querySelectorAll('button[aria-label*="reaction"]');
 
       reactionButtons.forEach(btn => {
-        const text = btn.textContent || btn.innerText || '';
         const ariaLabel = btn.getAttribute('aria-label') || '';
 
-        // Extract emoji from text or aria-label
-        // Common format: "reaction ❤. View reactions" or "❤️"
-        const emojiMatch = text.match(/[\u{1F300}-\u{1F9FF}]/u) || ariaLabel.match(/[\u{1F300}-\u{1F9FF}]/u);
+        // Extract emoji from aria-label
+        // Format: "reaction ❤. View reactions" or "reaction ❤ by Rafi. View reactions"
+        // The emoji is between "reaction " and ". View reactions"
+        const emojiMatch = ariaLabel.match(/reaction\s+([\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FAFF}❤️❤👍😂😮😢🙏]+)/u);
 
         if (emojiMatch) {
-          const emoji = emojiMatch[0];
+          const emoji = emojiMatch[1].trim();
 
-          // Try to extract who reacted (if available in aria-label or nearby text)
-          // Format might be: "Reacted by Rafi with ❤"
-          const reactedByMatch = ariaLabel.match(/(?:reacted by|from)\s+([^,]+)/i);
+          // Try to extract who reacted from aria-label
+          // Format might be: "reaction ❤ by Rafi. View reactions"
+          const reactedByMatch = ariaLabel.match(/reaction\s+[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FAFF}❤️❤👍😂😮😢🙏]+\s+by\s+([^.]+)/ui);
           const reactedBy = reactedByMatch ? reactedByMatch[1].trim() : null;
 
           reactions.push({ emoji, reactedBy });
         }
       });
 
-      // Also check for img elements with emoji alt text (WhatsApp uses img for emojis)
-      const emojiImages = element.querySelectorAll('img[alt*="❤"], img[alt*="👍"], img[alt*="😂"], img[alt*="😮"], img[alt*="😢"], img[alt*="🙏"]');
+      // Also check for img elements with emoji class inside reaction buttons
+      // WhatsApp uses img.emoji with background-position for emojis
+      const emojiImages = element.querySelectorAll('button[aria-label*="reaction"] img.emoji, button[aria-label*="reaction"] img[alt]');
       emojiImages.forEach(img => {
         const alt = img.getAttribute('alt') || '';
-        if (alt && /[\u{1F300}-\u{1F9FF}]/u.test(alt)) {
-          const emoji = alt.match(/[\u{1F300}-\u{1F9FF}]/u)[0];
+        const reactionContainer = img.closest('button[aria-label*="reaction"]');
 
-          // Check if this is inside a reaction button/container
-          const reactionContainer = img.closest('button[aria-label*="reaction"], [class*="reaction"]');
-          if (reactionContainer) {
-            const ariaLabel = reactionContainer.getAttribute('aria-label') || '';
-            const reactedByMatch = ariaLabel.match(/(?:reacted by|from)\s+([^,]+)/i);
-            const reactedBy = reactedByMatch ? reactedByMatch[1].trim() : null;
+        if (reactionContainer && alt) {
+          const ariaLabel = reactionContainer.getAttribute('aria-label') || '';
 
-            // Avoid duplicates
-            if (!reactions.some(r => r.emoji === emoji && r.reactedBy === reactedBy)) {
-              reactions.push({ emoji, reactedBy });
-            }
+          // Extract emoji from alt attribute
+          const emoji = alt.trim();
+
+          // Try to extract who reacted
+          const reactedByMatch = ariaLabel.match(/by\s+([^.]+)/i);
+          const reactedBy = reactedByMatch ? reactedByMatch[1].trim() : null;
+
+          // Avoid duplicates
+          if (emoji && !reactions.some(r => r.emoji === emoji && r.reactedBy === reactedBy)) {
+            reactions.push({ emoji, reactedBy });
           }
         }
       });
@@ -597,23 +599,26 @@ window.Gracula.ContextExtractor = class {
     if (!element) return false;
 
     try {
-      // WhatsApp shows "Forwarded" label for forwarded messages
+      // WhatsApp shows "Forwarded" label with forward-refreshed icon
+      // Structure: <span data-icon="forward-refreshed"> + <span>Forwarded</span>
+
+      // Check for forward-refreshed icon
+      const forwardIcon = element.querySelector('[data-icon="forward-refreshed"]');
+      if (forwardIcon) {
+        return true;
+      }
+
+      // Check for "Forwarded" text in specific span
+      const forwardedSpans = element.querySelectorAll('span.x1n2onr6.x1qiirwl.xdj266r.x1p8j9ns.xat24cr.x7phf20.x13a8xbf.x1k4tb9n.xhslqc4');
+      for (const span of forwardedSpans) {
+        if (span.textContent && span.textContent.trim() === 'Forwarded') {
+          return true;
+        }
+      }
+
+      // Fallback: Check for "Forwarded" text anywhere in the element
       const text = element.textContent || element.innerText || '';
-
-      // Check for "Forwarded" text
-      if (/\bforwarded\b/i.test(text)) {
-        return true;
-      }
-
-      // Check for forward-refreshed class or attribute
-      if (element.classList.contains('forward-refreshed') ||
-          element.querySelector('.forward-refreshed, [class*="forward"]')) {
-        return true;
-      }
-
-      // Check for aria-label containing "forwarded"
-      const ariaLabel = element.getAttribute('aria-label') || '';
-      if (/forwarded/i.test(ariaLabel)) {
+      if (/\bForwarded\b/.test(text)) {
         return true;
       }
     } catch (error) {
