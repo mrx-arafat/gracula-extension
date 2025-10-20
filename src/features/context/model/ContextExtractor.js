@@ -464,6 +464,20 @@ window.Gracula.ContextExtractor = class {
         }
       }
 
+      // CRITICAL FIX: Filter out nested rows that are children of other message rows
+      // This prevents duplicate extraction of messages with nested elements like:
+      // - "Forward media" buttons
+      // - Reaction buttons
+      // - Reply buttons
+      if (target.hasAttribute('role') && target.getAttribute('role') === 'row') {
+        // Check if this row is nested inside another message row
+        const parentRow = target.parentElement?.closest('[role="row"]');
+        if (parentRow && parentRow !== target) {
+          // This is a nested row, skip it
+          return;
+        }
+      }
+
       uniqueElements.add(target);
     };
 
@@ -512,6 +526,101 @@ window.Gracula.ContextExtractor = class {
       text: cleanedText.substring(0, 100), // Limit to 100 chars for context
       sender
     };
+  }
+
+  /**
+   * Detect reactions on a message
+   * Returns array of {emoji, reactedBy} objects
+   */
+  detectReactions(element) {
+    if (!element) return [];
+
+    const reactions = [];
+
+    try {
+      // WhatsApp reaction button format: button[aria-label*="reaction"]
+      // or elements with text like "reaction ❤. View reactions"
+      const reactionButtons = element.querySelectorAll('button[aria-label*="reaction"], [class*="reaction"]');
+
+      reactionButtons.forEach(btn => {
+        const text = btn.textContent || btn.innerText || '';
+        const ariaLabel = btn.getAttribute('aria-label') || '';
+
+        // Extract emoji from text or aria-label
+        // Common format: "reaction ❤. View reactions" or "❤️"
+        const emojiMatch = text.match(/[\u{1F300}-\u{1F9FF}]/u) || ariaLabel.match(/[\u{1F300}-\u{1F9FF}]/u);
+
+        if (emojiMatch) {
+          const emoji = emojiMatch[0];
+
+          // Try to extract who reacted (if available in aria-label or nearby text)
+          // Format might be: "Reacted by Rafi with ❤"
+          const reactedByMatch = ariaLabel.match(/(?:reacted by|from)\s+([^,]+)/i);
+          const reactedBy = reactedByMatch ? reactedByMatch[1].trim() : null;
+
+          reactions.push({ emoji, reactedBy });
+        }
+      });
+
+      // Also check for img elements with emoji alt text (WhatsApp uses img for emojis)
+      const emojiImages = element.querySelectorAll('img[alt*="❤"], img[alt*="👍"], img[alt*="😂"], img[alt*="😮"], img[alt*="😢"], img[alt*="🙏"]');
+      emojiImages.forEach(img => {
+        const alt = img.getAttribute('alt') || '';
+        if (alt && /[\u{1F300}-\u{1F9FF}]/u.test(alt)) {
+          const emoji = alt.match(/[\u{1F300}-\u{1F9FF}]/u)[0];
+
+          // Check if this is inside a reaction button/container
+          const reactionContainer = img.closest('button[aria-label*="reaction"], [class*="reaction"]');
+          if (reactionContainer) {
+            const ariaLabel = reactionContainer.getAttribute('aria-label') || '';
+            const reactedByMatch = ariaLabel.match(/(?:reacted by|from)\s+([^,]+)/i);
+            const reactedBy = reactedByMatch ? reactedByMatch[1].trim() : null;
+
+            // Avoid duplicates
+            if (!reactions.some(r => r.emoji === emoji && r.reactedBy === reactedBy)) {
+              reactions.push({ emoji, reactedBy });
+            }
+          }
+        }
+      });
+    } catch (error) {
+      console.warn('🧛 [CONTEXT] Error detecting reactions:', error);
+    }
+
+    return reactions;
+  }
+
+  /**
+   * Detect if message was forwarded
+   */
+  detectForwarded(element) {
+    if (!element) return false;
+
+    try {
+      // WhatsApp shows "Forwarded" label for forwarded messages
+      const text = element.textContent || element.innerText || '';
+
+      // Check for "Forwarded" text
+      if (/\bforwarded\b/i.test(text)) {
+        return true;
+      }
+
+      // Check for forward-refreshed class or attribute
+      if (element.classList.contains('forward-refreshed') ||
+          element.querySelector('.forward-refreshed, [class*="forward"]')) {
+        return true;
+      }
+
+      // Check for aria-label containing "forwarded"
+      const ariaLabel = element.getAttribute('aria-label') || '';
+      if (/forwarded/i.test(ariaLabel)) {
+        return true;
+      }
+    } catch (error) {
+      console.warn('🧛 [CONTEXT] Error detecting forwarded status:', error);
+    }
+
+    return false;
   }
 
   /**
@@ -690,6 +799,18 @@ window.Gracula.ContextExtractor = class {
       // Detect media attachments
       const mediaAttachments = this.detectMediaAttachments(element);
 
+      // NEW: Detect reactions
+      const reactions = this.detectReactions(element);
+      if (reactions && reactions.length > 0) {
+        console.log(`🎉 [CONTEXT] Detected ${reactions.length} reactions:`, reactions);
+      }
+
+      // NEW: Detect if message was forwarded
+      const isForwarded = this.detectForwarded(element);
+      if (isForwarded) {
+        console.log(`📤 [CONTEXT] Message is forwarded`);
+      }
+
       const message = new window.Gracula.Message({
         id: messageId,
         text,
@@ -697,6 +818,8 @@ window.Gracula.ContextExtractor = class {
         isOutgoing: speakerInfo.isOutgoing,
         timestamp,
         element,
+        reactions,        // NEW: Add reactions
+        isForwarded,      // NEW: Add forwarded status
         metadata: {
           index,
           elementTag: element.tagName,
@@ -875,10 +998,32 @@ window.Gracula.ContextExtractor = class {
       const speakerKey = (msg.speaker || 'unknown').trim().toLowerCase();
       const key = `${speakerKey}::${textKey}`;
 
-      // If we've seen this key before, skip it
+      // If we've seen this key before, check which one to keep
       if (seen.has(key)) {
-        duplicateCount++;
-        window.Gracula.logger.debug(`🧛 [DEDUP] Skipping duplicate: ${speakerKey}: ${textKey.substring(0, 50)}...`);
+        const existingMsg = seen.get(key);
+        const existingIndex = existingMsg.metadata?.index ?? Infinity;
+        const currentIndex = msg.metadata?.index ?? Infinity;
+
+        // Keep the message with the LOWER index (earlier in DOM order)
+        // This ensures we keep the first occurrence and discard later duplicates
+        if (currentIndex < existingIndex) {
+          // Replace the existing message with the current one (it has a lower index)
+          window.Gracula.logger.debug(`🧛 [DEDUP] Replacing duplicate (keeping earlier index ${currentIndex} vs ${existingIndex}): ${speakerKey}: ${textKey.substring(0, 50)}...`);
+
+          // Remove the old message from result
+          const oldIndex = result.indexOf(existingMsg);
+          if (oldIndex !== -1) {
+            result.splice(oldIndex, 1);
+          }
+
+          // Add the new message (with lower index)
+          seen.set(key, msg);
+          result.push(msg);
+        } else {
+          // Skip the current message (existing one has lower index)
+          duplicateCount++;
+          window.Gracula.logger.debug(`🧛 [DEDUP] Skipping duplicate (keeping earlier index ${existingIndex} vs ${currentIndex}): ${speakerKey}: ${textKey.substring(0, 50)}...`);
+        }
         continue;
       }
 

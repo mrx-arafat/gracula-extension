@@ -14,6 +14,8 @@ window.Gracula.Message = class {
     this.element = data.element || null; // Reference to DOM element
     this.metadata = data.metadata || {};
     this.dateLabel = data.dateLabel || null; // Date label from WhatsApp (e.g., "Today", "Monday")
+    this.reactions = data.reactions || []; // Array of reactions: [{emoji: '❤', reactedBy: 'Rafi'}]
+    this.isForwarded = data.isForwarded || false; // Whether message was forwarded
   }
 
   generateId() {
@@ -118,7 +120,14 @@ window.Gracula.Message = class {
    */
   toContextString() {
     const speaker = this.isFromUser() ? 'You' : (this.speaker || 'Other');
-    let contextString = `${speaker}: ${this.text}`;
+
+    // Add forwarded indicator to text if message was forwarded
+    let messageText = this.text;
+    if (this.isForwarded) {
+      messageText = `[Forwarded] ${messageText}`;
+    }
+
+    let contextString = `${speaker}: ${messageText}`;
 
     // Add quoted context if available
     if (this.metadata?.quotedContext) {
@@ -130,6 +139,19 @@ window.Gracula.Message = class {
     if (this.metadata?.mediaAttachments && this.metadata.mediaAttachments.length > 0) {
       const mediaTypes = this.metadata.mediaAttachments.join(', ');
       contextString += ` [attached: ${mediaTypes}]`;
+    }
+
+    // Add reactions if available
+    if (this.reactions && this.reactions.length > 0) {
+      const reactionStr = this.reactions
+        .map(r => {
+          if (r.reactedBy) {
+            return `${r.emoji} by ${r.reactedBy}`;
+          }
+          return r.emoji;
+        })
+        .join(', ');
+      contextString += ` [reactions: ${reactionStr}]`;
     }
 
     return contextString;
