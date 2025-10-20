@@ -586,3 +586,197 @@
   border-radius: 2px;
 }
 
+/* Mode Selector Styles */
+.gracula-mode-selector {
+  margin-top: 16px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.gracula-mode-selector-header {
+  margin-bottom: 12px;
+}
+
+.gracula-mode-selector-header strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: #333;
+}
+
+.gracula-mode-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gracula-mode-option {
+  display: flex;
+  align-items: center;
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.gracula-mode-option:hover {
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+}
+
+.gracula-mode-option input[type="radio"] {
+  margin-right: 12px;
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+}
+
+.gracula-mode-option input[type="radio"]:checked + .gracula-mode-content {
+  color: #667eea;
+}
+
+.gracula-mode-reply input[type="radio"]:checked ~ .gracula-mode-content {
+  color: #667eea;
+}
+
+.gracula-mode-new input[type="radio"]:checked ~ .gracula-mode-content {
+  color: #10b981;
+}
+
+.gracula-mode-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.gracula-mode-icon {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.gracula-mode-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gracula-mode-text strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.gracula-mode-text small {
+  font-size: 11px;
+  color: #666;
+}
+
+/* Mode Context Container (Accordion) */
+.gracula-mode-context-container {
+  margin-top: 12px;
+}
+
+.gracula-context-accordion {
+  background: white;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  border: 1px solid #e0e0e0;
+  overflow: hidden;
+}
+
+.gracula-accordion-toggle {
+  width: 100%;
+  background: #f8f9fa;
+  border: none;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  text-align: left;
+}
+
+.gracula-accordion-toggle:hover {
+  background: #e9ecef;
+}
+
+.gracula-accordion-icon {
+  font-size: 12px;
+  transition: transform 0.2s ease;
+}
+
+.gracula-accordion-toggle strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.gracula-accordion-content {
+  padding: 14px;
+  display: none;
+}
+
+.gracula-context-item {
+  margin-bottom: 10px;
+}
+
+.gracula-context-item:last-child {
+  margin-bottom: 0;
+}
+
+.gracula-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.gracula-value {
+  font-size: 12px;
+  color: #333;
+  line-height: 1.5;
+}
+
+.gracula-topics-list {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0 0 0;
+}
+
+.gracula-topics-list li {
+  font-size: 12px;
+  color: #333;
+  padding: 6px 10px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  margin-bottom: 6px;
+  border-left: 3px solid #10b981;
+}
+
+.gracula-topics-list li:last-child {
+  margin-bottom: 0;
+}
+
+/* Responsive adjustments for mode selector */
+@media (max-width: 640px) {
+  .gracula-mode-selector {
+    padding: 12px;
+  }
+
+  .gracula-mode-option {
+    padding: 10px;
+  }
+
+  .gracula-mode-text strong {
+    font-size: 12px;
+  }
+
+  .gracula-mode-text small {
+    font-size: 10px;
+  }
+}

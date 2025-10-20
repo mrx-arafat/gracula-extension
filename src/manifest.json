@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Gracula - AI Reply Assistant",
-  "version": "2.0.0",
+  "version": "2.0.3",
   "description": "Context-aware AI-powered replies for messaging apps. Advanced speaker detection and conversation analysis.",
   "permissions": [
     "activeTab",

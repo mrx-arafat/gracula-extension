@@ -1603,13 +1603,15 @@ window.Gracula.ContextExtractor = class {
     const analysis = this.analyzer.analyze(this.messages);
     const summary = this.analyzer.getSummary();
     const metrics = this.computeMetrics(this.messages, analysis, summary);
+    const dualAnalysis = this.analyzer.getDualAnalysis();
 
     return {
       messages: this.messages.map(msg => msg.toJSON()),
       analysis,
       summary,
       metrics,
-      contextStrings: this.getContextStrings()
+      contextStrings: this.getContextStrings(),
+      dualAnalysis  // NEW: Add dual context analysis
     };
   }
 

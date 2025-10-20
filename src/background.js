@@ -21,7 +21,7 @@ chrome.storage.sync.get(['apiConfig'], (result) => {
 // Listen for messages from content script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'generateReplies') {
-    handleGenerateReplies(request.tone, request.context, request.enhancedContext)
+    handleGenerateReplies(request.tone, request.context, request.enhancedContext, request.responseMode)
       .then(replies => sendResponse({ success: true, replies }))
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true; // Keep channel open for async response
@@ -42,19 +42,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-async function handleGenerateReplies(tone, context, enhancedContext) {
-  console.log('🧛 Gracula Background: Generating replies with tone:', tone.name);
+async function handleGenerateReplies(tone, context, enhancedContext, responseMode = 'reply') {
+  console.log('🧛 Gracula Background: Generating replies with tone:', tone.name, 'mode:', responseMode);
 
-  // Build the prompt with enhanced context
-  const prompt = buildPrompt(tone, context, enhancedContext);
+  // Build the prompt with enhanced context and response mode
+  const prompt = buildPrompt(tone, context, enhancedContext, responseMode);
 
   // Call AI API
-  const replies = await callAIAPI(prompt, { enhancedContext, metrics: enhancedContext?.metrics });
+  const replies = await callAIAPI(prompt, { enhancedContext, metrics: enhancedContext?.metrics, responseMode });
 
   return replies;
 }
 
-function buildPrompt(tone, context, enhancedContext) {
+function buildPrompt(tone, context, enhancedContext, responseMode = 'reply') {
   let prompt = '';
 
   const analysis = enhancedContext?.analysis;
@@ -63,6 +63,27 @@ function buildPrompt(tone, context, enhancedContext) {
   const styleMarkers = analysis?.styleMarkers;
   const emojiUsage = analysis?.emojiUsage;
   const lengthStats = analysis?.messageLength;
+  const dualAnalysis = enhancedContext?.dualAnalysis;
+
+  // Add response mode context at the top
+  if (responseMode === 'new' && dualAnalysis?.newConversation) {
+    const newConv = dualAnalysis.newConversation;
+    prompt += '=== RESPONSE MODE: START NEW CONVERSATION ===\n';
+    prompt += `Last interaction: ${newConv.lastInteraction}\n`;
+    prompt += `Conversation state: ${newConv.conversationState}\n`;
+    prompt += `Approach: ${newConv.approach}\n`;
+    if (newConv.suggestedTopics && newConv.suggestedTopics.length > 0) {
+      prompt += `Suggested topics: ${newConv.suggestedTopics.join(', ')}\n`;
+    }
+    prompt += '\n⚠️ IMPORTANT: Generate a NEW conversation starter. DO NOT reply to the last message. Start fresh with a casual greeting or new topic.\n\n';
+  } else if (responseMode === 'reply' && dualAnalysis?.replyMode) {
+    const replyMode = dualAnalysis.replyMode;
+    prompt += '=== RESPONSE MODE: REPLY TO LAST MESSAGE ===\n';
+    prompt += `Responding to: "${replyMode.respondingTo}" (from ${replyMode.speaker}, ${replyMode.timeGap})\n`;
+    prompt += `Approach: ${replyMode.approach}\n`;
+    prompt += `Example tone: ${replyMode.exampleTone}\n`;
+    prompt += '\n⚠️ IMPORTANT: Generate a direct reply to the last message shown above. Acknowledge what they said.\n\n';
+  }
 
   const formatPace = (seconds) => {
     if (typeof seconds !== 'number' || Number.isNaN(seconds)) {

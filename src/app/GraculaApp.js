@@ -309,12 +309,17 @@ window.Gracula.GraculaApp = class {
    * Generate replies using background script
    */
   async generateReplies(tone) {
+    // Get selected mode from modal
+    const modalBody = this.modal.getBody();
+    const selectedMode = modalBody?.dataset?.selectedMode || 'reply';
+
     return new Promise((resolve, reject) => {
       chrome.runtime.sendMessage({
         action: 'generateReplies',
         tone: tone.toJSON(),
         context: this.context,
-        enhancedContext: this.enhancedContext
+        enhancedContext: this.enhancedContext,
+        responseMode: selectedMode  // NEW: Pass selected mode
       }, (response) => {
         if (response && response.success) {
           resolve(response.replies);

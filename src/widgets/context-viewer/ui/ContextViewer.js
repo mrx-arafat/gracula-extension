@@ -30,6 +30,8 @@ Friend: Hey, what are you doing tonight?
 Me: Nothing much, just chilling
 Friend: Want to grab dinner?">${this.getFullContext()}</textarea>
         </div>
+        ${this.showEnhanced ? this.renderModeSelector() : ''}
+        ${this.showEnhanced ? this.renderSelectedModeContext() : ''}
         ${this.showEnhanced ? this.renderAnalysis() : ''}
         <div class="gracula-context-actions" style="display: none;">
           <button class="gracula-save-context-btn">💾 Save Context</button>
@@ -40,6 +42,139 @@ Friend: Want to grab dinner?">${this.getFullContext()}</textarea>
 
     return html;
   }
+
+  /**
+   * Render mode selector (Reply vs New Conversation)
+   */
+  renderModeSelector() {
+    return `
+      <div class="gracula-mode-selector">
+        <div class="gracula-mode-selector-header">
+          <strong>💡 Choose Response Mode:</strong>
+        </div>
+        <div class="gracula-mode-options">
+          <label class="gracula-mode-option gracula-mode-reply">
+            <input type="radio" name="response-mode" value="reply" checked>
+            <div class="gracula-mode-content">
+              <span class="gracula-mode-icon">📩</span>
+              <div class="gracula-mode-text">
+                <strong>Reply to Last Message</strong>
+                <small>Respond to "${this.getLastMessagePreview()}"</small>
+              </div>
+            </div>
+          </label>
+          <label class="gracula-mode-option gracula-mode-new">
+            <input type="radio" name="response-mode" value="new">
+            <div class="gracula-mode-content">
+              <span class="gracula-mode-icon">💬</span>
+              <div class="gracula-mode-text">
+                <strong>Start New Conversation</strong>
+                <small>Begin fresh topic (last chat ${this.getTimeGap()})</small>
+              </div>
+            </div>
+          </label>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Get last message preview for mode selector
+   */
+  getLastMessagePreview() {
+    if (!this.enhancedContext || !this.enhancedContext.dualAnalysis) {
+      return 'last message';
+    }
+    const text = this.enhancedContext.dualAnalysis.replyMode.respondingTo || 'last message';
+    return text.length > 30 ? text.substring(0, 30) + '...' : text;
+  }
+
+  /**
+   * Get time gap for mode selector
+   */
+  getTimeGap() {
+    if (!this.enhancedContext || !this.enhancedContext.dualAnalysis) {
+      return 'recently';
+    }
+    return this.enhancedContext.dualAnalysis.newConversation.lastInteraction || 'recently';
+  }
+
+  /**
+   * Render selected mode context (accordion style)
+   */
+  renderSelectedModeContext() {
+    if (!this.enhancedContext || !this.enhancedContext.dualAnalysis) {
+      return '';
+    }
+
+    const { replyMode, newConversation } = this.enhancedContext.dualAnalysis;
+    const escapeHtml = window.Gracula.DOMUtils.escapeHtml;
+
+    // Reply Mode Context
+    const replyModeHtml = `
+      <div class="gracula-context-accordion gracula-reply-context" data-mode="reply">
+        <button class="gracula-accordion-toggle" data-mode="reply">
+          <span class="gracula-accordion-icon">▼</span>
+          <strong>📩 Reply Mode Context</strong>
+        </button>
+        <div class="gracula-accordion-content" style="display: block;">
+          <div class="gracula-context-item">
+            <span class="gracula-label">⏰ Responding to:</span>
+            <span class="gracula-value">"${escapeHtml(replyMode.respondingTo || 'N/A')}" (from ${escapeHtml(replyMode.speaker || 'Unknown')}, ${escapeHtml(replyMode.timeGap || 'recently')})</span>
+          </div>
+          <div class="gracula-context-item">
+            <span class="gracula-label">💡 Suggested approach:</span>
+            <span class="gracula-value">${escapeHtml(replyMode.approach || 'N/A')}</span>
+          </div>
+          <div class="gracula-context-item">
+            <span class="gracula-label">🎯 Example tone:</span>
+            <span class="gracula-value">${escapeHtml(replyMode.exampleTone || 'N/A')}</span>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // New Conversation Mode Context
+    const topicsList = newConversation.suggestedTopics && newConversation.suggestedTopics.length
+      ? newConversation.suggestedTopics.map(topic => `<li>${escapeHtml(topic)}</li>`).join('')
+      : '<li>General chat</li>';
+
+    const newConversationHtml = `
+      <div class="gracula-context-accordion gracula-new-context" data-mode="new" style="display: none;">
+        <button class="gracula-accordion-toggle" data-mode="new">
+          <span class="gracula-accordion-icon">▼</span>
+          <strong>💬 New Conversation Context</strong>
+        </button>
+        <div class="gracula-accordion-content" style="display: none;">
+          <div class="gracula-context-item">
+            <span class="gracula-label">⏰ Last interaction:</span>
+            <span class="gracula-value">${escapeHtml(newConversation.lastInteraction || 'recently')}</span>
+          </div>
+          <div class="gracula-context-item">
+            <span class="gracula-label">📌 Conversation state:</span>
+            <span class="gracula-value">${escapeHtml(newConversation.conversationState || 'N/A')}</span>
+          </div>
+          <div class="gracula-context-item">
+            <span class="gracula-label">💡 Suggested approach:</span>
+            <span class="gracula-value">${escapeHtml(newConversation.approach || 'N/A')}</span>
+          </div>
+          <div class="gracula-context-item">
+            <span class="gracula-label">🎯 Possible topics:</span>
+            <ul class="gracula-topics-list">${topicsList}</ul>
+          </div>
+        </div>
+      </div>
+    `;
+
+    return `
+      <div class="gracula-mode-context-container">
+        ${replyModeHtml}
+        ${newConversationHtml}
+      </div>
+    `;
+  }
+
+
 
   /**
    * Render conversation analysis
@@ -273,6 +408,41 @@ Friend: Want to grab dinner?">${this.getFullContext()}</textarea>
         toggleAnalysisBtn.textContent = isHidden ? '🔍 Hide Analysis' : '🔍 Analysis';
       });
     }
+
+    // Mode selector radio buttons
+    const modeRadios = container.querySelectorAll('input[name="response-mode"]');
+    modeRadios.forEach(radio => {
+      radio.addEventListener('change', (e) => {
+        const selectedMode = e.target.value;
+        const replyContext = container.querySelector('.gracula-reply-context');
+        const newContext = container.querySelector('.gracula-new-context');
+
+        if (selectedMode === 'reply') {
+          replyContext.style.display = 'block';
+          newContext.style.display = 'none';
+        } else {
+          replyContext.style.display = 'none';
+          newContext.style.display = 'block';
+        }
+
+        // Store selected mode for reply generation
+        container.dataset.selectedMode = selectedMode;
+        window.Gracula.logger.info(`Response mode changed to: ${selectedMode}`);
+      });
+    });
+
+    // Accordion toggle buttons
+    const accordionToggles = container.querySelectorAll('.gracula-accordion-toggle');
+    accordionToggles.forEach(toggle => {
+      toggle.addEventListener('click', () => {
+        const content = toggle.nextElementSibling;
+        const icon = toggle.querySelector('.gracula-accordion-icon');
+        const isExpanded = content.style.display === 'block';
+
+        content.style.display = isExpanded ? 'none' : 'block';
+        icon.textContent = isExpanded ? '▶' : '▼';
+      });
+    });
   }
 
   /**

@@ -781,6 +781,151 @@ window.Gracula.ConversationAnalyzer = class {
       isYourLastMessage: isYourLastMessage  // Whether YOU sent the last message
     };
   }
+
+  /**
+   * Detect if last message is a conversation ender
+   * (e.g., "thanks", "ok", "bye", "accha")
+   */
+  isConversationEnder(text) {
+    if (!text || typeof text !== 'string') return false;
+
+    const lowerText = text.toLowerCase().trim();
+    const enderPatterns = [
+      /^(thank you|thanks|thank|thx|ty)(\s+vai|\s+bhai|\s+bro)?[.!]*$/i,
+      /^(ok|okay|k|kk)(\s+vai|\s+bhai|\s+bro)?[.!]*$/i,
+      /^(bye|goodbye|see you|cya|ttyl)(\s+vai|\s+bhai|\s+bro)?[.!]*$/i,
+      /^(accha|achha|acha|thik ache|thik|hmm|hm)(\s+vai|\s+bhai|\s+bro)?[.!]*$/i,
+      /^(alright|got it|understood|cool)(\s+vai|\s+bhai|\s+bro)?[.!]*$/i
+    ];
+
+    return enderPatterns.some(pattern => pattern.test(lowerText));
+  }
+
+  /**
+   * Calculate time gap since last message in hours
+   */
+  getTimeSinceLastMessage() {
+    if (this.messages.length === 0) return null;
+
+    const lastMessage = this.messages[this.messages.length - 1];
+    if (!lastMessage.timestamp) return null;
+
+    const now = new Date();
+    const lastTime = lastMessage.timestamp instanceof Date
+      ? lastMessage.timestamp
+      : new Date(lastMessage.timestamp);
+
+    const diffMs = now - lastTime;
+    const diffHours = diffMs / (1000 * 60 * 60);
+
+    return diffHours;
+  }
+
+  /**
+   * Generate analysis for "Reply to Last Message" mode
+   */
+  getReplyModeAnalysis() {
+    const summary = this.getSummary();
+    const lastMessage = this.messages.length > 0 ? this.messages[this.messages.length - 1] : null;
+
+    if (!lastMessage) {
+      return {
+        mode: 'reply',
+        context: 'No messages to reply to',
+        suggestion: 'Start a new conversation'
+      };
+    }
+
+    const isFromUser = lastMessage.speaker === 'You' || lastMessage.isOutgoing;
+    const speaker = isFromUser ? 'You' : lastMessage.speaker;
+    const messageText = lastMessage.text || '';
+    const timeGap = this.getTimeSinceLastMessage();
+    const timeGapText = timeGap !== null ? `${Math.round(timeGap)} hours ago` : 'recently';
+
+    // Determine response approach based on message type
+    let approach = '';
+    let exampleTone = '';
+
+    if (summary.hasQuestion) {
+      approach = 'Answer the question directly';
+      exampleTone = 'Informative and helpful';
+    } else if (this.isConversationEnder(messageText)) {
+      approach = 'Acknowledge and optionally continue';
+      exampleTone = 'Brief and friendly';
+    } else if (messageText.includes('?')) {
+      approach = 'Respond to the inquiry';
+      exampleTone = 'Clear and direct';
+    } else {
+      approach = 'Acknowledge and engage';
+      exampleTone = 'Conversational and friendly';
+    }
+
+    return {
+      mode: 'reply',
+      respondingTo: messageText,
+      speaker: speaker,
+      timeGap: timeGapText,
+      context: isFromUser
+        ? 'You sent the last message - friend may be waiting for their response'
+        : `${speaker} sent the last message - you should respond`,
+      approach: approach,
+      exampleTone: exampleTone,
+      sentiment: summary.sentiment,
+      hasQuestion: summary.hasQuestion
+    };
+  }
+
+  /**
+   * Generate analysis for "Start New Conversation" mode
+   */
+  getNewConversationAnalysis() {
+    const summary = this.getSummary();
+    const lastMessage = this.messages.length > 0 ? this.messages[this.messages.length - 1] : null;
+    const timeGap = this.getTimeSinceLastMessage();
+    const timeGapText = timeGap !== null ? `${Math.round(timeGap)} hours ago` : 'recently';
+
+    // Determine conversation state
+    let conversationState = 'active';
+    let suggestedTopics = [];
+
+    if (lastMessage && this.isConversationEnder(lastMessage.text)) {
+      conversationState = 'ended naturally';
+    } else if (timeGap !== null && timeGap > 12) {
+      conversationState = 'paused (long gap)';
+    } else if (timeGap !== null && timeGap > 2) {
+      conversationState = 'paused (moderate gap)';
+    }
+
+    // Suggest topics based on recent conversation
+    if (summary.topics && summary.topics !== 'None') {
+      suggestedTopics.push(`Follow up on: ${summary.topics}`);
+    }
+    suggestedTopics.push('Casual check-in');
+    suggestedTopics.push('Ask what they\'re up to');
+    suggestedTopics.push('Share something new');
+
+    return {
+      mode: 'new_conversation',
+      lastInteraction: timeGapText,
+      conversationState: conversationState,
+      context: `Last chat ${timeGapText} - conversation ${conversationState}`,
+      approach: 'Start fresh with a casual greeting or new topic',
+      suggestedTopics: suggestedTopics,
+      exampleTone: 'Friendly and casual',
+      recentTopics: summary.topics !== 'None' ? summary.topics : null
+    };
+  }
+
+  /**
+   * Get dual context analysis (both reply and new conversation modes)
+   */
+  getDualAnalysis() {
+    return {
+      replyMode: this.getReplyModeAnalysis(),
+      newConversation: this.getNewConversationAnalysis(),
+      summary: this.getSummary()
+    };
+  }
 }
 
 
