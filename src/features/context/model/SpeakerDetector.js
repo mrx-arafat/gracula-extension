@@ -8,6 +8,27 @@ window.Gracula.SpeakerDetector = class {
     this.platform = platform;
     this.speakers = new Map(); // Map of speaker IDs to names
     this.currentUser = 'You';
+    this.actualUserName = null; // Actual user name detected from WhatsApp (e.g., "Arafat")
+  }
+
+  /**
+   * Set the current user's actual name
+   * @param {string} userName - The user's actual name from WhatsApp
+   */
+  setCurrentUser(userName) {
+    if (userName && userName !== 'You' && typeof userName === 'string') {
+      this.actualUserName = userName.trim();
+      this.currentUser = this.actualUserName; // Use actual name as primary identifier
+      console.log('👤 [SPEAKER] Current user set to:', this.actualUserName);
+    }
+  }
+
+  /**
+   * Get the current user's display name
+   * @returns {string} The user's name (actual name if detected, otherwise "You")
+   */
+  getCurrentUser() {
+    return this.actualUserName || this.currentUser;
   }
 
   extractPrePlainMetadata(element) {
@@ -76,8 +97,24 @@ window.Gracula.SpeakerDetector = class {
   isCurrentUserLabel(label) {
     if (!label) return false;
     const normalized = label.trim().toLowerCase();
+
+    // Check generic synonyms for "you"
     const synonyms = ['you', 'me', 'yo', 'moi', 'ich', 'ami'];
-    return synonyms.includes(normalized) || normalized === this.currentUser.toLowerCase();
+    if (synonyms.includes(normalized)) {
+      return true;
+    }
+
+    // Check current user (could be "You" or actual name like "Arafat")
+    if (normalized === this.currentUser.toLowerCase()) {
+      return true;
+    }
+
+    // Check actual user name if it's different from currentUser
+    if (this.actualUserName && normalized === this.actualUserName.toLowerCase()) {
+      return true;
+    }
+
+    return false;
   }
 
   sanitizeSpeakerName(name) {
@@ -105,6 +142,14 @@ window.Gracula.SpeakerDetector = class {
     }
 
     value = value.replace(/:\s*$/, '').trim();
+
+    // Remove timestamps and metadata that might be concatenated to speaker names
+    // Examples: "Emon Bro Startise9:34 am", "Emon Bro Startise9:34 amforward-refreshed"
+    // This happens when extracting speaker names from image-only or emoji-only messages
+    value = value
+      .replace(/\d{1,2}:\d{2}\s*(?:am|pm)?.*$/i, '') // Remove timestamp and everything after it
+      .replace(/forward-refreshed$/i, '') // Remove forward-refreshed metadata
+      .trim();
 
     if (!value) {
       return null;

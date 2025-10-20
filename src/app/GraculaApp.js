@@ -196,12 +196,12 @@ window.Gracula.GraculaApp = class {
   /**
    * Handle button click
    */
-  handleButtonClick() {
+  async handleButtonClick() {
     // window.Gracula.logger.info('Button clicked - Opening modal');
-    
-    // Extract context
-    this.extractContext();
-    
+
+    // Extract context (await the async operation)
+    await this.extractContext();
+
     // Show modal
     this.showModal();
   }
@@ -209,10 +209,11 @@ window.Gracula.GraculaApp = class {
   /**
    * Extract conversation context
    */
-  extractContext() {
+  async extractContext() {
     if (!this.contextExtractor) return;
 
-    const messages = this.contextExtractor.extract();
+    // Await the async extract() method
+    const messages = await this.contextExtractor.extract();
     this.context = this.contextExtractor.getSimpleContext();
     this.enhancedContext = this.contextExtractor.getEnhancedContext();
 

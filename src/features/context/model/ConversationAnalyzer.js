@@ -7,6 +7,15 @@ window.Gracula.ConversationAnalyzer = class {
   constructor() {
     this.messages = [];
     this.topicAnalyzer = new window.Gracula.TopicAnalyzer();
+    this.detectedUserName = null; // NEW: Store detected user name
+  }
+
+  /**
+   * Set the detected user name
+   * @param {string} userName - The user's actual name
+   */
+  setUserName(userName) {
+    this.detectedUserName = userName;
   }
 
   /**
@@ -53,11 +62,35 @@ window.Gracula.ConversationAnalyzer = class {
    */
   identifySpeakers() {
     const speakers = new Set();
+
+    // Generic user labels that should be merged
+    const userLabels = new Set(['You', 'you', 'Me', 'me']);
+
+    // Add actual user name to labels if detected
+    if (this.detectedUserName) {
+      userLabels.add(this.detectedUserName);
+    }
+
+    let hasUser = false; // Track if we've seen the user
+
     this.messages.forEach(msg => {
       if (msg.speaker) {
-        speakers.add(msg.speaker);
+        // Check if this is a user label
+        if (userLabels.has(msg.speaker)) {
+          hasUser = true;
+        } else {
+          // Add other speakers normally
+          speakers.add(msg.speaker);
+        }
       }
     });
+
+    // Add user once (use actual name if available, otherwise "You")
+    if (hasUser) {
+      const userLabel = this.detectedUserName || 'You';
+      speakers.add(userLabel);
+    }
+
     return Array.from(speakers);
   }
 

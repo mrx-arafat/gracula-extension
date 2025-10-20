@@ -20,17 +20,42 @@ const MESSAGE_CONTAINER_FALLBACKS = [
 window.Gracula.ContextExtractor = class {
   constructor(platform) {
     this.platform = platform;
+    this.userProfileDetector = new window.Gracula.UserProfileDetector(); // NEW: User profile detector
     this.speakerDetector = new window.Gracula.SpeakerDetector(platform);
     this.analyzer = new window.Gracula.ConversationAnalyzer();
     this.summarizer = new window.Gracula.ConversationSummarizer();
     this.messages = [];
+    this.detectedUserName = null; // NEW: Store detected user name
+  }
+
+  /**
+   * Detect user profile before extraction
+   */
+  async detectUserProfile() {
+    try {
+      console.log('🔍 [CONTEXT] Detecting user profile...');
+      const userName = await this.userProfileDetector.detectUserProfile();
+
+      if (userName) {
+        this.detectedUserName = userName;
+        this.speakerDetector.setCurrentUser(userName);
+        console.log('✅ [CONTEXT] User profile detected:', userName);
+      } else {
+        console.log('⚠️ [CONTEXT] Could not detect user name, using fallback "You"');
+      }
+    } catch (error) {
+      console.error('❌ [CONTEXT] Error detecting user profile:', error);
+    }
   }
 
   /**
    * Extract conversation context from the page
    */
-  extract() {
+  async extract() {
     // window.Gracula.logger.group('Extracting Conversation Context');
+
+    // NEW: Detect user profile first
+    await this.detectUserProfile();
 
     this.messages = [];
 
@@ -83,6 +108,11 @@ window.Gracula.ContextExtractor = class {
 
     // Limit to the most recent exchange window for analysis
     this.messages = this.applyConversationWindow(this.messages);
+
+    // NEW: Pass detected user name to analyzer
+    if (this.detectedUserName) {
+      this.analyzer.setUserName(this.detectedUserName);
+    }
 
     // Analyze conversation for context
     const analysis = this.analyzer.analyze(this.messages);
@@ -605,11 +635,15 @@ window.Gracula.ContextExtractor = class {
         const lines = allText.split('\n').map(line => line.trim()).filter(Boolean);
         const cleanedLines = lines.filter(line => {
           // Skip lines that are just CSS class names or timestamps
-          if (/^(tail-in|tail-out|msg-check|msg-dblcheck|Delivered|Read|Seen)$/.test(line)) {
+          if (/^(tail-in|tail-out|msg-check|msg-dblcheck|Delivered|Read|Seen|forward-refreshed)$/.test(line)) {
             return false;
           }
-          // Skip time patterns like "4:16 pm"
-          if (/^\d{1,2}:\d{2}\s*(am|pm)$/.test(line)) {
+          // Skip time patterns like "4:16 pm" or "9:34 am"
+          if (/^\d{1,2}:\d{2}\s*(am|pm)$/i.test(line)) {
+            return false;
+          }
+          // Skip lines that end with timestamp (e.g., "Emon Bro Startise9:34 am")
+          if (/\d{1,2}:\d{2}\s*(am|pm)$/i.test(line)) {
             return false;
           }
           // Skip empty or very short lines
@@ -696,19 +730,25 @@ window.Gracula.ContextExtractor = class {
       /^read$/i,
       /^seen$/i,
       /^forwarded$/i,
+      /^forward-refreshed$/i,
       /^starred$/i,
       /^pinned$/i,
       /^removed$/i,
       /^muted chat$/i,
       /^typing…?$/i,
       /^end-to-end encrypted$/i,
-      /^\d{1,2}:\d{2}\s*(?:am|pm)?$/i
+      /^\d{1,2}:\d{2}\s*(?:am|pm)?$/i,
+      // Match timestamps concatenated with text (e.g., "9:34 am" or "9:34am")
+      /\d{1,2}:\d{2}\s*(?:am|pm)/i
     ];
 
     const cleaned = segments
       .map(segment => (segment || '').replace(/\s+/g, ' ').trim())
+      // Remove timestamps that might be concatenated (e.g., "text9:34 am" -> "text")
+      .map(segment => segment.replace(/\d{1,2}:\d{2}\s*(?:am|pm)/gi, '').trim())
       .map(segment => segment.replace(/tail-(?:in|out)/gi, '').trim())
       .map(segment => segment.replace(/msg-(?:dblcheck|check|time)/gi, '').trim())
+      .map(segment => segment.replace(/forward-refreshed/gi, '').trim())
       .map(segment => (segment.includes('View reactions') ? segment.replace(/reaction[\s\S]*view reactions/i, '') : segment).trim())
       .map(segment => segment.replace(/view reactions$/i, '').trim())
       .map(segment => segment.replace(/\s+/g, ' ').trim())
@@ -758,6 +798,7 @@ window.Gracula.ContextExtractor = class {
       maybeAdd('You');
     }
 
+    // First, remove "Speaker: " prefix patterns
     prefixes.forEach(prefix => {
       const escaped = this.escapeRegExp(prefix);
       if (!escaped) {
@@ -766,6 +807,43 @@ window.Gracula.ContextExtractor = class {
       const regex = new RegExp(`^${escaped}\\s*:\\s*`, 'i');
       if (regex.test(result)) {
         result = result.replace(regex, '').trim();
+      }
+    });
+
+    // Second, if the result is EXACTLY the speaker's name (no actual message), return empty
+    // This handles cases where the extracted text is just "Ismail Bhai Startise" with no message
+    prefixes.forEach(prefix => {
+      if (result.toLowerCase() === prefix.toLowerCase()) {
+        result = '';
+      }
+    });
+
+    // Third, check if the text is just speaker name + timestamp + metadata (no actual message)
+    // This happens when a message has no actual text content (e.g., image-only messages)
+    // Examples: "Emon Bro Startise9:34 am", "Emon Bro Startise9:34 amforward-refreshed", "Ismail Bhai Startise9:35 am"
+    prefixes.forEach(prefix => {
+      const escaped = this.escapeRegExp(prefix);
+      if (!escaped) {
+        return;
+      }
+      // Match: "SpeakerName" followed by timestamp (with or without space)
+      const regex = new RegExp(`^${escaped}\\s*\\d{1,2}:\\d{2}\\s*(?:am|pm)?`, 'i');
+      if (regex.test(result)) {
+        // Remove speaker name
+        const withoutSpeaker = result.replace(new RegExp(`^${escaped}`, 'i'), '').trim();
+        // Remove timestamp and check if anything meaningful remains
+        const withoutTimestamp = withoutSpeaker.replace(/^\d{1,2}:\d{2}\s*(?:am|pm)?/i, '').trim();
+        // Remove common metadata patterns
+        const withoutMetadata = withoutTimestamp
+          .replace(/^forward-refreshed$/i, '')
+          .replace(/^tail-(?:in|out)$/i, '')
+          .replace(/^msg-(?:dblcheck|check|time)$/i, '')
+          .trim();
+
+        // If nothing meaningful remains, this is not a real message
+        if (!withoutMetadata || withoutMetadata.length === 0) {
+          result = '';
+        }
       }
     });
 
@@ -1161,6 +1239,12 @@ window.Gracula.ContextExtractor = class {
     }
 
     const contextLines = [];
+
+    // NEW: Add user identity at the top if detected
+    if (this.detectedUserName) {
+      contextLines.push(`👤 User: ${this.detectedUserName}`);
+      contextLines.push(''); // Empty line for separation
+    }
 
     // Group messages by date
     const messagesByDate = this.groupMessagesByDate();

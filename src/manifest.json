@@ -63,6 +63,7 @@
         "entities/message/index.js",
         "entities/tone/model/Tone.js",
         "entities/tone/index.js",
+        "features/context/model/UserProfileDetector.js",
         "features/context/model/SpeakerDetector.js",
         "features/context/model/TopicAnalyzer.js",
         "features/context/model/ConversationAnalyzer.js",

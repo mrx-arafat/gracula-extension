@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Identity Detection Test - Gracula Extension</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #0b141a;
+            margin: 0;
+            padding: 20px;
+        }
+        .test-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: #111b21;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        h1 {
+            color: #00a884;
+            margin-bottom: 10px;
+        }
+        h2 {
+            color: #8696a0;
+            font-size: 18px;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+        .description {
+            color: #8696a0;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        
+        /* WhatsApp Header Simulation */
+        header {
+            background: #202c33;
+            padding: 10px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .profile-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .profile-image {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #00a884;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        .profile-info span {
+            color: #e9edef;
+            font-size: 16px;
+        }
+        
+        /* Test Controls */
+        .test-controls {
+            margin-top: 20px;
+            padding: 20px;
+            background: #202c33;
+            border-radius: 8px;
+        }
+        button {
+            background: #00a884;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background: #06cf9c;
+        }
+        button.secondary {
+            background: #374955;
+        }
+        button.secondary:hover {
+            background: #475e6d;
+        }
+        
+        /* Results Display */
+        .results {
+            margin-top: 20px;
+            padding: 20px;
+            background: #0b141a;
+            border-radius: 8px;
+            color: #e9edef;
+        }
+        .result-item {
+            margin: 10px 0;
+            padding: 10px;
+            background: #202c33;
+            border-radius: 4px;
+            border-left: 3px solid #00a884;
+        }
+        .result-label {
+            color: #8696a0;
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+        .result-value {
+            color: #e9edef;
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+        }
+        .success {
+            border-left-color: #00a884;
+        }
+        .warning {
+            border-left-color: #ffaa00;
+        }
+        .error {
+            border-left-color: #ff4444;
+        }
+        
+        /* Console Output */
+        .console-output {
+            margin-top: 20px;
+            padding: 15px;
+            background: #000;
+            border-radius: 8px;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .console-line {
+            margin: 2px 0;
+        }
+        .console-log { color: #0f0; }
+        .console-warn { color: #ffaa00; }
+        .console-error { color: #ff4444; }
+        .console-info { color: #00a8ff; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 User Identity Detection Test</h1>
+        <p class="description">
+            This test verifies that the UserProfileDetector correctly identifies the current user's name
+            from WhatsApp's UI and that the SpeakerDetector recognizes the user's name in messages.
+        </p>
+
+        <h2>📱 Simulated WhatsApp Header</h2>
+        <header>
+            <div class="profile-section">
+                <div class="profile-image">A</div>
+                <div class="profile-info">
+                    <span data-testid="default-user" title="Arafat">Arafat</span>
+                </div>
+            </div>
+            <div>
+                <button data-testid="menu-bar-menu" aria-label="Menu: Arafat">☰</button>
+            </div>
+        </header>
+
+        <h2>🧪 Test Controls</h2>
+        <div class="test-controls">
+            <button onclick="testUserProfileDetection()">1️⃣ Test User Profile Detection</button>
+            <button onclick="testSpeakerRecognition()">2️⃣ Test Speaker Recognition</button>
+            <button onclick="testCaching()">3️⃣ Test Caching</button>
+            <button onclick="clearCache()" class="secondary">🗑️ Clear Cache</button>
+            <button onclick="runAllTests()" class="secondary">▶️ Run All Tests</button>
+            <button onclick="clearResults()" class="secondary">🧹 Clear Results</button>
+        </div>
+
+        <h2>📊 Test Results</h2>
+        <div class="results" id="results">
+            <p style="color: #8696a0;">Click a test button to see results...</p>
+        </div>
+
+        <h2>💻 Console Output</h2>
+        <div class="console-output" id="console">
+            <div class="console-line console-info">Console output will appear here...</div>
+        </div>
+    </div>
+
+    <!-- Load Gracula Extension Scripts -->
+    <script src="../src/features/context/model/UserProfileDetector.js"></script>
+    <script src="../src/features/context/model/SpeakerDetector.js"></script>
+
+    <script>
+        // Capture console logs
+        const consoleDiv = document.getElementById('console');
+        const originalLog = console.log;
+        const originalWarn = console.warn;
+        const originalError = console.error;
+
+        function addConsoleOutput(message, type = 'log') {
+            const line = document.createElement('div');
+            line.className = `console-line console-${type}`;
+            line.textContent = message;
+            consoleDiv.appendChild(line);
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
+
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            addConsoleOutput(args.join(' '), 'log');
+        };
+
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            addConsoleOutput(args.join(' '), 'warn');
+        };
+
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            addConsoleOutput(args.join(' '), 'error');
+        };
+
+        // Test Functions
+        const resultsDiv = document.getElementById('results');
+
+        function addResult(label, value, status = 'success') {
+            const item = document.createElement('div');
+            item.className = `result-item ${status}`;
+            item.innerHTML = `
+                <div class="result-label">${label}</div>
+                <div class="result-value">${value}</div>
+            `;
+            resultsDiv.appendChild(item);
+        }
+
+        function clearResults() {
+            resultsDiv.innerHTML = '<p style="color: #8696a0;">Results cleared. Run tests to see new results...</p>';
+            consoleDiv.innerHTML = '<div class="console-line console-info">Console cleared.</div>';
+        }
+
+        async function testUserProfileDetection() {
+            addResult('Test', '1️⃣ User Profile Detection', 'info');
+            
+            const detector = new window.Gracula.UserProfileDetector();
+            const userName = await detector.detectUserProfile();
+            
+            if (userName === 'Arafat') {
+                addResult('✅ Detection Result', `SUCCESS: Detected "${userName}"`, 'success');
+            } else if (userName) {
+                addResult('⚠️ Detection Result', `PARTIAL: Detected "${userName}" (expected "Arafat")`, 'warning');
+            } else {
+                addResult('❌ Detection Result', 'FAILED: No user name detected', 'error');
+            }
+        }
+
+        async function testSpeakerRecognition() {
+            addResult('Test', '2️⃣ Speaker Recognition', 'info');
+            
+            // First detect user profile
+            const detector = new window.Gracula.UserProfileDetector();
+            const userName = await detector.detectUserProfile();
+            
+            // Create SpeakerDetector and set user
+            const speakerDetector = new window.Gracula.SpeakerDetector('whatsapp');
+            speakerDetector.setCurrentUser(userName);
+            
+            // Test recognition
+            const tests = [
+                { label: 'Arafat', expected: true },
+                { label: 'arafat', expected: true },
+                { label: 'You', expected: true },
+                { label: 'you', expected: true },
+                { label: 'Nigash', expected: false },
+                { label: 'Fahad', expected: false }
+            ];
+            
+            let passed = 0;
+            let failed = 0;
+            
+            tests.forEach(test => {
+                const result = speakerDetector.isCurrentUserLabel(test.label);
+                if (result === test.expected) {
+                    passed++;
+                    addResult(`✅ "${test.label}"`, `Correctly identified as ${test.expected ? 'USER' : 'OTHER'}`, 'success');
+                } else {
+                    failed++;
+                    addResult(`❌ "${test.label}"`, `Incorrectly identified as ${result ? 'USER' : 'OTHER'} (expected ${test.expected ? 'USER' : 'OTHER'})`, 'error');
+                }
+            });
+            
+            addResult('Summary', `${passed} passed, ${failed} failed`, failed === 0 ? 'success' : 'error');
+        }
+
+        async function testCaching() {
+            addResult('Test', '3️⃣ Caching Mechanism', 'info');
+            
+            // Clear cache first
+            const detector1 = new window.Gracula.UserProfileDetector();
+            detector1.clearCache();
+            
+            // First detection (should query DOM)
+            const start1 = performance.now();
+            const name1 = await detector1.detectUserProfile();
+            const time1 = (performance.now() - start1).toFixed(2);
+            addResult('First Detection', `"${name1}" in ${time1}ms (from DOM)`, 'success');
+            
+            // Second detection (should use cache)
+            const detector2 = new window.Gracula.UserProfileDetector();
+            const start2 = performance.now();
+            const name2 = await detector2.detectUserProfile();
+            const time2 = (performance.now() - start2).toFixed(2);
+            addResult('Second Detection', `"${name2}" in ${time2}ms (from cache)`, 'success');
+            
+            if (parseFloat(time2) < parseFloat(time1)) {
+                addResult('✅ Cache Performance', `Cache is faster (${time2}ms vs ${time1}ms)`, 'success');
+            } else {
+                addResult('⚠️ Cache Performance', `Cache not faster (${time2}ms vs ${time1}ms)`, 'warning');
+            }
+        }
+
+        function clearCache() {
+            const detector = new window.Gracula.UserProfileDetector();
+            detector.clearCache();
+            addResult('Cache', 'Cache cleared successfully', 'success');
+        }
+
+        async function runAllTests() {
+            clearResults();
+            addResult('Test Suite', '▶️ Running All Tests...', 'info');
+            await testUserProfileDetection();
+            await testSpeakerRecognition();
+            await testCaching();
+            addResult('Test Suite', '✅ All Tests Complete', 'success');
+        }
+    </script>
+</body>
+</html>
+

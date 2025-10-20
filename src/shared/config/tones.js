@@ -94,6 +94,66 @@ window.Gracula.Config.TONES = [
     name: 'Short',
     emoji: '⚡',
     prompt: 'Generate a very brief, concise response. Keep it to 5 words or less. Be direct and to the point.'
+  },
+  {
+    id: 'caring',
+    name: 'Caring',
+    emoji: '🤱',
+    prompt: 'Generate a warm, nurturing response that shows you genuinely care about the person. Use soft, reassuring language and offer gentle support or comfort.'
+  },
+  {
+    id: 'empathetic',
+    name: 'Empathetic',
+    emoji: '💖',
+    prompt: 'Generate a deeply empathetic response. Reflect their feelings back to them, acknowledge their emotions, and show that you understand and are there for them.'
+  },
+  {
+    id: 'supportive',
+    name: 'Supportive',
+    emoji: '🙌',
+    prompt: 'Generate a supportive, encouraging response like a close friend hyping them up. Offer validation, remind them of their strengths, and let them know you believe in them.'
+  },
+  {
+    id: 'bubbly',
+    name: 'Bubbly',
+    emoji: '🌸',
+    prompt: 'Generate a bubbly, cheerful response that feels upbeat and sparkly. Use lively energy, friendly emojis, and enthusiastic phrasing to brighten the conversation.'
+  },
+  {
+    id: 'sassy',
+    name: 'Sassy',
+    emoji: '💅',
+    prompt: 'Generate a sassy, confident response with playful attitude. Use bold, witty language and a hint of teasing while keeping it fun and light-hearted.'
+  },
+  {
+    id: 'playful',
+    name: 'Playful',
+    emoji: '😜',
+    prompt: 'Generate a playful, cheeky response packed with inside-joke energy. Keep it light, teasing, and fun while staying friendly.'
+  },
+  {
+    id: 'relatable',
+    name: 'Relatable',
+    emoji: '🙋‍♀️',
+    prompt: 'Generate a relatable response that shares a similar experience or feeling. Use casual language to say “same here” and make them feel understood.'
+  },
+  {
+    id: 'venting',
+    name: 'Venting Buddy',
+    emoji: '😮‍💨',
+    prompt: 'Generate a response like a friend venting right alongside them. Validate their rant, add a little dramatic flair, and keep the mood supportive.'
+  },
+  {
+    id: 'calm',
+    name: 'Calm & Cozy',
+    emoji: '🧘‍♀️',
+    prompt: 'Generate a calm, steady response that helps them relax. Use soothing words, gentle reassurance, and keep the vibe low-key.'
+  },
+  {
+    id: 'teaTime',
+    name: 'Spill The Tea',
+    emoji: '🍵',
+    prompt: 'Generate a gossip-ready response that leans in with curiosity. React like you’re chatting with your bestie and want every detail without being mean.'
   }
 ];
 
