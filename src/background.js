@@ -60,190 +60,260 @@ function buildPrompt(tone, context, enhancedContext, responseMode = 'reply') {
   const analysis = enhancedContext?.analysis;
   const summary = enhancedContext?.summary || {};
   const metrics = enhancedContext?.metrics;
-  const styleMarkers = analysis?.styleMarkers;
-  const emojiUsage = analysis?.emojiUsage;
-  const lengthStats = analysis?.messageLength;
   const dualAnalysis = enhancedContext?.dualAnalysis;
 
-  // Add response mode context at the top
-  if (responseMode === 'new' && dualAnalysis?.newConversation) {
-    const newConv = dualAnalysis.newConversation;
-    prompt += '=== RESPONSE MODE: START NEW CONVERSATION ===\n';
-    prompt += `Last interaction: ${newConv.lastInteraction}\n`;
-    prompt += `Conversation state: ${newConv.conversationState}\n`;
-    prompt += `Approach: ${newConv.approach}\n`;
-    if (newConv.suggestedTopics && newConv.suggestedTopics.length > 0) {
-      prompt += `Suggested topics: ${newConv.suggestedTopics.join(', ')}\n`;
-    }
-    prompt += '\n⚠️ IMPORTANT: Generate a NEW conversation starter. DO NOT reply to the last message. Start fresh with a casual greeting or new topic.\n\n';
-  } else if (responseMode === 'reply' && dualAnalysis?.replyMode) {
-    const replyMode = dualAnalysis.replyMode;
-    prompt += '=== RESPONSE MODE: REPLY TO LAST MESSAGE ===\n';
-    prompt += `Responding to: "${replyMode.respondingTo}" (from ${replyMode.speaker}, ${replyMode.timeGap})\n`;
-    prompt += `Approach: ${replyMode.approach}\n`;
-    prompt += `Example tone: ${replyMode.exampleTone}\n`;
-    prompt += '\n⚠️ IMPORTANT: Generate a direct reply to the last message shown above. Acknowledge what they said.\n\n';
+  // ========================================
+  // PHASE 2: SMART MESSAGE SELECTION
+  // ========================================
+
+  const smartSelection = enhancedContext?.smartSelection;
+  const topicChanges = enhancedContext?.topicChanges || [];
+  const contextQuality = enhancedContext?.contextQuality;
+
+  // Use selected messages if smart selection was used
+  const selectedMessages = enhancedContext?.selectedMessages;
+  const useSmartSelection = smartSelection?.used && Array.isArray(selectedMessages);
+
+  if (useSmartSelection) {
+    console.log(`🧠 [PHASE 2] Using ${selectedMessages.length} smart-selected messages from ${smartSelection.originalCount} total`);
   }
 
-  const formatPace = (seconds) => {
-    if (typeof seconds !== 'number' || Number.isNaN(seconds)) {
-      return 'unknown tempo';
+  // ========================================
+  // PHASE 1 IMPROVEMENT: ADAPTIVE HIERARCHICAL CONTEXT
+  // ========================================
+
+  // Extract current topic (most important context)
+  const currentTopic = summary.topics || 'general conversation';
+
+  // Get last message details for reply marker
+  const lastMessage = dualAnalysis?.replyMode?.respondingTo ||
+                     (Array.isArray(context) && context.length > 0 ? context[context.length - 1] : null);
+  const lastSpeaker = dualAnalysis?.replyMode?.speaker || summary.lastSpeaker || 'Friend';
+
+  // Handle NEW CONVERSATION mode
+  if (responseMode === 'new' && dualAnalysis?.newConversation) {
+    const newConv = dualAnalysis.newConversation;
+
+    prompt += '=== 💬 START NEW CONVERSATION ===\n\n';
+    prompt += `Last interaction: ${newConv.lastInteraction}\n`;
+    prompt += `Conversation state: ${newConv.conversationState}\n`;
+
+    if (newConv.suggestedTopics && newConv.suggestedTopics.length > 0) {
+      prompt += `💡 Suggested topics: ${newConv.suggestedTopics.join(', ')}\n`;
     }
 
-    const rounded = Math.round(seconds);
+    prompt += '\n🎯 YOUR TASK:\n';
+    prompt += '- Generate a NEW conversation starter\n';
+    prompt += '- DO NOT reply to the last message\n';
+    prompt += '- Start fresh with a casual greeting or new topic\n';
+    prompt += `- Use ${tone.name} tone\n\n`;
 
-    if (rounded <= 90) {
-      return `rapid (~${rounded}s gaps)`;
-    }
-
-    if (rounded <= 600) {
-      return `steady (~${rounded}s gaps)`;
-    }
-
-    return `slow (~${rounded}s gaps)`;
-  };
-
-  if (analysis && Object.keys(summary).length > 0) {
-    prompt += '=== CONVERSATION ANALYSIS ===\n';
-    prompt += `Participants: ${summary.participants || 'Unknown'}\n`;
-    prompt += `Last Speaker: ${summary.lastSpeaker || 'Unknown'}\n`;
-    prompt += `Conversation Type: ${summary.conversationType || 'Unknown'}\n`;
-    prompt += `Sentiment: ${summary.sentiment || 'Neutral'}\n`;
-
-    // Add semantic intent if available
-    if (analysis.intent) {
-      const intentDisplay = analysis.intent.primary.replace(/_/g, ' ');
-      prompt += `User Intent: ${intentDisplay}`;
-      if (analysis.intent.confidence && analysis.intent.confidence !== 'low') {
-        prompt += ` (${analysis.intent.confidence} confidence)`;
-      }
-      if (analysis.intent.secondary && analysis.intent.secondary.length > 0) {
-        const secondary = analysis.intent.secondary.map(i => i.replace(/_/g, ' ')).join(', ');
-        prompt += ` [also: ${secondary}]`;
-      }
+    // Add minimal context for new conversation
+    if (Array.isArray(context) && context.length > 0) {
+      prompt += '=== RECENT CONTEXT (for reference only) ===\n';
+      const recentContext = context.slice(-5); // Last 5 messages only
+      recentContext.forEach((msg) => {
+        prompt += `${msg}\n`;
+      });
       prompt += '\n';
     }
 
-    // Add emotional state if detected
-    if (analysis.emotionalState && analysis.emotionalState.state !== 'neutral') {
-      const emotion = analysis.emotionalState.state;
-      const intensity = analysis.emotionalState.intensity;
-      prompt += `Emotional State: ${emotion} (${intensity} intensity)\n`;
-    }
+    prompt += 'Generate 3 different conversation starters. Each on a new line, numbered 1., 2., and 3.\n\n';
+    prompt += 'Starters:\n';
 
-    if (analysis.hasUnansweredQuestion?.hasQuestion) {
-      prompt += `⚠️ UNANSWERED QUESTION: "${analysis.hasUnansweredQuestion.question}" (asked by ${analysis.hasUnansweredQuestion.askedBy})\n`;
-    }
-
-    if (analysis.urgency?.level && analysis.urgency.level !== 'low') {
-      prompt += `⚠️ URGENCY LEVEL: ${analysis.urgency.level}\n`;
-    }
-
-    if (summary.topics) {
-      prompt += `Topics: ${summary.topics}\n`;
-    }
-
-    prompt += '\n';
+    return prompt;
   }
 
-  if (metrics || styleMarkers || emojiUsage) {
-    prompt += '=== STYLE METRICS ===\n';
+  // ========================================
+  // REPLY MODE: ADAPTIVE CONTEXT STRATEGY
+  // ========================================
 
-    if (metrics?.recommendedReplyLength) {
-      const rec = metrics.recommendedReplyLength;
-      prompt += `Recommended reply: ~${rec.words} words (~${rec.chars} chars, ${rec.sentences} sentence${rec.sentences === 1 ? '' : 's'}) based on ${rec.basis}.\n`;
-    } else if (lengthStats?.averageWords) {
-      prompt += `Typical message length: ~${lengthStats.averageWords} words (${lengthStats.style || 'short'}).\n`;
-    }
+  // Determine conversation length and use adaptive strategy
+  const totalMessages = Array.isArray(context) ? context.length : 0;
+  const isShortConversation = totalMessages <= 10;
+  const isMediumConversation = totalMessages > 10 && totalMessages <= 25;
+  const isLongConversation = totalMessages > 25;
 
-    if (metrics?.recentIncomingAverageChars || metrics?.recentOutgoingAverageChars) {
-      const incoming = metrics.recentIncomingAverageChars ? `${metrics.recentIncomingAverageChars} chars` : 'n/a';
-      const outgoing = metrics.recentOutgoingAverageChars ? `${metrics.recentOutgoingAverageChars} chars` : 'n/a';
-      prompt += `Recent incoming avg: ${incoming}; your replies avg: ${outgoing}.\n`;
-    }
+  // ========================================
+  // CRITICAL: USER IDENTITY (WHO IS WHO)
+  // ========================================
 
-    if (metrics?.languageHints?.length) {
-      prompt += `Language mix: ${metrics.languageHints.join(', ')}.\n`;
-    }
+  // Extract user name from summary (ConversationAnalyzer now includes userName)
+  const userName = summary.userName || 'You';
 
-    if (metrics?.messagePaceSeconds) {
-      prompt += `Message pace: ${formatPace(metrics.messagePaceSeconds)}.\n`;
-    }
+  // Determine who the user is replying to (the OTHER person)
+  const friendName = summary.lastFriendSpeaker ||
+                     summary.lastSpeaker ||
+                     'Friend';
 
-    if (emojiUsage?.usageLevel) {
-      const topEmojis = emojiUsage.topEmojis?.length ? ` (top: ${emojiUsage.topEmojis.join(', ')})` : '';
-      prompt += `Emoji usage: ${emojiUsage.usageLevel}${topEmojis}.\n`;
-    }
-
-    if (styleMarkers?.notes?.length) {
-      prompt += `Style notes: ${styleMarkers.notes.join('; ')}.\n`;
-    }
-
-    if (metrics?.shortMessageExamples?.length) {
-      prompt += 'Recent message samples:\n';
-      metrics.shortMessageExamples.forEach(example => {
-        prompt += `- ${example}\n`;
-      });
-    }
-
-    prompt += '\n';
+  // Only show identity section if we have a real user name (not "You")
+  if (userName && userName !== 'You') {
+    prompt += `=== 👤 IMPORTANT: WHO IS WHO ===\n`;
+    prompt += `YOU are: ${userName}\n`;
+    prompt += `You are replying to: ${friendName}\n`;
+    prompt += `DO NOT address yourself (${userName}) in the reply!\n`;
+    prompt += `DO NOT use "${userName}" in the reply - that's YOU!\n`;
+    prompt += `Address the OTHER person (${friendName}) instead.\n\n`;
   }
 
-  if (Array.isArray(context) && context.length > 0) {
-    prompt += '=== CONVERSATION HISTORY ===\n';
-    context.forEach((msg) => {
-      prompt += `${msg}\n`;
-    });
-    prompt += '\n';
+  // Add CURRENT TOPIC at the very top (critical for context)
+  prompt += `=== 📌 CURRENT TOPIC: ${currentTopic} ===\n\n`;
+
+  // PHASE 2: Show topic changes if detected
+  if (topicChanges && topicChanges.length > 0) {
+    const recentChange = topicChanges[topicChanges.length - 1];
+    prompt += `💡 Topic shift detected: "${recentChange.beforeTopic}" → "${recentChange.afterTopic}"\n`;
+    prompt += `   (Current focus is on: ${currentTopic})\n\n`;
   }
 
-  prompt += '=== YOUR TASK ===\n';
-  prompt += `${tone.prompt}\n\n`;
-
-  const recommended = metrics?.recommendedReplyLength;
-
-  if (recommended) {
-    prompt += `Match the conversation length guidance: aim for about ${recommended.words} words (~${recommended.chars} characters) across ${recommended.sentences} sentence${recommended.sentences === 1 ? '' : 's'}.`;
-    if (recommended.basis) {
-      prompt += ` (Based on ${recommended.basis}.)`;
-    }
-    prompt += '\n';
-  } else if (lengthStats?.style) {
-    prompt += `Keep replies ${lengthStats.style} and no longer than two sentences.\n`;
-  } else {
-    prompt += 'Keep each reply concise (1-2 sentences max).\n';
-  }
-
-  if (metrics?.languageHints?.length) {
-    prompt += `Stay within this language mix: ${metrics.languageHints.join(', ')}.\n`;
-  }
-
-  if (styleMarkers?.register && styleMarkers.register !== 'neutral') {
-    prompt += `Tone register: ${styleMarkers.register}. Mirror this vibe.\n`;
-  }
-
-  if (styleMarkers?.notes?.length) {
-    prompt += `Follow these style cues: ${styleMarkers.notes.join('; ')}.\n`;
-  }
-
-  if (emojiUsage?.usageLevel === 'none') {
-    prompt += 'Avoid new emojis unless already used in the thread.\n';
-  } else if (emojiUsage?.usageLevel) {
-    const emojiExamples = emojiUsage.topEmojis?.map(sample => sample.split(' ')[0]).join(' ');
-    const suffix = emojiExamples ? ` (examples: ${emojiExamples})` : '';
-    prompt += `Match the ${emojiUsage.usageLevel} emoji frequency${suffix}.\n`;
-  }
-
+  // Add critical alerts FIRST (unanswered questions, urgency)
   if (analysis?.hasUnansweredQuestion?.hasQuestion) {
-    prompt += '⚠️ IMPORTANT: There is an unanswered question. Make sure to address it in your reply.\n';
+    prompt += `⚠️ UNANSWERED QUESTION: "${analysis.hasUnansweredQuestion.question}" (asked by ${analysis.hasUnansweredQuestion.askedBy})\n`;
+    prompt += '→ Make sure to address this in your reply!\n\n';
   }
 
   if (analysis?.urgency?.level === 'high') {
-    prompt += '⚠️ IMPORTANT: This conversation seems urgent. Respond accordingly.\n';
+    prompt += `⚠️ URGENCY: This conversation seems urgent. Respond accordingly.\n\n`;
   }
 
-  prompt += '\nGenerate 3 different reply options. Each reply should be on a new line, numbered 1., 2., and 3.\n';
-  prompt += 'Make replies contextually relevant based on the conversation analysis above.\n\n';
+  // Add emotional context if significant
+  if (analysis?.emotionalState && analysis.emotionalState.state !== 'neutral') {
+    const emotion = analysis.emotionalState.state;
+    const intensity = analysis.emotionalState.intensity;
+    prompt += `💭 Emotional tone: ${emotion} (${intensity} intensity)\n\n`;
+  }
+
+  // PHASE 2: Show context quality warning if poor
+  if (contextQuality && contextQuality.quality === 'poor') {
+    prompt += `⚠️ Context quality: ${contextQuality.quality}\n`;
+    prompt += `   Issues: ${contextQuality.issues.join(', ')}\n\n`;
+  }
+
+  // ========================================
+  // ADAPTIVE CONTEXT DISPLAY
+  // ========================================
+
+  if (Array.isArray(context) && context.length > 0) {
+    if (isShortConversation) {
+      // SHORT: Show all messages with clear reply marker
+      prompt += '=== 💬 CONVERSATION ===\n';
+      context.forEach((msg, index) => {
+        const isLast = index === context.length - 1;
+        if (isLast) {
+          prompt += `>>> ${msg} ← REPLY TO THIS\n`;
+        } else {
+          prompt += `    ${msg}\n`;
+        }
+      });
+      prompt += '\n';
+
+    } else if (isMediumConversation) {
+      // MEDIUM: Show recent messages + immediate context
+      const recentStart = Math.max(0, totalMessages - 15);
+      const immediateStart = Math.max(0, totalMessages - 5);
+
+      const recentMessages = context.slice(recentStart, immediateStart);
+      const immediateMessages = context.slice(immediateStart);
+
+      if (recentMessages.length > 0) {
+        prompt += '=== 💬 RECENT CONVERSATION ===\n';
+        recentMessages.forEach((msg) => {
+          prompt += `${msg}\n`;
+        });
+        prompt += '\n';
+      }
+
+      prompt += '=== 🎯 IMMEDIATE CONTEXT ===\n';
+      immediateMessages.forEach((msg, index) => {
+        const isLast = index === immediateMessages.length - 1;
+        if (isLast) {
+          prompt += `>>> ${msg} ← REPLY TO THIS\n`;
+        } else {
+          prompt += `    ${msg}\n`;
+        }
+      });
+      prompt += '\n';
+
+    } else {
+      // LONG: Show summary + recent + immediate
+      const backgroundEnd = totalMessages - 20;
+      const recentStart = totalMessages - 20;
+      const immediateStart = totalMessages - 5;
+
+      // Background summary
+      if (backgroundEnd > 0) {
+        const backgroundMessages = context.slice(0, backgroundEnd);
+        prompt += '=== 📚 CONVERSATION BACKGROUND ===\n';
+        prompt += `Earlier conversation (${backgroundMessages.length} messages): `;
+        prompt += `Started discussing ${currentTopic}. `;
+        if (summary.conversationType) {
+          prompt += `Conversation style: ${summary.conversationType}. `;
+        }
+        prompt += '\n\n';
+      }
+
+      // Recent messages
+      const recentMessages = context.slice(recentStart, immediateStart);
+      if (recentMessages.length > 0) {
+        prompt += '=== 💬 RECENT CONVERSATION ===\n';
+        recentMessages.forEach((msg) => {
+          prompt += `${msg}\n`;
+        });
+        prompt += '\n';
+      }
+
+      // Immediate context
+      const immediateMessages = context.slice(immediateStart);
+      prompt += '=== 🎯 IMMEDIATE CONTEXT ===\n';
+      immediateMessages.forEach((msg, index) => {
+        const isLast = index === immediateMessages.length - 1;
+        if (isLast) {
+          prompt += `>>> ${msg} ← REPLY TO THIS\n`;
+        } else {
+          prompt += `    ${msg}\n`;
+        }
+      });
+      prompt += '\n';
+    }
+  }
+
+  // ========================================
+  // YOUR TASK SECTION (Clear Instructions)
+  // ========================================
+
+  prompt += '=== 🎯 YOUR TASK ===\n';
+  prompt += `${tone.prompt}\n\n`;
+
+  // Add specific instructions
+  prompt += '📋 Instructions:\n';
+  prompt += `- Reply directly to the message marked with ">>>" above\n`;
+  prompt += `- Stay on topic: ${currentTopic}\n`;
+  prompt += `- Use ${tone.name} tone\n`;
+
+  // Length guidance (keep it simple)
+  const recommended = metrics?.recommendedReplyLength;
+  if (recommended) {
+    prompt += `- Keep it brief: ~${recommended.words} words (${recommended.sentences} sentence${recommended.sentences === 1 ? '' : 's'})\n`;
+  } else {
+    prompt += `- Keep it concise: 1-2 sentences max\n`;
+  }
+
+  // Language hints (only if multiple languages detected)
+  if (metrics?.languageHints?.length > 1) {
+    prompt += `- Language mix: ${metrics.languageHints.join(', ')}\n`;
+  }
+
+  // Emoji guidance (only if relevant)
+  const emojiUsage = analysis?.emojiUsage;
+  if (emojiUsage?.usageLevel === 'none') {
+    prompt += '- No emojis (conversation style is text-only)\n';
+  } else if (emojiUsage?.usageLevel === 'heavy') {
+    const examples = emojiUsage.topEmojis?.slice(0, 3).join(' ') || '';
+    prompt += `- Use emojis naturally${examples ? ` (like: ${examples})` : ''}\n`;
+  }
+
+  prompt += '\n';
+  prompt += 'Generate 3 different reply options. Each reply should be on a new line, numbered 1., 2., and 3.\n\n';
   prompt += 'Replies:\n';
 
   return prompt;

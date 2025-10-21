@@ -742,12 +742,27 @@ window.Gracula.ConversationAnalyzer = class {
       ? analysis.styleMarkers.notes.join('; ')
       : '';
 
-    // Get the last message from "You" (the user)
-    const yourLastMessageObj = this.getLastMessageFrom('You');
+    // Determine the user label (actual name if detected, otherwise "You")
+    const userLabel = this.detectedUserName || 'You';
+
+    // Get the last message from the user (using actual name or "You")
+    let yourLastMessageObj = this.getLastMessageFrom(userLabel);
+
+    // Fallback: If we have a detected name but no messages found, try "You"
+    if (!yourLastMessageObj && this.detectedUserName) {
+      yourLastMessageObj = this.getLastMessageFrom('You');
+    }
+
     const lastUserMessage = yourLastMessageObj ? yourLastMessageObj.text : '';
 
-    // Get the last message from a friend (not from "You")
-    const lastFriendMessageObj = this.getLastMessageNotFrom('You');
+    // Get the last message from a friend (not from the user)
+    let lastFriendMessageObj = this.getLastMessageNotFrom(userLabel);
+
+    // Fallback: If we have a detected name but no messages found, try "You"
+    if (!lastFriendMessageObj && this.detectedUserName) {
+      lastFriendMessageObj = this.getLastMessageNotFrom('You');
+    }
+
     const lastFriendMessage = lastFriendMessageObj ? lastFriendMessageObj.text : '';
     const lastFriendSpeaker = lastFriendMessageObj ? lastFriendMessageObj.speaker : '';
 
@@ -758,7 +773,7 @@ window.Gracula.ConversationAnalyzer = class {
 
     // Determine who sent the last message
     const lastMessageSender = this.getLastMessageSender();
-    const isYourLastMessage = lastMessageSender === 'You';
+    const isYourLastMessage = lastMessageSender === userLabel || lastMessageSender === 'You';
 
     return {
       totalMessages: analysis.messageCount,
@@ -775,10 +790,11 @@ window.Gracula.ConversationAnalyzer = class {
       emojiUsage: analysis.emojiUsage?.usageLevel || 'none',
       styleNotes,
       lastMessage: lastAnyMessage,  // Last message from anyone
-      lastUserMessage: lastUserMessage,  // Last message from "You"
+      lastUserMessage: lastUserMessage,  // Last message from the user
       lastFriendMessage: lastFriendMessage,  // Last message from a friend
       lastFriendSpeaker: lastFriendSpeaker,  // Who sent the friend's last message
-      isYourLastMessage: isYourLastMessage  // Whether YOU sent the last message
+      isYourLastMessage: isYourLastMessage,  // Whether the user sent the last message
+      userName: userLabel  // NEW: Include the user's actual name
     };
   }
 

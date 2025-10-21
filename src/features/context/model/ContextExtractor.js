@@ -24,6 +24,7 @@ window.Gracula.ContextExtractor = class {
     this.speakerDetector = new window.Gracula.SpeakerDetector(platform);
     this.analyzer = new window.Gracula.ConversationAnalyzer();
     this.summarizer = new window.Gracula.ConversationSummarizer();
+    this.smartSelector = new window.Gracula.SmartMessageSelector(); // PHASE 2: Smart message selection
     this.messages = [];
     this.detectedUserName = null; // NEW: Store detected user name
   }
@@ -1597,7 +1598,7 @@ window.Gracula.ContextExtractor = class {
   }
 
   /**
-   * Get enhanced context with analysis
+   * Get enhanced context with analysis - PHASE 2 ENHANCED
    */
   getEnhancedContext() {
     const analysis = this.analyzer.analyze(this.messages);
@@ -1605,13 +1606,40 @@ window.Gracula.ContextExtractor = class {
     const metrics = this.computeMetrics(this.messages, analysis, summary);
     const dualAnalysis = this.analyzer.getDualAnalysis();
 
+    // PHASE 2: Smart message selection for very long conversations
+    let selectedMessages = this.messages;
+    let smartSelectionUsed = false;
+
+    if (this.smartSelector.needsSmartSelection(this.messages)) {
+      console.log('🧠 [PHASE 2] Using smart message selection for long conversation');
+      selectedMessages = this.smartSelector.selectRelevantMessages(this.messages, analysis, 30);
+      smartSelectionUsed = true;
+    }
+
+    // PHASE 2: Topic change detection
+    const topicChanges = this.smartSelector.detectTopicChanges(this.messages);
+
+    // PHASE 2: Context quality validation
+    const contextQuality = this.smartSelector.validateContextQuality(selectedMessages);
+
+    console.log(`✅ [PHASE 2] Context quality: ${contextQuality.quality}`, contextQuality.issues);
+
     return {
       messages: this.messages.map(msg => msg.toJSON()),
+      selectedMessages: selectedMessages.map(msg => msg.toJSON()), // PHASE 2: Selected messages
       analysis,
       summary,
       metrics,
       contextStrings: this.getContextStrings(),
-      dualAnalysis  // NEW: Add dual context analysis
+      dualAnalysis,  // NEW: Add dual context analysis
+      // PHASE 2 enhancements:
+      smartSelection: {
+        used: smartSelectionUsed,
+        originalCount: this.messages.length,
+        selectedCount: selectedMessages.length
+      },
+      topicChanges,
+      contextQuality
     };
   }
 
