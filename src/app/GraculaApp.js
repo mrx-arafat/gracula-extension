@@ -21,6 +21,10 @@ window.Gracula.GraculaApp = class {
     this.context = [];
     this.enhancedContext = null;
     this.isInserting = false;
+
+    // NEW: Autocomplete components
+    this.autocompleteDropdown = null;
+    this.autocompleteManager = null;
   }
 
   /**
@@ -190,7 +194,44 @@ window.Gracula.GraculaApp = class {
       }
     });
 
+    // NEW: Attach autocomplete to input field
+    this.attachAutocomplete(inputField);
+
     // window.Gracula.logger.success('Floating button attached');
+  }
+
+  /**
+   * NEW: Attach autocomplete to input field
+   */
+  attachAutocomplete(inputField) {
+    // Remove existing autocomplete
+    if (this.autocompleteManager) {
+      this.autocompleteManager.destroy();
+    }
+
+    // Check if autocomplete classes exist
+    if (!window.Gracula.AutocompleteDropdown || !window.Gracula.AutocompleteManager) {
+      console.warn('🧛 Autocomplete: Classes not loaded yet');
+      return;
+    }
+
+    // Create autocomplete dropdown
+    this.autocompleteDropdown = new window.Gracula.AutocompleteDropdown();
+
+    // Create autocomplete manager
+    this.autocompleteManager = new window.Gracula.AutocompleteManager({
+      inputField: inputField,
+      contextExtractor: this.contextExtractor,
+      autocompleteDropdown: this.autocompleteDropdown,
+      onSuggestionSelect: (suggestion) => {
+        console.log('🧛 Autocomplete: Suggestion selected:', suggestion);
+      }
+    });
+
+    // Start monitoring input
+    this.autocompleteManager.start();
+
+    console.log('✅ [GRACULA APP] Autocomplete attached to input field');
   }
 
   /**

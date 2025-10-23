@@ -82,6 +82,9 @@
         "widgets/context-viewer/index.js",
         "widgets/reply-list/ui/ReplyList.js",
         "widgets/reply-list/index.js",
+        "widgets/autocomplete/ui/AutocompleteDropdown.js",
+        "widgets/autocomplete/model/AutocompleteManager.js",
+        "widgets/autocomplete/index.js",
         "app/GraculaApp.js",
         "app/index.js"
       ],

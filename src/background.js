@@ -27,6 +27,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true; // Keep channel open for async response
   }
 
+  // NEW: Handle autocomplete suggestions
+  if (request.action === 'generateAutocompletions') {
+    handleGenerateAutocompletions(request.partialText, request.analysis, request.context, request.enhancedContext)
+      .then(suggestions => sendResponse({ success: true, suggestions }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true; // Keep channel open for async response
+  }
+
   if (request.action === 'updateApiConfig') {
     apiConfig = { ...apiConfig, ...request.config };
     chrome.storage.sync.set({ apiConfig }, () => {
@@ -828,6 +836,165 @@ function generateContextualReplies(tone, context) {
   }
 
   return replies;
+}
+
+// ========================================
+// AUTOCOMPLETE HANDLER
+// ========================================
+
+async function handleGenerateAutocompletions(partialText, analysis, context, enhancedContext) {
+  console.log('🧛 Gracula Background: Generating autocompletions for:', partialText);
+
+  // Build autocomplete prompt
+  const prompt = buildAutocompletePrompt(partialText, analysis, context, enhancedContext);
+
+  // Call AI API
+  const suggestions = await callAIAPI(prompt, {
+    enhancedContext,
+    isAutocomplete: true,
+    partialText
+  });
+
+  return suggestions;
+}
+
+function buildAutocompletePrompt(partialText, analysis, context, enhancedContext) {
+  let prompt = '';
+
+  const summary = enhancedContext?.summary || {};
+  const userName = summary.userName || 'You';
+  const friendName = summary.lastFriendSpeaker || summary.lastSpeaker || 'Friend';
+
+  // NEW: Extract and emphasize LAST MESSAGE
+  const lastMessage = Array.isArray(context) && context.length > 0
+    ? context[context.length - 1]
+    : null;
+
+  // Context header
+  prompt += '=== ⚡ SUPERFAST AUTOCOMPLETE ===\n\n';
+  prompt += `The user is typing: "${partialText}"\n`;
+  prompt += `You MUST complete this to REPLY TO THE LAST MESSAGE ONLY.\n\n`;
+
+  // ========================================
+  // CRITICAL: FOCUS ON LAST MESSAGE OR REPLY-TO MESSAGE
+  // ========================================
+  const lastMsgAnalysis = analysis?.lastMessageContext;
+
+  if (lastMsgAnalysis) {
+    // Check if this is a reply-to message (user selected a specific message to reply to)
+    if (lastMsgAnalysis.isReplyTo) {
+      prompt += '=== 🎯🎯🎯 SUPER CRITICAL: USER IS REPLYING TO THIS SPECIFIC MESSAGE ===\n';
+      prompt += `>>> ${lastMsgAnalysis.fullMessage} <<<\n`;
+      prompt += `⚠️⚠️⚠️ USER EXPLICITLY SELECTED THIS MESSAGE TO REPLY TO!\n`;
+      prompt += `⚠️  YOUR COMPLETION MUST DIRECTLY REPLY TO THIS EXACT MESSAGE!\n`;
+      prompt += `⚠️  IGNORE all other messages in the conversation.\n`;
+      prompt += `⚠️  ONLY address what was said in this specific replied-to message.\n\n`;
+    } else if (lastMessage) {
+      prompt += '=== 🎯 CRITICAL: LAST MESSAGE (REPLY TO THIS!) ===\n';
+      prompt += `>>> ${lastMessage} <<<\n`;
+      prompt += `⚠️  YOUR COMPLETION MUST DIRECTLY REPLY TO THIS EXACT MESSAGE!\n`;
+      prompt += `⚠️  DO NOT reply to earlier messages in the conversation.\n`;
+      prompt += `⚠️  ONLY address what was said in the last message above.\n\n`;
+    }
+
+    // Analyze message for better guidance
+    prompt += '=== 📊 MESSAGE ANALYSIS ===\n';
+    prompt += `Speaker: ${lastMsgAnalysis.speaker}\n`;
+    prompt += `Content: "${lastMsgAnalysis.content}"\n`;
+
+    if (lastMsgAnalysis.isQuestion) {
+      prompt += `⚠️  TYPE: QUESTION (${lastMsgAnalysis.questionType})\n`;
+      prompt += `→ You MUST answer this question!\n`;
+    }
+
+    if (lastMsgAnalysis.isRequest) {
+      prompt += `⚠️  TYPE: REQUEST (${lastMsgAnalysis.requestType})\n`;
+      prompt += `→ You MUST respond to this request!\n`;
+    }
+
+    if (lastMsgAnalysis.emotion !== 'neutral') {
+      prompt += `💭 EMOTION: ${lastMsgAnalysis.emotion}\n`;
+      prompt += `→ Match this emotional tone in your reply\n`;
+    }
+
+    if (lastMsgAnalysis.isUrgent) {
+      prompt += `⚡ URGENCY: This is urgent!\n`;
+    }
+
+    if (lastMsgAnalysis.topics.length > 0) {
+      prompt += `📌 TOPICS: ${lastMsgAnalysis.topics.join(', ')}\n`;
+      prompt += `→ Address these topics in your reply\n`;
+    }
+
+    prompt += '\n';
+  } else if (lastMessage) {
+    // Fallback if no analysis available
+    prompt += '=== 🎯 CRITICAL: LAST MESSAGE (REPLY TO THIS!) ===\n';
+    prompt += `>>> ${lastMessage} <<<\n`;
+    prompt += `⚠️  YOUR COMPLETION MUST DIRECTLY REPLY TO THIS EXACT MESSAGE!\n\n`;
+  }
+
+  // Add minimal earlier context (for reference only)
+  if (Array.isArray(context) && context.length > 1) {
+    prompt += '=== 📚 EARLIER CONTEXT (Reference Only) ===\n';
+    const earlierContext = context.slice(-4, -1); // 3 messages before last
+    earlierContext.forEach((msg) => {
+      prompt += `${msg}\n`;
+    });
+    prompt += '\n⚠️  Do NOT reply to these messages. They are only for context.\n\n';
+  }
+
+  // User's typing analysis
+  if (analysis) {
+    prompt += '=== 💭 USER\'S TYPING INTENT ===\n';
+    if (analysis.isGreeting) prompt += '→ User is starting with a greeting\n';
+    if (analysis.isQuestion) prompt += '→ User is asking a question\n';
+    if (analysis.isAgreement) prompt += '→ User is agreeing/accepting\n';
+    if (analysis.isDisagreement) prompt += '→ User is disagreeing/declining\n';
+    prompt += '\n';
+  }
+
+  // Instructions
+  prompt += '=== 🎯 YOUR TASK ===\n';
+  prompt += `Complete: "${partialText}..."\n\n`;
+  prompt += '📋 CRITICAL RULES:\n';
+  prompt += `1. ⚠️  REPLY ONLY TO THE LAST MESSAGE (marked with >>>)\n`;
+  prompt += `2. Continue naturally from: "${partialText}"\n`;
+  prompt += `3. DIRECTLY address what was said in the last message\n`;
+  prompt += `4. Match the conversation style and emotional tone\n`;
+  prompt += `5. ⚠️  KEEP IT SUPER SHORT - Maximum 5-8 words TOTAL\n`;
+  prompt += `6. ⚠️  NO unnecessary explanations - DIRECT ANSWERS ONLY\n`;
+  prompt += `7. Start each completion with: "${partialText}"\n`;
+
+  // Length guidance - STRICT LIMITS
+  prompt += `8. ⚠️  STRICT: 3-8 words per completion (including "${partialText}")\n`;
+  prompt += `9. For yes/no questions: Answer in 2-4 words max\n`;
+  prompt += `10. Examples of GOOD short answers:\n`;
+  prompt += `    - "No, it's not."\n`;
+  prompt += `    - "Yes, it is."\n`;
+  prompt += `    - "Not sure yet."\n`;
+  prompt += `    - "Tomorrow works."\n`;
+  prompt += `11. Examples of BAD long answers (DON'T DO THIS):\n`;
+  prompt += `    - "No, it's not some kind of n8n automation thing"\n`;
+  prompt += `    - "Yes, it is n8n automation that I've been working on"\n`;
+
+  // Language hints
+  if (enhancedContext?.metrics?.languageHints?.length > 0) {
+    prompt += `12. Languages: ${enhancedContext.metrics.languageHints.join(', ')}\n`;
+  }
+
+  prompt += '\n';
+  prompt += '=== 🎯 OUTPUT FORMAT ===\n';
+  prompt += 'Generate 3 SUPER SHORT completions that REPLY TO THE LAST MESSAGE.\n';
+  prompt += 'Format: Numbered 1., 2., and 3., each on a new line.\n';
+  prompt += `IMPORTANT:\n`;
+  prompt += `- Start each with: "${partialText}"\n`;
+  prompt += `- Keep TOTAL length under 8 words\n`;
+  prompt += `- NO explanations, NO extra details\n`;
+  prompt += `- DIRECT answers only\n\n`;
+  prompt += 'Completions:\n';
+
+  return prompt;
 }
 
 console.log('🧛 Gracula Background Script: Loaded');
