@@ -215,18 +215,37 @@ window.Gracula.GraculaApp = class {
       return;
     }
 
-    // Create autocomplete dropdown
-    this.autocompleteDropdown = new window.Gracula.AutocompleteDropdown();
-
-    // Create autocomplete manager
+    // Create autocomplete manager first (we'll pass dropdown later)
     this.autocompleteManager = new window.Gracula.AutocompleteManager({
       inputField: inputField,
       contextExtractor: this.contextExtractor,
-      autocompleteDropdown: this.autocompleteDropdown,
+      autocompleteDropdown: null, // Will be set below
       onSuggestionSelect: (suggestion) => {
         console.log('🧛 Autocomplete: Suggestion selected:', suggestion);
       }
     });
+
+    // Create autocomplete dropdown with callback to manager's insertSuggestion
+    this.autocompleteDropdown = new window.Gracula.AutocompleteDropdown({
+      onSelect: (suggestion) => {
+        console.log('🔥🔥🔥 GraculaApp: onSelect callback triggered!');
+        console.log('🔥 Suggestion:', suggestion);
+        console.log('🔥 Manager exists?', !!this.autocompleteManager);
+        console.log('🔥 Manager.insertSuggestion exists?', typeof this.autocompleteManager?.insertSuggestion);
+
+        if (this.autocompleteManager && typeof this.autocompleteManager.insertSuggestion === 'function') {
+          this.autocompleteManager.insertSuggestion(suggestion);
+        } else {
+          console.error('❌ Cannot call insertSuggestion - manager or method not available');
+        }
+      },
+      onDismiss: () => {
+        console.log('🧛 Dropdown: Dismissed');
+      }
+    });
+
+    // Now connect dropdown to manager
+    this.autocompleteManager.autocompleteDropdown = this.autocompleteDropdown;
 
     // Start monitoring input
     this.autocompleteManager.start();

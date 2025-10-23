@@ -50,7 +50,8 @@ window.Gracula.AutocompleteManager = class {
 
     // Add event listeners
     this.inputField.addEventListener('input', this.handleInput);
-    this.inputField.addEventListener('keydown', this.handleKeydown);
+    // CRITICAL: Use capture:true to intercept Enter BEFORE WhatsApp
+    this.inputField.addEventListener('keydown', this.handleKeydown, true);
     document.addEventListener('click', this.handleClickOutside);
 
     // NEW: Pre-generate suggestions for common starters
@@ -68,7 +69,8 @@ window.Gracula.AutocompleteManager = class {
   stop() {
     if (this.inputField) {
       this.inputField.removeEventListener('input', this.handleInput);
-      this.inputField.removeEventListener('keydown', this.handleKeydown);
+      // Remove with capture:true since we added with it
+      this.inputField.removeEventListener('keydown', this.handleKeydown, true);
     }
     document.removeEventListener('click', this.handleClickOutside);
 
@@ -118,6 +120,30 @@ window.Gracula.AutocompleteManager = class {
    * Handle keydown events
    */
   handleKeydown(event) {
+    // CRITICAL: If dropdown is visible and user presses Right Arrow, insert suggestion
+    if (this.autocompleteDropdown?.isVisible && event.key === 'ArrowRight') {
+      console.log('➡️ Right Arrow pressed with dropdown visible - inserting suggestion');
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      // Insert the selected suggestion
+      this.autocompleteDropdown.selectCurrent();
+      return;
+    }
+
+    // If dropdown is visible and user presses Enter, just navigate down (don't insert)
+    if (this.autocompleteDropdown?.isVisible && event.key === 'Enter') {
+      console.log('🛑 Enter key pressed with dropdown visible - navigating down');
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      // Just navigate to next suggestion, don't insert
+      this.autocompleteDropdown.navigateDown();
+      return;
+    }
+
     // NEW: Ctrl+Space to trigger instant autocomplete
     if (event.ctrlKey && event.code === 'Space') {
       event.preventDefault();
@@ -126,7 +152,7 @@ window.Gracula.AutocompleteManager = class {
       return;
     }
 
-    // NEW: Ctrl+Enter to quickly insert SELECTED suggestion (not first)
+    // NEW: Ctrl+Enter to quickly insert SELECTED suggestion
     if (event.ctrlKey && event.key === 'Enter') {
       event.preventDefault();
       event.stopPropagation();
@@ -145,6 +171,7 @@ window.Gracula.AutocompleteManager = class {
     if (handled) {
       event.preventDefault();
       event.stopPropagation();
+      event.stopImmediatePropagation(); // Extra protection
     }
   }
 
@@ -283,6 +310,8 @@ window.Gracula.AutocompleteManager = class {
    * PRIORITY: Check for reply-to message first (user explicitly selected a message to reply to)
    */
   analyzeLastMessage() {
+    console.log('🔍 analyzeLastMessage called');
+
     // PRIORITY 1: Check if user is replying to a specific message (reply-to feature)
     const replyToMessage = this.detectReplyToMessage();
     if (replyToMessage && replyToMessage.text) {
@@ -325,9 +354,17 @@ window.Gracula.AutocompleteManager = class {
 
     // PRIORITY 2: Fall back to last message in conversation
     const messages = this.contextExtractor?.getSimpleContext() || [];
-    if (messages.length === 0) return null;
+    console.log('🔍 Messages from contextExtractor:', messages);
+    console.log('🔍 Total messages:', messages.length);
+
+    if (messages.length === 0) {
+      console.warn('⚠️ No messages found in context!');
+      return null;
+    }
 
     const lastMessage = messages[messages.length - 1] || '';
+    console.log('🔍 Last message:', lastMessage);
+
     const messageLower = lastMessage.toLowerCase();
 
     // Extract who sent it and what they said
@@ -335,6 +372,8 @@ window.Gracula.AutocompleteManager = class {
     const speaker = match ? match[1] : 'Friend';
     const content = match ? match[2] : lastMessage;
     const contentLower = content.toLowerCase();
+
+    console.log('🔍 Parsed - Speaker:', speaker, 'Content:', content);
 
     // Deep message analysis
     const analysis = {
@@ -502,38 +541,114 @@ window.Gracula.AutocompleteManager = class {
    * Insert selected suggestion
    */
   insertSuggestion(suggestion) {
-    if (!this.inputField) return;
+    console.log('🔥🔥🔥 insertSuggestion CALLED with:', suggestion);
+
+    if (!this.inputField) {
+      console.error('❌ insertSuggestion: No input field!');
+      return;
+    }
 
     try {
-      // Set flag to prevent handleInput from re-triggering
+      console.log('🧛 Autocomplete: Starting insertion process...');
+      console.log('🧛 Suggestion to insert:', suggestion);
+      console.log('🧛 Current input text BEFORE:', this.getInputText());
+      console.log('🧛 Input field:', this.inputField);
+
+      // CRITICAL: Set flag FIRST, before anything else
       this.isInserting = true;
 
+      // CRITICAL: Update lastText IMMEDIATELY to the suggestion we're about to insert
+      // This prevents handleInput from re-processing when the input event fires
+      this.lastText = suggestion;
+
+      // Hide dropdown BEFORE insertion to prevent any race conditions
+      this.autocompleteDropdown?.hide();
+
       if (this.inputField.contentEditable === 'true') {
-        // For contenteditable elements (WhatsApp, etc.)
+        // For contenteditable elements (WhatsApp with Lexical editor)
         this.inputField.focus();
+
+        console.log('🧛 Detected Lexical editor:', this.inputField.hasAttribute('data-lexical-editor'));
+        console.log('🧛 Current text before clear:', this.getInputText());
+
+        // NUCLEAR CLEAR: Remove ALL content completely
+        // Step 1: Clear using innerHTML (fastest)
         this.inputField.innerHTML = '';
 
-        const textNode = document.createTextNode(suggestion);
-        this.inputField.appendChild(textNode);
+        // Step 2: Double-check with textContent
+        this.inputField.textContent = '';
 
-        // Set cursor to end
-        const selection = window.getSelection();
-        if (selection) {
-          selection.removeAllRanges();
-          const range = document.createRange();
-          range.setStart(textNode, suggestion.length);
-          range.collapse(true);
-          selection.addRange(range);
+        // Step 3: Remove all child nodes manually (triple-check)
+        while (this.inputField.firstChild) {
+          this.inputField.removeChild(this.inputField.firstChild);
         }
 
-        // Trigger input event for WhatsApp to register the change
-        const inputEvent = new InputEvent('input', {
-          bubbles: true,
-          cancelable: true,
-          data: suggestion,
-          inputType: 'insertText'
+        console.log('🧛 After nuclear clear. Text:', this.getInputText(), 'Children:', this.inputField.childNodes.length);
+
+        // Step 4: Create a SINGLE paragraph element (WhatsApp uses <p> tags)
+        const paragraph = document.createElement('p');
+        const textNode = document.createTextNode(suggestion);
+        paragraph.appendChild(textNode);
+
+        // Insert the paragraph
+        this.inputField.appendChild(paragraph);
+
+        console.log('🧛 Inserted paragraph. Text:', this.getInputText(), 'HTML:', this.inputField.innerHTML);
+
+        // Step 5: Set cursor to end of text
+        const selection = window.getSelection();
+        const range = document.createRange();
+
+        // Position cursor at end of the text node inside the paragraph
+        range.setStart(textNode, suggestion.length);
+        range.setEnd(textNode, suggestion.length);
+
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        console.log('✅ FINAL Text AFTER insertion:', this.getInputText());
+        console.log('✅ FINAL HTML:', this.inputField.innerHTML);
+
+        // CRITICAL: Force WhatsApp's Lexical editor to update
+        // Dispatch multiple events to trigger Lexical's reconciliation
+        const events = [
+          new InputEvent('beforeinput', {
+            bubbles: true,
+            cancelable: false,
+            inputType: 'insertText',
+            data: suggestion
+          }),
+          new InputEvent('input', {
+            bubbles: true,
+            cancelable: false,
+            inputType: 'insertText',
+            data: suggestion
+          }),
+          new Event('textInput', { bubbles: true }),
+          new Event('change', { bubbles: true }),
+        ];
+
+        // Dispatch immediately
+        events.forEach(event => {
+          this.inputField.dispatchEvent(event);
         });
-        this.inputField.dispatchEvent(inputEvent);
+
+        // Also trigger a focus event to force Lexical to re-check the DOM
+        this.inputField.blur();
+        setTimeout(() => {
+          this.inputField.focus();
+
+          // Move cursor to end again after focus
+          const selection = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(this.inputField);
+          range.collapse(false);
+          selection.removeAllRanges();
+          selection.addRange(range);
+
+          console.log('🧛 Lexical editor force-updated with blur/focus');
+        }, 10);
+
       } else {
         // For regular input/textarea elements
         const prototype = Object.getPrototypeOf(this.inputField);
@@ -549,20 +664,18 @@ window.Gracula.AutocompleteManager = class {
         this.inputField.dispatchEvent(inputEvent);
       }
 
-      // Update last text
-      this.lastText = suggestion;
-
       // Callback
       this.onSuggestionSelect(suggestion);
 
-      console.log('🧛 Autocomplete: Suggestion inserted:', suggestion);
+      console.log('✅ Autocomplete: Insertion complete');
 
-      // Reset flag after a short delay
+      // Reset flag after a delay
       setTimeout(() => {
         this.isInserting = false;
-      }, 100);
+        console.log('🧛 Autocomplete: isInserting flag reset to false');
+      }, 300);
     } catch (error) {
-      console.error('🧛 Autocomplete: Error inserting suggestion:', error);
+      console.error('❌ Autocomplete: Error inserting suggestion:', error);
       this.isInserting = false;
     }
   }

@@ -160,8 +160,8 @@ window.Gracula.AutocompleteDropdown = class {
           <strong style="font-size: 13px; font-weight: 600;">Gracula <span style="color: #764ba2;">SUPERFAST</span></strong>
         </div>
         <div style="font-size: 10px; color: #667eea; opacity: 0.9; display: flex; gap: 4px; flex-wrap: wrap;">
-          <kbd style="padding: 2px 5px; background: white; border: 1px solid #ddd; border-radius: 3px; font-size: 9px;">Ctrl+Space</kbd>
-          <kbd style="padding: 2px 5px; background: white; border: 1px solid #ddd; border-radius: 3px; font-size: 9px;">Ctrl+Enter</kbd>
+          <kbd style="padding: 2px 5px; background: white; border: 1px solid #ddd; border-radius: 3px; font-size: 9px;">Click</kbd>
+          <kbd style="padding: 2px 5px; background: white; border: 1px solid #ddd; border-radius: 3px; font-size: 9px;">Enter</kbd>
           <kbd style="padding: 2px 5px; background: white; border: 1px solid #ddd; border-radius: 3px; font-size: 9px;">Tab</kbd>
           <kbd style="padding: 2px 5px; background: white; border: 1px solid #ddd; border-radius: 3px; font-size: 9px;">↓↑</kbd>
         </div>
@@ -331,8 +331,14 @@ window.Gracula.AutocompleteDropdown = class {
     if (this.suggestions.length === 0) return;
 
     const selectedSuggestion = this.suggestions[this.selectedIndex];
+    console.log('🎯 AutocompleteDropdown: selectCurrent called with:', selectedSuggestion);
+    console.log('🎯 AutocompleteDropdown: onSelect callback exists?', typeof this.onSelect);
+
+    // Call the onSelect callback (this should trigger insertSuggestion)
     this.onSelect(selectedSuggestion);
-    this.hide();
+
+    // Note: Don't hide here - let insertSuggestion handle hiding to avoid race conditions
+    // this.hide();
   }
 
   /**
