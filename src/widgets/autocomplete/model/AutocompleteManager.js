@@ -505,7 +505,7 @@ window.Gracula.AutocompleteManager = class {
   }
 
   /**
-   * Insert selected suggestion
+   * Insert selected suggestion - REWRITTEN to work with Lexical editor
    */
   insertSuggestion(suggestion) {
     console.log('🔥🔥🔥 insertSuggestion CALLED with:', suggestion);
@@ -519,101 +519,51 @@ window.Gracula.AutocompleteManager = class {
       console.log('🧛 Autocomplete: Starting insertion process...');
       console.log('🧛 Suggestion to insert:', suggestion);
       console.log('🧛 Current input text BEFORE:', this.getInputText());
-      console.log('🧛 Input field:', this.inputField);
 
       // CRITICAL: Set flag FIRST, before anything else
       this.isInserting = true;
 
       // CRITICAL: Update lastText IMMEDIATELY to the suggestion we're about to insert
-      // This prevents handleInput from re-processing when the input event fires
       this.lastText = suggestion;
 
-      // Hide dropdown BEFORE insertion to prevent any race conditions
+      // Hide dropdown BEFORE insertion
       this.autocompleteDropdown?.hide();
 
       if (this.inputField.contentEditable === 'true') {
         // For contenteditable elements (WhatsApp with Lexical editor)
+        // The key is to simulate actual user typing, not manipulate DOM directly
+
+        console.log('🧛 Using proper text insertion for Lexical editor');
+
+        // Step 1: Focus the input field
         this.inputField.focus();
 
-        console.log('🧛 Detected Lexical editor:', this.inputField.hasAttribute('data-lexical-editor'));
-        console.log('🧛 Current text before clear:', this.getInputText());
-
-        // NUCLEAR CLEAR: Remove ALL content completely
-        // Step 1: Clear using innerHTML (fastest)
-        this.inputField.innerHTML = '';
-
-        // Step 2: Double-check with textContent
-        this.inputField.textContent = '';
-
-        // Step 3: Remove all child nodes manually (triple-check)
-        while (this.inputField.firstChild) {
-          this.inputField.removeChild(this.inputField.firstChild);
-        }
-
-        console.log('🧛 After nuclear clear. Text:', this.getInputText(), 'Children:', this.inputField.childNodes.length);
-
-        // Step 4: Create a SINGLE paragraph element (WhatsApp uses <p> tags)
-        const paragraph = document.createElement('p');
-        const textNode = document.createTextNode(suggestion);
-        paragraph.appendChild(textNode);
-
-        // Insert the paragraph
-        this.inputField.appendChild(paragraph);
-
-        console.log('🧛 Inserted paragraph. Text:', this.getInputText(), 'HTML:', this.inputField.innerHTML);
-
-        // Step 5: Set cursor to end of text
+        // Step 2: Select all existing text (like Ctrl+A)
         const selection = window.getSelection();
         const range = document.createRange();
-
-        // Position cursor at end of the text node inside the paragraph
-        range.setStart(textNode, suggestion.length);
-        range.setEnd(textNode, suggestion.length);
-
+        range.selectNodeContents(this.inputField);
         selection.removeAllRanges();
         selection.addRange(range);
 
+        console.log('🧛 Selected all text, range:', range.toString());
+
+        // Step 3: Use execCommand to insert text (this properly triggers Lexical events)
+        // This is the standard way to programmatically insert text into contenteditable
+        const success = document.execCommand('insertText', false, suggestion);
+
+        console.log('🧛 execCommand insertText result:', success);
         console.log('✅ FINAL Text AFTER insertion:', this.getInputText());
-        console.log('✅ FINAL HTML:', this.inputField.innerHTML);
 
-        // CRITICAL: Force WhatsApp's Lexical editor to update
-        // Dispatch multiple events to trigger Lexical's reconciliation
-        const events = [
-          new InputEvent('beforeinput', {
-            bubbles: true,
-            cancelable: false,
-            inputType: 'insertText',
-            data: suggestion
-          }),
-          new InputEvent('input', {
-            bubbles: true,
-            cancelable: false,
-            inputType: 'insertText',
-            data: suggestion
-          }),
-          new Event('textInput', { bubbles: true }),
-          new Event('change', { bubbles: true }),
-        ];
-
-        // Dispatch immediately
-        events.forEach(event => {
-          this.inputField.dispatchEvent(event);
-        });
-
-        // Also trigger a focus event to force Lexical to re-check the DOM
-        this.inputField.blur();
+        // Step 4: Move cursor to end
         setTimeout(() => {
-          this.inputField.focus();
+          const sel = window.getSelection();
+          const rng = document.createRange();
+          rng.selectNodeContents(this.inputField);
+          rng.collapse(false); // Collapse to end
+          sel.removeAllRanges();
+          sel.addRange(rng);
 
-          // Move cursor to end again after focus
-          const selection = window.getSelection();
-          const range = document.createRange();
-          range.selectNodeContents(this.inputField);
-          range.collapse(false);
-          selection.removeAllRanges();
-          selection.addRange(range);
-
-          console.log('🧛 Lexical editor force-updated with blur/focus');
+          console.log('🧛 Cursor moved to end');
         }, 10);
 
       } else {
