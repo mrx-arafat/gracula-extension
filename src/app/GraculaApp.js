@@ -25,6 +25,9 @@ window.Gracula.GraculaApp = class {
     // NEW: Autocomplete components
     this.autocompleteDropdown = null;
     this.autocompleteManager = null;
+
+    // NEW: Voice input component
+    this.voiceInputManager = null;
   }
 
   /**
@@ -197,6 +200,9 @@ window.Gracula.GraculaApp = class {
     // NEW: Attach autocomplete to input field
     this.attachAutocomplete(inputField);
 
+    // NEW: Attach voice input to input field
+    this.attachVoiceInput(inputField);
+
     // window.Gracula.logger.success('Floating button attached');
   }
 
@@ -251,6 +257,40 @@ window.Gracula.GraculaApp = class {
     this.autocompleteManager.start();
 
     console.log('✅ [GRACULA APP] Autocomplete attached to input field');
+  }
+
+  /**
+   * NEW: Attach voice input to input field
+   */
+  attachVoiceInput(inputField) {
+    // Remove existing voice input
+    if (this.voiceInputManager) {
+      this.voiceInputManager.destroy();
+    }
+
+    // Check if voice input class exists
+    if (!window.Gracula.VoiceInputManager) {
+      console.warn('🎤 Voice Input: Class not loaded yet');
+      return;
+    }
+
+    // Create voice input manager
+    this.voiceInputManager = new window.Gracula.VoiceInputManager({
+      inputField: inputField,
+      onTranscription: (text) => {
+        console.log('🎤 Voice Input: Transcription received:', text);
+      },
+      onError: (error) => {
+        console.error('🎤 Voice Input: Error:', error);
+        // Show error notification
+        this.showNotification(error, 'error');
+      }
+    });
+
+    // Start voice input
+    this.voiceInputManager.start();
+
+    console.log('✅ [GRACULA APP] Voice input attached to input field');
   }
 
   /**
@@ -336,10 +376,9 @@ window.Gracula.GraculaApp = class {
 
   /**
    * Handle tone selection
+   * ENHANCED: Check cache first, only use API if useAI is enabled
    */
   async handleToneSelection(tone) {
-    // window.Gracula.logger.info(`Generating ${tone.name} replies...`);
-
     const modalBody = this.modal.getBody();
     if (!modalBody) return;
 
@@ -347,20 +386,48 @@ window.Gracula.GraculaApp = class {
     this.replyList.showLoading(modalBody);
 
     try {
-      // Generate replies
-      const replies = await this.generateReplies(tone);
-      
+      let replies = null;
+
+      // Check if user wants to use AI
+      if (!tone.useAI) {
+        // Try to get cached responses first (NO API CALL)
+        console.log('🔍 Checking cache for similar context...');
+        const responseCache = window.Gracula.ResponseCache;
+        const cachedReplies = responseCache?.get(this.context);
+
+        if (cachedReplies && cachedReplies.length > 0) {
+          console.log('✅ Using cached responses (NO API CALL)');
+          replies = cachedReplies;
+        } else {
+          console.log('⚠️ No cached responses found. Enable "Use AI" to generate new suggestions.');
+          throw new Error('No cached suggestions available. Enable "Use AI" toggle to generate new replies using the API.');
+        }
+      } else {
+        // User explicitly wants AI - call API
+        console.log('🤖 Calling API (user enabled AI)...');
+        replies = await this.generateReplies(tone);
+
+        // Cache the new responses for future use
+        const responseCache = window.Gracula.ResponseCache;
+        if (responseCache && replies && replies.length > 0) {
+          responseCache.set(this.context, replies, { tone: tone.name });
+          console.log('💾 Cached new responses for future use');
+        }
+      }
+
       // Display replies
       this.replyList.displayReplies(replies, modalBody);
-      
-      // window.Gracula.logger.success('Replies generated successfully');
+
     } catch (error) {
-      // window.Gracula.logger.error('Error generating replies:', error);
-      
-      const errorMessage = error.message.includes('API key') 
-        ? 'Please add your OpenAI API key in the extension settings.'
-        : 'Try refreshing the page or check your API key in extension settings.';
-      
+      console.error('Error:', error);
+
+      let errorMessage = error.message;
+      if (error.message.includes('API key')) {
+        errorMessage = 'Please add your API key in the extension settings.';
+      } else if (error.message.includes('rate limit')) {
+        errorMessage = error.message + ' Try using cached suggestions (disable "Use AI" toggle).';
+      }
+
       this.replyList.showError(errorMessage, modalBody);
     }
   }

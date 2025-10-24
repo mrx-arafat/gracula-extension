@@ -33,10 +33,40 @@ window.Gracula.AutocompleteManager = class {
     this.commonStarters = ['hi', 'hey', 'hello', 'yes', 'no', 'ok', 'okay', 'sure', 'thanks', 'thank'];
     this.preGeneratedSuggestions = new Map();
 
+    // NEW: Offline suggestion system
+    this.patternMatcher = null;
+    this.useAI = false; // Will be loaded from config
+    this.initializeOfflineSuggestions();
+    this.loadAIConfig();
+
     // Bind event handlers
     this.handleInput = this.handleInput.bind(this);
     this.handleKeydown = this.handleKeydown.bind(this);
     this.handleClickOutside = this.handleClickOutside.bind(this);
+  }
+
+  /**
+   * Initialize offline suggestion system
+   */
+  initializeOfflineSuggestions() {
+    if (window.Gracula.OfflineSuggestions && window.Gracula.OfflineSuggestions.PatternMatcher) {
+      this.patternMatcher = new window.Gracula.OfflineSuggestions.PatternMatcher();
+      console.log('🧛 Autocomplete: Offline suggestion system initialized');
+    } else {
+      console.warn('🧛 Autocomplete: Offline suggestion system not loaded');
+    }
+  }
+
+  /**
+   * Load AI configuration from background
+   */
+  loadAIConfig() {
+    chrome.runtime.sendMessage({ action: 'getApiConfig' }, (response) => {
+      if (response && response.success && response.config) {
+        this.useAI = response.config.useAIForAutosuggestions || false;
+        console.log('🧛 Autocomplete: AI mode:', this.useAI ? 'ENABLED' : 'DISABLED (Offline)');
+      }
+    });
   }
 
   /**
@@ -54,8 +84,10 @@ window.Gracula.AutocompleteManager = class {
     this.inputField.addEventListener('keydown', this.handleKeydown, true);
     document.addEventListener('click', this.handleClickOutside);
 
-    // NEW: Pre-generate suggestions for common starters
-    this.preGenerateCommonSuggestions();
+    // NEW: Pre-generate suggestions for common starters (only if AI is enabled)
+    if (this.useAI) {
+      this.preGenerateCommonSuggestions();
+    }
 
     // NEW: Update context cache periodically
     this.startContextCaching();
@@ -224,7 +256,23 @@ window.Gracula.AutocompleteManager = class {
       // Analyze partial text with smart prediction
       const analysis = this.analyzePartialText(partialText);
 
-      // NEW: Try instant local predictions first
+      // NEW: If AI is disabled, use offline suggestions only
+      if (!this.useAI && this.patternMatcher) {
+        console.log('🔵 Autocomplete: Using OFFLINE suggestions (AI disabled)');
+        const offlineSuggestions = this.patternMatcher.findSuggestions(partialText, simpleContext);
+
+        if (offlineSuggestions && offlineSuggestions.length > 0) {
+          this.cache.set(cacheKey, offlineSuggestions);
+          this.autocompleteDropdown?.show(offlineSuggestions, this.inputField);
+        } else {
+          this.autocompleteDropdown?.hide();
+        }
+
+        this.isGenerating = false;
+        return;
+      }
+
+      // AI is enabled - use instant predictions first, then fetch AI suggestions
       const instantSuggestions = this.getInstantPredictions(partialText, analysis, enhancedContext);
       if (instantSuggestions && instantSuggestions.length > 0) {
         // console.log('⚡ Autocomplete: Using INSTANT predictions');
@@ -236,7 +284,7 @@ window.Gracula.AutocompleteManager = class {
         return;
       }
 
-      // Call background script to generate completions
+      // Call background script to generate completions (AI mode)
       const suggestions = await this.requestAutocompletions({
         partialText,
         analysis,
@@ -539,6 +587,11 @@ window.Gracula.AutocompleteManager = class {
       return;
     }
 
+    // Learn from user selection (for offline mode)
+    if (this.patternMatcher && this.lastText) {
+      this.patternMatcher.learnPattern(this.lastText, suggestion);
+    }
+
     try {
       console.log('✅ [INSERT] Starting insertion process...');
       console.log('📝 [INSERT] Suggestion to insert:', suggestion);
@@ -752,7 +805,114 @@ window.Gracula.AutocompleteManager = class {
   }
 
   /**
+   * ENHANCED: Get common phrase completions (NO API CALLS)
+   * Now integrates with offline suggestions database
+   */
+  getCommonPhraseCompletions(partialText) {
+    const text = partialText.toLowerCase().trim();
+    const completions = [];
+
+    // NEW: Try offline suggestions first if available
+    if (this.patternMatcher) {
+      const offlineSuggestions = this.patternMatcher.findSuggestions(text, []);
+      if (offlineSuggestions && offlineSuggestions.length > 0) {
+        return offlineSuggestions.slice(0, 3);
+      }
+    }
+
+    // Fallback to hardcoded patterns
+    // Greetings
+    if (text.startsWith('h')) {
+      if ('hello'.startsWith(text)) completions.push('hello');
+      if ('hey'.startsWith(text)) completions.push('hey');
+      if ('hi'.startsWith(text)) completions.push('hi');
+      if ('how are you'.startsWith(text)) completions.push('how are you?');
+      if ('hope you'.startsWith(text)) completions.push('hope you\'re doing well');
+    }
+
+    // Agreements
+    if (text.startsWith('y')) {
+      if ('yes'.startsWith(text)) completions.push('yes', 'yeah', 'yup');
+      if ('you'.startsWith(text)) completions.push('you too', 'you\'re right', 'you\'re welcome');
+    }
+
+    // Common responses
+    if (text.startsWith('t')) {
+      if ('thanks'.startsWith(text)) completions.push('thanks', 'thank you', 'thanks a lot');
+      if ('that'.startsWith(text)) completions.push('that\'s great', 'that sounds good', 'that works');
+      if ('the'.startsWith(text)) completions.push('the same', 'the usual');
+    }
+
+    // Time-related
+    if (text.startsWith('s')) {
+      if ('see you'.startsWith(text)) completions.push('see you later', 'see you soon', 'see you tomorrow');
+      if ('sounds'.startsWith(text)) completions.push('sounds good', 'sounds great', 'sounds perfect');
+      if ('sure'.startsWith(text)) completions.push('sure', 'sure thing', 'sure, no problem');
+    }
+
+    // Confirmations
+    if (text.startsWith('o')) {
+      if ('ok'.startsWith(text)) completions.push('ok', 'okay', 'ok, got it');
+      if ('on my way'.startsWith(text)) completions.push('on my way', 'on my way there');
+    }
+
+    // Questions
+    if (text.startsWith('w')) {
+      if ('what'.startsWith(text)) completions.push('what\'s up?', 'what time?', 'what do you think?');
+      if ('when'.startsWith(text)) completions.push('when?', 'when are you free?', 'when should we meet?');
+      if ('where'.startsWith(text)) completions.push('where?', 'where are you?', 'where should we meet?');
+    }
+
+    // Apologies
+    if (text.startsWith('s')) {
+      if ('sorry'.startsWith(text)) completions.push('sorry', 'sorry about that', 'sorry for the delay');
+    }
+
+    // Let me know
+    if (text.startsWith('l')) {
+      if ('let me'.startsWith(text)) completions.push('let me know', 'let me check', 'let me think');
+      if ('looking forward'.startsWith(text)) completions.push('looking forward to it');
+    }
+
+    // I'm
+    if (text.startsWith('i')) {
+      if ('i\'m'.startsWith(text) || 'im'.startsWith(text)) {
+        completions.push('I\'m good', 'I\'m on my way', 'I\'m free', 'I\'m busy');
+      }
+      if ('i can'.startsWith(text)) completions.push('I can do that', 'I can help');
+      if ('i\'ll'.startsWith(text) || 'ill'.startsWith(text)) {
+        completions.push('I\'ll be there', 'I\'ll let you know', 'I\'ll check');
+      }
+    }
+
+    // No problem
+    if (text.startsWith('n')) {
+      if ('no'.startsWith(text)) completions.push('no problem', 'no worries', 'not sure');
+    }
+
+    // Got it
+    if (text.startsWith('g')) {
+      if ('got'.startsWith(text)) completions.push('got it', 'got it, thanks');
+      if ('good'.startsWith(text)) completions.push('good', 'good idea', 'good to know');
+    }
+
+    // Perfect
+    if (text.startsWith('p')) {
+      if ('perfect'.startsWith(text)) completions.push('perfect', 'perfect, thanks');
+    }
+
+    // Alright
+    if (text.startsWith('a')) {
+      if ('alright'.startsWith(text)) completions.push('alright', 'alright, sounds good');
+      if ('awesome'.startsWith(text)) completions.push('awesome', 'awesome, thanks');
+    }
+
+    return completions.slice(0, 3); // Return max 3
+  }
+
+  /**
    * Get instant predictions without API call (MIND-READING MODE - FOCUSED ON LAST MESSAGE)
+   * ENHANCED: More patterns, smarter matching, NO API CALLS
    */
   getInstantPredictions(partialText, analysis, enhancedContext) {
     const textLower = partialText.toLowerCase().trim();
@@ -763,13 +923,26 @@ window.Gracula.AutocompleteManager = class {
       return this.preGeneratedSuggestions.get(textLower);
     }
 
+    const predictions = [];
+
+    // ========================================
+    // ENHANCED: Common phrase completions (NO API)
+    // ========================================
+    const commonPhrases = this.getCommonPhraseCompletions(partialText);
+    if (commonPhrases.length > 0) {
+      predictions.push(...commonPhrases);
+    }
+
     // NEW: Get deep last message analysis
     const lastMsg = analysis.lastMessageContext;
+    if (!lastMsg && predictions.length > 0) {
+      // Return common phrases if we have them and no context
+      return predictions.slice(0, 3);
+    }
+
     if (!lastMsg) return null;
 
     // console.log('🎯 Focusing on last message:', lastMsg.content);
-
-    const predictions = [];
 
     // ========================================
     // PRIORITY 1: Reply to LAST MESSAGE Question

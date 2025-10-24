@@ -2,12 +2,23 @@
 
 // Default API configuration
 let apiConfig = {
-  provider: 'openai', // 'openai' or 'huggingface'
+  provider: 'openai', // 'openai', 'huggingface', 'openrouter', or 'google'
   apiKey: '', // Users can add their own key in settings
   model: 'gpt-3.5-turbo', // OpenAI model
   openaiEndpoint: 'https://api.openai.com/v1/chat/completions',
   huggingfaceEndpoint: 'https://api-inference.huggingface.co/models/',
-  huggingfaceModel: 'mistralai/Mistral-7B-Instruct-v0.2'
+  huggingfaceModel: 'mistralai/Mistral-7B-Instruct-v0.2',
+  openrouterEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
+  openrouterModel: 'google/gemini-2.0-flash-exp:free',
+  googleEndpoint: 'https://generativelanguage.googleapis.com/v1beta/models/',
+  googleModel: 'gemini-2.0-flash-exp',
+  // ElevenLabs configuration for voice-to-text
+  elevenlabsApiKey: 'sk_17f927bfb2297bf127c442949b9b16ab964c7b916c6cd56a',
+  elevenlabsEndpoint: 'https://api.elevenlabs.io/v1/speech-to-text',
+  // AI toggle for autosuggestions (disabled by default)
+  useAIForAutosuggestions: false,
+  // Voice input toggle (disabled by default)
+  voiceInputEnabled: false
 };
 
 // Load saved API config
@@ -333,6 +344,12 @@ async function callAIAPI(prompt, options = {}) {
     if (apiConfig.provider === 'openai') {
       console.log('🧛 Gracula: Using OpenAI API');
       return await callOpenAIAPI(prompt, options);
+    } else if (apiConfig.provider === 'openrouter') {
+      console.log('🧛 Gracula: Using OpenRouter API');
+      return await callOpenRouterAPI(prompt, options);
+    } else if (apiConfig.provider === 'google') {
+      console.log('🧛 Gracula: Using Google AI Studio API');
+      return await callGoogleAIAPI(prompt, options);
     } else {
       console.log('🧛 Gracula: Using Hugging Face API');
       return await callHuggingFaceAPI(prompt, options);
@@ -491,6 +508,195 @@ async function callHuggingFaceAPI(prompt, options = {}) {
   } else {
     throw new Error('Unexpected API response format');
   }
+
+  // Extract individual replies
+  const replies = parseReplies(generatedText);
+
+  return replies;
+}
+
+async function callOpenRouterAPI(prompt, options = {}) {
+  if (!apiConfig.apiKey) {
+    throw new Error('OpenRouter API key is required. Please add it in the extension settings.');
+  }
+
+  const url = apiConfig.openrouterEndpoint;
+
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${apiConfig.apiKey}`,
+    'HTTP-Referer': 'https://github.com/mrx-arafat/gracula-extension',
+    'X-Title': 'Gracula Extension'
+  };
+
+  const metrics = options.metrics || options.enhancedContext?.metrics || null;
+  const analysis = options.enhancedContext?.analysis || {};
+  const recommended = metrics?.recommendedReplyLength;
+
+  const deriveTokens = (wordsEstimate) => {
+    const safeWords = Math.max(6, Math.round(wordsEstimate || 0));
+    const perReplyTokens = Math.max(18, Math.round(safeWords * 1.5));
+    return Math.min(180, Math.max(90, perReplyTokens * 3 + 20));
+  };
+
+  let maxTokens = 180;
+
+  if (recommended) {
+    const estimatedWords = recommended.words || Math.round((recommended.chars || 80) / 5);
+    maxTokens = deriveTokens(estimatedWords);
+  } else if (metrics?.averageWords) {
+    maxTokens = deriveTokens(metrics.averageWords);
+  } else if (analysis?.messageLength?.averageWords) {
+    maxTokens = deriveTokens(analysis.messageLength.averageWords);
+  }
+
+  console.log('🧛 Gracula: OpenRouter max_tokens set to', maxTokens);
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      model: apiConfig.openrouterModel,
+      messages: [
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      max_tokens: maxTokens,
+      temperature: 0.7,
+      top_p: 0.9
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+
+    // Parse error for better user feedback
+    try {
+      const errorData = JSON.parse(errorText);
+      const errorMessage = errorData.error?.message || errorText;
+
+      // Handle rate limit errors specifically
+      if (response.status === 429) {
+        if (errorMessage.includes('free-models-per-day')) {
+          throw new Error('OpenRouter daily free limit reached (50 requests/day). Add credits at openrouter.ai or try again tomorrow.');
+        } else if (errorMessage.includes('free-models-per-min')) {
+          throw new Error('OpenRouter rate limit: Too many requests per minute (max 16/min). Please wait a moment and try again.');
+        } else {
+          throw new Error(`OpenRouter rate limit exceeded. ${errorMessage}`);
+        }
+      }
+
+      throw new Error(`OpenRouter API Error (${response.status}): ${errorMessage}`);
+    } catch (parseError) {
+      // If JSON parsing fails, throw original error
+      if (parseError.message.includes('OpenRouter')) {
+        throw parseError;
+      }
+      throw new Error(`API Error: ${response.status} - ${errorText}`);
+    }
+  }
+
+  const data = await response.json();
+
+  // Parse OpenRouter response (same format as OpenAI)
+  const generatedText = data.choices?.[0]?.message?.content || '';
+
+  if (!generatedText) {
+    throw new Error('No response from OpenRouter API');
+  }
+
+  // Extract individual replies
+  const replies = parseReplies(generatedText);
+
+  return replies;
+}
+
+async function callGoogleAIAPI(prompt, options = {}) {
+  if (!apiConfig.apiKey) {
+    throw new Error('Google AI Studio API key is required. Please add it in the extension settings.');
+  }
+
+  const model = apiConfig.googleModel || 'gemini-2.0-flash-exp';
+  const url = `${apiConfig.googleEndpoint}${model}:generateContent?key=${apiConfig.apiKey}`;
+
+  const headers = {
+    'Content-Type': 'application/json'
+  };
+
+  const metrics = options.metrics || options.enhancedContext?.metrics || null;
+  const analysis = options.enhancedContext?.analysis || {};
+  const recommended = metrics?.recommendedReplyLength;
+
+  const deriveTokens = (wordsEstimate) => {
+    const safeWords = Math.max(6, Math.round(wordsEstimate || 0));
+    const perReplyTokens = Math.max(18, Math.round(safeWords * 1.5));
+    return Math.min(2048, Math.max(256, perReplyTokens * 3 + 50));
+  };
+
+  let maxOutputTokens = 512;
+
+  if (recommended) {
+    const estimatedWords = recommended.words || Math.round((recommended.chars || 80) / 5);
+    maxOutputTokens = deriveTokens(estimatedWords);
+  } else if (metrics?.averageWords) {
+    maxOutputTokens = deriveTokens(metrics.averageWords);
+  } else if (analysis?.messageLength?.averageWords) {
+    maxOutputTokens = deriveTokens(analysis.messageLength.averageWords);
+  }
+
+  console.log('🧛 Gracula: Google AI maxOutputTokens set to', maxOutputTokens);
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      contents: [{
+        parts: [{
+          text: `You are a helpful assistant that generates natural, conversational message replies. Always provide exactly 3 different reply options, numbered 1., 2., and 3. Match the conversation length, pacing, and style guidance provided.\n\n${prompt}`
+        }]
+      }],
+      generationConfig: {
+        temperature: 0.7,
+        topP: 0.9,
+        maxOutputTokens: maxOutputTokens
+      }
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+
+    try {
+      const errorData = JSON.parse(errorText);
+      const errorMessage = errorData.error?.message || errorText;
+
+      if (response.status === 429) {
+        throw new Error('Google AI API rate limit exceeded. Please wait a moment and try again.');
+      } else if (response.status === 400) {
+        throw new Error(`Google AI API Error: ${errorMessage}`);
+      }
+
+      throw new Error(`Google AI API Error (${response.status}): ${errorMessage}`);
+    } catch (parseError) {
+      if (parseError.message.includes('Google AI')) {
+        throw parseError;
+      }
+      throw new Error(`Google AI API Error: ${response.status} - ${errorText}`);
+    }
+  }
+
+  const data = await response.json();
+
+  // Parse Google AI response
+  const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+  if (!generatedText) {
+    throw new Error('No response from Google AI API');
+  }
+
+  console.log('🧛 Gracula: Google AI response:', generatedText);
 
   // Extract individual replies
   const replies = parseReplies(generatedText);

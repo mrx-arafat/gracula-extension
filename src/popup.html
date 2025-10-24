@@ -101,6 +101,56 @@
       margin-top: 4px;
     }
 
+    /* Toggle Switch Styles */
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 26px;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: 0.3s;
+      border-radius: 26px;
+    }
+
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: 0.3s;
+      border-radius: 50%;
+    }
+
+    .toggle-switch input:checked + .toggle-slider {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .toggle-switch input:checked + .toggle-slider:before {
+      transform: translateX(24px);
+    }
+
+    .toggle-switch input:focus + .toggle-slider {
+      box-shadow: 0 0 1px #667eea;
+    }
+
     .btn {
       width: 100%;
       padding: 12px;
@@ -205,15 +255,36 @@
         <li>AI-powered reply generation</li>
         <li>11 different tone options</li>
         <li>Works on all messaging platforms</li>
-        <li>Completely free to use</li>
+        <li>Smart autocomplete suggestions</li>
       </ul>
+    </div>
+
+    <div class="section">
+      <h2>🎯 Autocomplete Settings</h2>
+      <div class="form-group">
+        <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+          <span style="font-weight: 600;">
+            <span style="font-size: 16px;">🤖</span> AI-Powered Autosuggestions
+          </span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="aiToggle">
+            <span class="toggle-slider"></span>
+          </label>
+        </label>
+        <div class="hint" style="margin-top: 8px;">
+          When enabled, uses AI to generate smart suggestions as you type. When disabled, uses offline pattern-based predictions (no API calls).
+        </div>
+        <div class="info-box" style="margin-top: 12px; background: #fff3cd; border-left: 4px solid #ffc107;">
+          <strong>💡 Tip:</strong> Disable AI suggestions to save API costs and use faster offline predictions. Enable for more contextual and intelligent suggestions.
+        </div>
+      </div>
     </div>
 
     <div class="section">
       <h2>⚙️ API Settings</h2>
       <div class="info-box">
-        <strong>🔑 OpenAI API Required</strong><br>
-        Gracula uses OpenAI's GPT models for high-quality replies. Add your API key below to get started. Get your key at <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com</a>.
+        <strong>🔑 API Key Required</strong><br>
+        Gracula supports multiple AI providers. Choose your preferred provider and add your API key below to get started.
       </div>
 
       <form id="settingsForm">
@@ -221,15 +292,17 @@
           <label for="provider">AI Provider</label>
           <select id="provider">
             <option value="openai">OpenAI (Recommended)</option>
+            <option value="google">Google AI Studio (Gemini)</option>
+            <option value="openrouter">OpenRouter (Free Models Available)</option>
             <option value="huggingface">Hugging Face (Free)</option>
           </select>
-          <div class="hint">OpenAI provides better quality, Hugging Face is free but limited</div>
+          <div class="hint">OpenAI provides best quality, Google AI Studio offers powerful Gemini models, OpenRouter offers free models</div>
         </div>
 
         <div class="form-group">
           <label for="apiKey">API Key</label>
-          <input type="text" id="apiKey" placeholder="sk-proj-...">
-          <div class="hint">Required for OpenAI, optional for Hugging Face</div>
+          <input type="text" id="apiKey" placeholder="sk-proj-... or AIza... or sk-or-v1-...">
+          <div class="hint" id="apiKeyHint">Required for OpenAI, Google AI Studio, and OpenRouter. Optional for Hugging Face</div>
         </div>
 
         <div class="form-group" id="openaiModelGroup">
@@ -239,6 +312,38 @@
             <option value="gpt-4">GPT-4 (Best Quality)</option>
             <option value="gpt-4-turbo-preview">GPT-4 Turbo (Balanced)</option>
           </select>
+        </div>
+
+        <div class="form-group" id="googleModelGroup" style="display: none;">
+          <label for="googleModel">Google AI Model</label>
+          <select id="googleModel">
+            <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash (Experimental, Fast)</option>
+            <option value="gemini-1.5-pro">Gemini 1.5 Pro (Best Quality)</option>
+            <option value="gemini-1.5-flash">Gemini 1.5 Flash (Fast & Efficient)</option>
+            <option value="gemini-1.5-flash-8b">Gemini 1.5 Flash 8B (Lightweight)</option>
+          </select>
+          <div class="hint">Get your API key at <a href="https://aistudio.google.com/apikey" target="_blank">Google AI Studio</a></div>
+        </div>
+
+        <div class="form-group" id="openrouterModelGroup" style="display: none;">
+          <label for="openrouterModel">OpenRouter Model</label>
+          <select id="openrouterModel">
+            <option value="google/gemini-2.0-flash-exp:free">Gemini 2.0 Flash (Free)</option>
+            <option value="deepseek/deepseek-chat-v3.1:free">DeepSeek Chat v3.1 (Free)</option>
+            <option value="z-ai/glm-4.5-air:free">GLM 4.5 Air (Free)</option>
+            <option value="moonshotai/kimi-k2:free">Kimi K2 (Free)</option>
+            <option value="cognitivecomputations/dolphin-mistral-24b-venice-edition:free">Dolphin Mistral 24B (Free)</option>
+            <option value="deepseek/deepseek-r1-0528-qwen3-8b:free">DeepSeek R1 Qwen3 8B (Free)</option>
+            <option value="qwen/qwen3-30b-a3b:free">Qwen3 30B (Free)</option>
+            <option value="meta-llama/llama-3.1-8b-instruct:free">Llama 3.1 8B (Free)</option>
+            <option value="google/gemini-flash-1.5">Gemini Flash 1.5</option>
+            <option value="openai/gpt-3.5-turbo">GPT-3.5 Turbo</option>
+            <option value="anthropic/claude-3-haiku">Claude 3 Haiku</option>
+          </select>
+          <div class="hint">Get your API key at <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai</a></div>
+          <div class="hint" style="margin-top: 8px; color: #ff9800;">
+            ⚠️ Free tier limits: 50 requests/day, 16 requests/min. <a href="https://openrouter.ai/credits" target="_blank" style="color: #ff9800;">Add credits</a> for unlimited access.
+          </div>
         </div>
 
         <div class="form-group" id="huggingfaceModelGroup" style="display: none;">
@@ -253,6 +358,40 @@
 
         <button type="submit" class="btn">Save Settings</button>
         <div id="status" class="status"></div>
+      </form>
+    </div>
+
+    <div class="section">
+      <h2>🎤 Voice-to-Text Settings</h2>
+      <div class="info-box">
+        <strong>🗣️ ElevenLabs Speech-to-Text</strong><br>
+        Enable voice input to dictate messages using ElevenLabs' accurate speech recognition.
+      </div>
+
+      <form id="voiceSettingsForm">
+        <div class="form-group">
+          <label for="elevenlabsApiKey">ElevenLabs API Key</label>
+          <input type="text" id="elevenlabsApiKey" placeholder="sk_...">
+          <div class="hint">Get your API key at <a href="https://elevenlabs.io/app/speech-synthesis/speech-to-text" target="_blank">ElevenLabs Speech-to-Text</a></div>
+        </div>
+
+        <div class="form-group">
+          <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+            <span style="font-weight: 600;">
+              <span style="font-size: 16px;">🎙️</span> Enable Voice Input
+            </span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="voiceToggle">
+              <span class="toggle-slider"></span>
+            </label>
+          </label>
+          <div class="hint" style="margin-top: 8px;">
+            When enabled, press <strong>Ctrl+Shift+V</strong> or click the microphone button to start voice input.
+          </div>
+        </div>
+
+        <button type="submit" class="btn">Save Voice Settings</button>
+        <div id="voiceStatus" class="status"></div>
       </form>
     </div>
 
