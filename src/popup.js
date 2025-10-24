@@ -1,7 +1,15 @@
 // Gracula Popup Script
 
+// State management
+let currentState = {
+  aiEnabled: false,
+  provider: 'openai',
+  voiceEnabled: false
+};
+
 document.addEventListener('DOMContentLoaded', () => {
   loadSettings();
+  updateStatusIndicator();
 
   document.getElementById('settingsForm').addEventListener('submit', saveSettings);
   document.getElementById('voiceSettingsForm').addEventListener('submit', saveVoiceSettings);
@@ -48,15 +56,46 @@ function loadSettings() {
       document.getElementById('huggingfaceModel').value = response.config.huggingfaceModel || 'mistralai/Mistral-7B-Instruct-v0.2';
 
       // Load AI toggle state (default: false/disabled)
-      document.getElementById('aiToggle').checked = response.config.useAIForAutosuggestions || false;
+      const aiEnabled = response.config.useAIForAutosuggestions || false;
+      document.getElementById('aiToggle').checked = aiEnabled;
+      currentState.aiEnabled = aiEnabled;
 
       // Load voice settings
       document.getElementById('elevenlabsApiKey').value = response.config.elevenlabsApiKey || '';
-      document.getElementById('voiceToggle').checked = response.config.voiceInputEnabled || false;
+      const voiceEnabled = response.config.voiceInputEnabled || false;
+      document.getElementById('voiceToggle').checked = voiceEnabled;
+      currentState.voiceEnabled = voiceEnabled;
+      currentState.provider = provider;
 
       toggleProviderFields();
+      updateStatusIndicator();
     }
   });
+}
+
+/**
+ * Update status indicator based on current state
+ */
+function updateStatusIndicator() {
+  const statusText = document.getElementById('statusText');
+  const modeBadge = document.getElementById('modeBadge');
+  const aiModeIndicator = document.getElementById('aiModeIndicator');
+
+  if (currentState.aiEnabled) {
+    statusText.textContent = 'AI Mode Active';
+    modeBadge.textContent = '🤖 AI Mode';
+    modeBadge.className = 'status-badge ai';
+    if (aiModeIndicator) {
+      aiModeIndicator.innerHTML = '<span class="mode-badge ai-mode">🤖 AI Mode Active</span>';
+    }
+  } else {
+    statusText.textContent = 'Offline Mode Active';
+    modeBadge.textContent = '📊 Offline Mode';
+    modeBadge.className = 'status-badge offline';
+    if (aiModeIndicator) {
+      aiModeIndicator.innerHTML = '<span class="mode-badge offline-mode">📊 Offline Mode Active</span>';
+    }
+  }
 }
 
 function saveSettings(e) {
@@ -117,6 +156,7 @@ function saveSettings(e) {
 
 function saveAIToggle(e) {
   const useAI = e.target.checked;
+  currentState.aiEnabled = useAI;
 
   chrome.runtime.sendMessage({
     action: 'updateApiConfig',
@@ -124,6 +164,17 @@ function saveAIToggle(e) {
   }, (response) => {
     if (response.success) {
       console.log('AI toggle saved:', useAI);
+      updateStatusIndicator();
+
+      // Show feedback
+      const statusEl = document.getElementById('status');
+      statusEl.textContent = useAI ? '✓ AI Mode enabled' : '✓ Offline Mode enabled';
+      statusEl.className = 'status success';
+      statusEl.style.display = 'block';
+
+      setTimeout(() => {
+        statusEl.style.display = 'none';
+      }, 3000);
     }
   });
 }
@@ -161,6 +212,7 @@ function saveVoiceSettings(e) {
 
 function saveVoiceToggle(e) {
   const voiceEnabled = e.target.checked;
+  currentState.voiceEnabled = voiceEnabled;
 
   chrome.runtime.sendMessage({
     action: 'updateApiConfig',
@@ -168,6 +220,16 @@ function saveVoiceToggle(e) {
   }, (response) => {
     if (response.success) {
       console.log('Voice toggle saved:', voiceEnabled);
+
+      // Show feedback
+      const statusEl = document.getElementById('voiceStatus');
+      statusEl.textContent = voiceEnabled ? '✓ Voice input enabled' : '✓ Voice input disabled';
+      statusEl.className = 'status success';
+      statusEl.style.display = 'block';
+
+      setTimeout(() => {
+        statusEl.style.display = 'none';
+      }, 3000);
     }
   });
 }

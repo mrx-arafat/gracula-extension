@@ -233,6 +233,205 @@
     .footer a:hover {
       text-decoration: underline;
     }
+
+    /* Status Badge Styles */
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-left: 8px;
+    }
+
+    .status-badge.active {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .status-badge.inactive {
+      background: #e2e3e5;
+      color: #383d41;
+    }
+
+    .status-badge.ai {
+      background: #cfe2ff;
+      color: #084298;
+    }
+
+    .status-badge.offline {
+      background: #fff3cd;
+      color: #664d03;
+    }
+
+    /* State Indicator */
+    .state-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      border-left: 4px solid #667eea;
+    }
+
+    .state-indicator .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    .state-indicator .dot.active {
+      background: #28a745;
+    }
+
+    .state-indicator .dot.inactive {
+      background: #dc3545;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .state-indicator-text {
+      font-size: 12px;
+      color: #666;
+    }
+
+    .state-indicator-text strong {
+      color: #333;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      border-bottom: 2px solid #e0e0e0;
+    }
+
+    .tab-button {
+      padding: 10px 16px;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      color: #999;
+      transition: all 0.2s ease;
+    }
+
+    .tab-button:hover {
+      color: #667eea;
+    }
+
+    .tab-button.active {
+      color: #667eea;
+      border-bottom-color: #667eea;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Loading State */
+    .loading {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 6px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Collapsible Section */
+    .collapsible-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      transition: background 0.2s ease;
+    }
+
+    .collapsible-header:hover {
+      background: #e9ecef;
+    }
+
+    .collapsible-header.collapsed::after {
+      content: "▼";
+      font-size: 10px;
+      color: #667eea;
+    }
+
+    .collapsible-header.expanded::after {
+      content: "▲";
+      font-size: 10px;
+      color: #667eea;
+    }
+
+    .collapsible-content {
+      display: none;
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+
+    .collapsible-content.expanded {
+      display: block;
+    }
+
+    /* Badge for current mode */
+    .mode-badge {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-top: 8px;
+    }
+
+    .mode-badge.ai-mode {
+      background: #cfe2ff;
+      color: #084298;
+    }
+
+    .mode-badge.offline-mode {
+      background: #fff3cd;
+      color: #664d03;
+    }
+
+    /* Better spacing for sections */
+    .section-divider {
+      height: 1px;
+      background: #e0e0e0;
+      margin: 20px 0;
+    }
+
+    /* Icon styles */
+    .icon {
+      font-size: 16px;
+      margin-right: 6px;
+    }
   </style>
 </head>
 <body>
@@ -242,6 +441,15 @@
   </div>
 
   <div class="content">
+    <!-- Status Indicator -->
+    <div class="state-indicator">
+      <div class="dot active" id="statusDot"></div>
+      <div class="state-indicator-text">
+        <strong>Status:</strong> <span id="statusText">Ready</span>
+        <span class="status-badge" id="modeBadge">Offline Mode</span>
+      </div>
+    </div>
+
     <div class="section">
       <div class="info-box">
         <strong>🎉 Welcome to Gracula!</strong><br>
@@ -256,6 +464,8 @@
         <li>11 different tone options</li>
         <li>Works on all messaging platforms</li>
         <li>Smart autocomplete suggestions</li>
+        <li>Offline pattern-based predictions</li>
+        <li>Voice-to-text input support</li>
       </ul>
     </div>
 
@@ -273,6 +483,9 @@
         </label>
         <div class="hint" style="margin-top: 8px;">
           When enabled, uses AI to generate smart suggestions as you type. When disabled, uses offline pattern-based predictions (no API calls).
+        </div>
+        <div id="aiModeIndicator" style="margin-top: 8px;">
+          <span class="mode-badge offline-mode">📊 Offline Mode Active</span>
         </div>
         <div class="info-box" style="margin-top: 12px; background: #fff3cd; border-left: 4px solid #ffc107;">
           <strong>💡 Tip:</strong> Disable AI suggestions to save API costs and use faster offline predictions. Enable for more contextual and intelligent suggestions.

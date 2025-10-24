@@ -5,119 +5,208 @@ window.Gracula = window.Gracula || {};
 window.Gracula.OfflineSuggestions = window.Gracula.OfflineSuggestions || {};
 
 /**
- * Offline Suggestion Database
+ * Offline Suggestion Database - ENHANCED
  * Organized by patterns, context, and common phrases
+ * Includes: greetings, questions, responses, common phrases, time-based, emotions, continuations, work, casual, formal
  */
 window.Gracula.OfflineSuggestions.DATABASE = {
-  // Greeting patterns
+  // Greeting patterns - EXPANDED
   greetings: {
     'hello': [
       'Hello! How are you?',
       'Hello there! What\'s up?',
-      'Hello! Good to hear from you'
+      'Hello! Good to hear from you',
+      'Hello! It\'s been a while',
+      'Hello! How\'s everything?'
     ],
     'hi': [
       'Hi! How are you doing?',
       'Hi there! What\'s going on?',
-      'Hi! Hope you\'re doing well'
+      'Hi! Hope you\'re doing well',
+      'Hi! What\'s new?',
+      'Hi! Long time no talk'
     ],
     'hey': [
       'Hey! How\'s it going?',
       'Hey there! What\'s up?',
-      'Hey! Long time no see'
+      'Hey! Long time no see',
+      'Hey! What have you been up to?',
+      'Hey! Good to hear from you'
     ],
     'good morning': [
       'Good morning! Hope you have a great day',
       'Good morning! How did you sleep?',
-      'Good morning! Ready for the day?'
+      'Good morning! Ready for the day?',
+      'Good morning! Let\'s make it a good one',
+      'Good morning! How are you feeling today?'
     ],
     'good afternoon': [
       'Good afternoon! How\'s your day going?',
       'Good afternoon! Hope you\'re having a good one',
-      'Good afternoon! What have you been up to?'
+      'Good afternoon! What have you been up to?',
+      'Good afternoon! Taking a break?',
+      'Good afternoon! How\'s work treating you?'
     ],
     'good evening': [
       'Good evening! How was your day?',
       'Good evening! Hope you had a good day',
-      'Good evening! What are you up to tonight?'
+      'Good evening! What are you up to tonight?',
+      'Good evening! Ready to relax?',
+      'Good evening! How\'s everything?'
+    ],
+    'sup': [
+      'Sup! What\'s going on?',
+      'Sup! How\'s it going?',
+      'Sup! What\'s new?',
+      'Sup! You good?',
+      'Sup! What\'s up with you?'
+    ],
+    'yo': [
+      'Yo! What\'s up?',
+      'Yo! How\'s it going?',
+      'Yo! What\'s good?',
+      'Yo! Long time!',
+      'Yo! What\'s happening?'
     ]
   },
 
-  // Question patterns
+  // Question patterns - EXPANDED
   questions: {
     'how are': [
       'How are you doing?',
       'How are things going?',
-      'How are you feeling today?'
+      'How are you feeling today?',
+      'How\'s life treating you?',
+      'How have you been?'
     ],
     'what are': [
       'What are you up to?',
       'What are you doing?',
-      'What are your plans?'
+      'What are your plans?',
+      'What\'s on your mind?',
+      'What\'s new with you?'
     ],
     'where are': [
       'Where are you right now?',
       'Where are you heading?',
-      'Where are you going?'
+      'Where are you going?',
+      'Where have you been?',
+      'Where are you these days?'
     ],
     'when are': [
       'When are you free?',
       'When are you available?',
-      'When are you coming?'
+      'When are you coming?',
+      'When can we meet?',
+      'When are you back?'
     ],
     'why': [
       'Why do you ask?',
       'Why not?',
-      'Why is that?'
+      'Why is that?',
+      'Why didn\'t you tell me?',
+      'Why so serious?'
     ],
     'can you': [
       'Can you help me with something?',
       'Can you do me a favor?',
-      'Can you let me know?'
+      'Can you let me know?',
+      'Can you make it?',
+      'Can you believe that?'
     ],
     'do you': [
       'Do you have time?',
       'Do you want to hang out?',
-      'Do you know what I mean?'
+      'Do you know what I mean?',
+      'Do you remember?',
+      'Do you think so?'
+    ],
+    'did you': [
+      'Did you see that?',
+      'Did you hear about it?',
+      'Did you get my message?',
+      'Did you finish?',
+      'Did you have fun?'
+    ],
+    'will you': [
+      'Will you be there?',
+      'Will you help me?',
+      'Will you let me know?',
+      'Will you come?',
+      'Will you remember?'
     ]
   },
 
-  // Response patterns
+  // Response patterns - EXPANDED
   responses: {
     'yes': [
       'Yes, definitely!',
       'Yes, sounds good!',
-      'Yes, I\'m in!'
+      'Yes, I\'m in!',
+      'Yes, absolutely!',
+      'Yes, for sure!',
+      'Yes, let\'s do it!',
+      'Yes, I agree!'
     ],
     'no': [
       'No, sorry',
       'No, I can\'t',
-      'No, not really'
+      'No, not really',
+      'No, not today',
+      'No, I\'m busy',
+      'No, I don\'t think so',
+      'No, maybe later'
     ],
     'maybe': [
       'Maybe, let me check',
       'Maybe, I\'ll let you know',
-      'Maybe, not sure yet'
+      'Maybe, not sure yet',
+      'Maybe later',
+      'Maybe tomorrow',
+      'Maybe, I\'ll think about it',
+      'Maybe, depends on my schedule'
     ],
     'sure': [
       'Sure, no problem!',
       'Sure, I\'d love to',
-      'Sure thing!'
+      'Sure thing!',
+      'Sure, why not?',
+      'Sure, let\'s do it!'
     ],
     'okay': [
       'Okay, sounds good',
       'Okay, got it',
-      'Okay, thanks!'
+      'Okay, thanks!',
+      'Okay, I\'ll do it',
+      'Okay, see you then'
     ],
     'thanks': [
       'Thanks so much!',
       'Thanks, I appreciate it',
-      'Thanks a lot!'
+      'Thanks a lot!',
+      'Thanks for letting me know',
+      'Thanks, you\'re the best!'
     ],
     'thank you': [
       'Thank you so much!',
       'Thank you, I really appreciate it',
-      'Thank you very much!'
+      'Thank you very much!',
+      'Thank you for everything',
+      'Thank you, you\'re amazing!'
+    ],
+    'sorry': [
+      'Sorry about that',
+      'Sorry, my bad',
+      'Sorry, I didn\'t mean to',
+      'Sorry for the delay',
+      'Sorry, I was busy'
+    ],
+    'excuse me': [
+      'Excuse me, can you help?',
+      'Excuse me, one moment',
+      'Excuse me, sorry to bother',
+      'Excuse me, do you have a minute?',
+      'Excuse me, can I ask you something?'
     ]
   },
 
@@ -250,6 +339,240 @@ window.Gracula.OfflineSuggestions.DATABASE = {
       'Looks great!',
       'Looks interesting'
     ]
+  },
+
+  // Work/Professional patterns
+  work: {
+    'meeting': [
+      'Let\'s schedule a meeting',
+      'When can we meet?',
+      'I\'ll send you a calendar invite',
+      'Let\'s discuss this in a meeting',
+      'Can we set up a call?'
+    ],
+    'project': [
+      'How\'s the project going?',
+      'Let\'s sync on the project',
+      'I\'ll update you on the project',
+      'The project is on track',
+      'We need to discuss the project'
+    ],
+    'deadline': [
+      'What\'s the deadline?',
+      'We\'re on track for the deadline',
+      'The deadline is coming up',
+      'Can we extend the deadline?',
+      'Let\'s meet the deadline'
+    ],
+    'update': [
+      'I\'ll send you an update',
+      'Here\'s the latest update',
+      'Can you give me an update?',
+      'Let me update you on this',
+      'I need an update from you'
+    ],
+    'busy': [
+      'I\'m pretty busy right now',
+      'I\'m swamped with work',
+      'I\'ll get back to you when I\'m free',
+      'Can we reschedule?',
+      'I\'m in the middle of something'
+    ]
+  },
+
+  // Casual/Friendly patterns
+  casual: {
+    'lol': [
+      'Haha, that\'s funny!',
+      'That made me laugh!',
+      'You\'re hilarious!',
+      'Lol, I know right?',
+      'That\'s so funny!'
+    ],
+    'awesome': [
+      'That\'s awesome!',
+      'Awesome, let\'s do it!',
+      'You\'re awesome!',
+      'That sounds awesome!',
+      'Awesome work!'
+    ],
+    'cool': [
+      'That\'s cool!',
+      'Cool, I like it!',
+      'You\'re cool!',
+      'That sounds cool!',
+      'Cool, let\'s go!'
+    ],
+    'nice': [
+      'That\'s nice!',
+      'Nice to hear!',
+      'You\'re nice!',
+      'That sounds nice!',
+      'Nice work!'
+    ],
+    'love': [
+      'I love that!',
+      'I love it!',
+      'You\'re the best!',
+      'I love your idea!',
+      'That\'s amazing!'
+    ]
+  },
+
+  // Formal/Professional patterns
+  formal: {
+    'regards': [
+      'Best regards',
+      'Kind regards',
+      'Warm regards',
+      'With regards to your message',
+      'In regards to your inquiry'
+    ],
+    'sincerely': [
+      'Sincerely',
+      'Yours sincerely',
+      'Sincerely yours',
+      'I remain sincerely yours',
+      'Sincerely grateful'
+    ],
+    'respectfully': [
+      'Respectfully',
+      'Respectfully yours',
+      'I respectfully disagree',
+      'Respectfully submitted',
+      'With all due respect'
+    ],
+    'appreciate': [
+      'I appreciate your time',
+      'I appreciate your help',
+      'I appreciate your understanding',
+      'I truly appreciate this',
+      'I appreciate the opportunity'
+    ],
+    'request': [
+      'I would like to request',
+      'May I request your assistance?',
+      'I request your feedback',
+      'I kindly request',
+      'I humbly request'
+    ]
+  },
+
+  // Emotional/Expressive patterns
+  emotions: {
+    'happy': [
+      'I\'m so happy!',
+      'That makes me happy!',
+      'I\'m really happy about this',
+      'Happy to help!',
+      'Happy to hear that!'
+    ],
+    'sad': [
+      'I\'m feeling sad',
+      'That\'s sad to hear',
+      'I\'m sorry to hear that',
+      'That makes me sad',
+      'I\'m not feeling great'
+    ],
+    'excited': [
+      'I\'m so excited!',
+      'That\'s exciting!',
+      'I can\'t wait!',
+      'This is amazing!',
+      'I\'m pumped!'
+    ],
+    'worried': [
+      'I\'m a bit worried',
+      'I\'m concerned about this',
+      'That worries me',
+      'I\'m stressed about it',
+      'I\'m anxious about this'
+    ],
+    'grateful': [
+      'I\'m so grateful!',
+      'I\'m grateful for you',
+      'Thank you, I\'m grateful',
+      'I\'m truly grateful',
+      'I appreciate you so much'
+    ]
+  },
+
+  // Situational patterns
+  situations: {
+    'help': [
+      'Can you help me?',
+      'I need your help',
+      'Can I ask for your help?',
+      'Would you mind helping?',
+      'I could use some help'
+    ],
+    'advice': [
+      'Can I get your advice?',
+      'What do you think I should do?',
+      'I need some advice',
+      'Can you advise me?',
+      'What would you do?'
+    ],
+    'problem': [
+      'I have a problem',
+      'There\'s an issue',
+      'Something\'s wrong',
+      'I\'m having trouble',
+      'Can we talk about this?'
+    ],
+    'celebrate': [
+      'Let\'s celebrate!',
+      'Congratulations!',
+      'That\'s amazing news!',
+      'We should celebrate!',
+      'You deserve to celebrate!'
+    ],
+    'apologize': [
+      'I\'m really sorry',
+      'I apologize for that',
+      'I didn\'t mean to',
+      'Can you forgive me?',
+      'I feel terrible about this'
+    ]
+  },
+
+  // Quick responses
+  quick: {
+    'ok': [
+      'Okay!',
+      'Got it!',
+      'Sure!',
+      'Alright!',
+      'Will do!'
+    ],
+    'yep': [
+      'Yep!',
+      'Yep, for sure!',
+      'Yep, absolutely!',
+      'Yep, let\'s do it!',
+      'Yep, I\'m in!'
+    ],
+    'nope': [
+      'Nope!',
+      'Nope, not today',
+      'Nope, sorry',
+      'Nope, can\'t do it',
+      'Nope, I\'m good'
+    ],
+    'maybe': [
+      'Maybe!',
+      'Maybe later',
+      'Maybe tomorrow',
+      'Maybe, I\'ll think about it',
+      'Maybe, depends'
+    ],
+    'idk': [
+      'I don\'t know',
+      'Not sure',
+      'I have no idea',
+      'Beats me',
+      'Your guess is as good as mine'
+    ]
   }
 };
 
@@ -301,7 +624,7 @@ window.Gracula.OfflineSuggestions.PatternMatcher = class {
   }
 
   /**
-   * Find suggestions based on input text
+   * Find suggestions based on input text - ENHANCED
    */
   findSuggestions(input, context = []) {
     if (!input || input.length < 2) {
@@ -324,26 +647,129 @@ window.Gracula.OfflineSuggestions.PatternMatcher = class {
       }
     }
 
-    // 3. Check partial matches (starts with)
+    // 3. Check partial matches (starts with) - IMPROVED
     if (suggestions.length < 3) {
-      for (const category in this.database) {
-        const patterns = this.database[category];
-        for (const pattern in patterns) {
-          if (pattern.startsWith(lowerInput) || lowerInput.startsWith(pattern)) {
-            suggestions.push(...patterns[pattern]);
-          }
-        }
-      }
+      const partialMatches = this.findPartialMatches(lowerInput);
+      suggestions.push(...partialMatches);
     }
 
-    // 4. Context-aware suggestions
+    // 4. Fuzzy matching for typos - NEW
+    if (suggestions.length < 3) {
+      const fuzzyMatches = this.findFuzzyMatches(lowerInput);
+      suggestions.push(...fuzzyMatches);
+    }
+
+    // 5. Context-aware suggestions - ENHANCED
     if (context && context.length > 0 && suggestions.length < 3) {
       const contextSuggestions = this.getContextAwareSuggestions(input, context);
       suggestions.push(...contextSuggestions);
     }
 
+    // 6. Semantic suggestions - NEW
+    if (suggestions.length < 3) {
+      const semanticSuggestions = this.getSemanticSuggestions(lowerInput);
+      suggestions.push(...semanticSuggestions);
+    }
+
     // Remove duplicates and return top 3
     return [...new Set(suggestions)].slice(0, 3);
+  }
+
+  /**
+   * Find partial matches (improved)
+   */
+  findPartialMatches(input) {
+    const matches = [];
+    for (const category in this.database) {
+      const patterns = this.database[category];
+      for (const pattern in patterns) {
+        if (pattern.startsWith(input) || input.startsWith(pattern)) {
+          matches.push(...patterns[pattern]);
+        }
+      }
+    }
+    return matches;
+  }
+
+  /**
+   * Find fuzzy matches for typos and variations
+   */
+  findFuzzyMatches(input) {
+    const matches = [];
+    const maxDistance = 2; // Allow up to 2 character differences
+
+    for (const category in this.database) {
+      const patterns = this.database[category];
+      for (const pattern in patterns) {
+        const distance = this.levenshteinDistance(input, pattern);
+        if (distance <= maxDistance && distance > 0) {
+          matches.push(...patterns[pattern]);
+        }
+      }
+    }
+    return matches;
+  }
+
+  /**
+   * Calculate Levenshtein distance for fuzzy matching
+   */
+  levenshteinDistance(a, b) {
+    const matrix = [];
+    for (let i = 0; i <= b.length; i++) {
+      matrix[i] = [i];
+    }
+    for (let j = 0; j <= a.length; j++) {
+      matrix[0][j] = j;
+    }
+    for (let i = 1; i <= b.length; i++) {
+      for (let j = 1; j <= a.length; j++) {
+        if (b.charAt(i - 1) === a.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1
+          );
+        }
+      }
+    }
+    return matrix[b.length][a.length];
+  }
+
+  /**
+   * Get semantic suggestions based on word meaning
+   */
+  getSemanticSuggestions(input) {
+    const suggestions = [];
+
+    // Semantic groups
+    const semanticGroups = {
+      'greetings': ['hello', 'hi', 'hey', 'sup', 'yo', 'good morning', 'good afternoon', 'good evening'],
+      'affirmative': ['yes', 'yeah', 'yep', 'sure', 'okay', 'ok', 'alright'],
+      'negative': ['no', 'nope', 'nah', 'sorry', 'can\'t'],
+      'gratitude': ['thanks', 'thank you', 'appreciate', 'grateful'],
+      'questions': ['how', 'what', 'where', 'when', 'why', 'who', 'which'],
+      'emotions': ['happy', 'sad', 'excited', 'worried', 'grateful', 'love', 'awesome']
+    };
+
+    // Check if input belongs to any semantic group
+    for (const group in semanticGroups) {
+      if (semanticGroups[group].some(word => input.includes(word))) {
+        // Return suggestions from the same semantic group
+        for (const category in this.database) {
+          const patterns = this.database[category];
+          for (const pattern in patterns) {
+            if (semanticGroups[group].some(word => pattern.includes(word))) {
+              suggestions.push(...patterns[pattern]);
+            }
+          }
+        }
+        break;
+      }
+    }
+
+    return suggestions;
   }
 
   /**
