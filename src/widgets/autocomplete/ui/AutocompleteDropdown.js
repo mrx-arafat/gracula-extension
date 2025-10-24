@@ -343,29 +343,45 @@ window.Gracula.AutocompleteDropdown = class {
 
   /**
    * Handle keyboard events
+   * FIXED: Tab now inserts suggestion (like IDE autocomplete)
+   * Arrow keys only navigate
    */
   handleKeydown(event) {
     if (!this.isVisible) return false;
 
     switch (event.key) {
-      case 'ArrowDown':
       case 'Tab':
+        // Tab key inserts the selected suggestion (like IDE autocomplete)
         event.preventDefault();
+        console.log('🎯 Tab pressed - inserting suggestion');
+        this.selectCurrent();
+        return true;
+
+      case 'Enter':
+        // Enter also inserts the selected suggestion
+        event.preventDefault();
+        console.log('🎯 Enter pressed - inserting suggestion');
+        this.selectCurrent();
+        return true;
+
+      case 'ArrowDown':
+        // Arrow down navigates to next suggestion
+        event.preventDefault();
+        console.log('🎯 ArrowDown pressed - navigating down');
         this.navigateDown();
         return true;
 
       case 'ArrowUp':
+        // Arrow up navigates to previous suggestion
         event.preventDefault();
+        console.log('🎯 ArrowUp pressed - navigating up');
         this.navigateUp();
         return true;
 
-      case 'Enter':
-        event.preventDefault();
-        this.selectCurrent();
-        return true;
-
       case 'Escape':
+        // Escape dismisses the dropdown
         event.preventDefault();
+        console.log('🎯 Escape pressed - dismissing dropdown');
         this.hide();
         this.onDismiss();
         return true;

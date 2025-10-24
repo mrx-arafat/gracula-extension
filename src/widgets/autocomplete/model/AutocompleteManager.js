@@ -118,60 +118,27 @@ window.Gracula.AutocompleteManager = class {
 
   /**
    * Handle keydown events
+   * SIMPLIFIED: Let dropdown handle all keys when visible
    */
   handleKeydown(event) {
-    // CRITICAL: If dropdown is visible and user presses Right Arrow, insert suggestion
-    if (this.autocompleteDropdown?.isVisible && event.key === 'ArrowRight') {
-      console.log('➡️ Right Arrow pressed with dropdown visible - inserting suggestion');
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
+    // If dropdown is visible, let it handle all keyboard events
+    if (this.autocompleteDropdown?.isVisible) {
+      const handled = this.autocompleteDropdown?.handleKeydown(event);
 
-      // Insert the selected suggestion
-      this.autocompleteDropdown.selectCurrent();
+      if (handled) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+      }
       return;
     }
 
-    // If dropdown is visible and user presses Enter, just navigate down (don't insert)
-    if (this.autocompleteDropdown?.isVisible && event.key === 'Enter') {
-      console.log('🛑 Enter key pressed with dropdown visible - navigating down');
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-
-      // Just navigate to next suggestion, don't insert
-      this.autocompleteDropdown.navigateDown();
-      return;
-    }
-
-    // NEW: Ctrl+Space to trigger instant autocomplete
+    // Ctrl+Space to trigger instant autocomplete (when dropdown is NOT visible)
     if (event.ctrlKey && event.code === 'Space') {
       event.preventDefault();
       event.stopPropagation();
       this.triggerInstantSuggestions();
       return;
-    }
-
-    // NEW: Ctrl+Enter to quickly insert SELECTED suggestion
-    if (event.ctrlKey && event.key === 'Enter') {
-      event.preventDefault();
-      event.stopPropagation();
-      if (this.autocompleteDropdown?.isVisible && this.autocompleteDropdown?.suggestions?.length > 0) {
-        const selectedIndex = this.autocompleteDropdown.selectedIndex || 0;
-        const selectedSuggestion = this.autocompleteDropdown.suggestions[selectedIndex];
-        this.insertSuggestion(selectedSuggestion);
-        this.autocompleteDropdown.hide();
-      }
-      return;
-    }
-
-    // Let dropdown handle navigation keys
-    const handled = this.autocompleteDropdown?.handleKeydown(event);
-
-    if (handled) {
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation(); // Extra protection
     }
   }
 
