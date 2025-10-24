@@ -19,7 +19,7 @@ window.Gracula.SpeakerDetector = class {
     if (userName && userName !== 'You' && typeof userName === 'string') {
       this.actualUserName = userName.trim();
       this.currentUser = this.actualUserName; // Use actual name as primary identifier
-      console.log('👤 [SPEAKER] Current user set to:', this.actualUserName);
+      // console.log('👤 [SPEAKER] Current user set to:', this.actualUserName);
     }
   }
 
@@ -238,7 +238,7 @@ window.Gracula.SpeakerDetector = class {
     };
 
     const messageText = messageElement?.textContent?.substring(0, 120) || 'N/A';
-    console.log('🧛 [SPEAKER] Detecting speaker for:', messageText);
+    // console.log('🧛 [SPEAKER] Detecting speaker for:', messageText);
 
     const selectorName = selectors.senderName
       ? this.extractSenderName(messageElement, selectors.senderName)
@@ -251,7 +251,7 @@ window.Gracula.SpeakerDetector = class {
       : false;
 
     if (outgoingDetected) {
-      console.log('🧛 [SPEAKER] ✅ Detected as OUTGOING (You)');
+      // console.log('🧛 [SPEAKER] ✅ Detected as OUTGOING (You)');
       return {
         speaker: this.currentUser,
         isOutgoing: true,
@@ -270,7 +270,7 @@ window.Gracula.SpeakerDetector = class {
     if (incomingDetected) {
       const incomingName = resolvedName || 'Other';
       const isCurrent = this.isCurrentUserLabel(incomingName);
-      console.log('🧛 [SPEAKER] ✅ Detected as INCOMING, sender:', incomingName);
+      // console.log('🧛 [SPEAKER] ✅ Detected as INCOMING, sender:', incomingName);
 
       return {
         speaker: isCurrent ? this.currentUser : incomingName,
@@ -285,7 +285,7 @@ window.Gracula.SpeakerDetector = class {
 
     if (resolvedName) {
       const isCurrent = this.isCurrentUserLabel(resolvedName);
-      console.log('🧛 [SPEAKER] Using resolved sender name:', resolvedName, isCurrent ? '(YOU)' : '(OTHER)');
+      // console.log('🧛 [SPEAKER] Using resolved sender name:', resolvedName, isCurrent ? '(YOU)' : '(OTHER)');
       return {
         speaker: isCurrent ? this.currentUser : resolvedName,
         isOutgoing: isCurrent,
@@ -297,7 +297,7 @@ window.Gracula.SpeakerDetector = class {
     const speakerFromText = this.extractSpeakerFromText(messageElement);
     if (speakerFromText) {
       const isYou = this.isCurrentUserLabel(speakerFromText);
-      console.log('🧛 [SPEAKER] ✅ Extracted from text:', speakerFromText, isYou ? '(YOU)' : '(OTHER)');
+      // console.log('🧛 [SPEAKER] ✅ Extracted from text:', speakerFromText, isYou ? '(YOU)' : '(OTHER)');
       return {
         speaker: isYou ? this.currentUser : speakerFromText,
         isOutgoing: isYou,
@@ -311,13 +311,13 @@ window.Gracula.SpeakerDetector = class {
       if (!fallbackNoSelectors.timestamp) {
         fallbackNoSelectors.timestamp = prePlainMeta?.timestamp || timestampFromSelectors || null;
       }
-      console.log('🧛 [SPEAKER] No selectors, using fallback:', fallbackNoSelectors.speaker);
+      // console.log('🧛 [SPEAKER] No selectors, using fallback:', fallbackNoSelectors.speaker);
       return fallbackNoSelectors;
     }
 
     if (prePlainMeta?.speakerName) {
       const isCurrent = this.isCurrentUserLabel(prePlainMeta.speakerName);
-      console.log('🧛 [SPEAKER] Using prePlainMeta, speaker:', prePlainMeta.speakerName);
+      // console.log('🧛 [SPEAKER] Using prePlainMeta, speaker:', prePlainMeta.speakerName);
       return {
         speaker: isCurrent ? this.currentUser : prePlainMeta.speakerName,
         isOutgoing: isCurrent,
@@ -330,7 +330,7 @@ window.Gracula.SpeakerDetector = class {
     if (!fallback.timestamp) {
       fallback.timestamp = prePlainMeta?.timestamp || timestampFromSelectors || null;
     }
-    console.log('🧛 [SPEAKER] Using fallback:', fallback.speaker);
+    // console.log('🧛 [SPEAKER] Using fallback:', fallback.speaker);
     return fallback;
   }
 

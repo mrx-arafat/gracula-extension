@@ -44,7 +44,7 @@ window.Gracula.AutocompleteManager = class {
    */
   start() {
     if (!this.inputField) {
-      console.warn('🧛 Autocomplete: No input field provided');
+      // console.warn('🧛 Autocomplete: No input field provided');
       return;
     }
 
@@ -60,7 +60,7 @@ window.Gracula.AutocompleteManager = class {
     // NEW: Update context cache periodically
     this.startContextCaching();
 
-    console.log('🧛 Autocomplete: Started monitoring input field (SUPERFAST MODE)');
+    // console.log('🧛 Autocomplete: Started monitoring input field (SUPERFAST MODE)');
   }
 
   /**
@@ -77,25 +77,32 @@ window.Gracula.AutocompleteManager = class {
     this.clearDebounce();
     this.autocompleteDropdown?.hide();
 
-    console.log('🧛 Autocomplete: Stopped monitoring');
+    // console.log('🧛 Autocomplete: Stopped monitoring');
   }
 
   /**
    * Handle input event (typing)
    */
   handleInput(event) {
+    console.log('🔵 [INPUT] handleInput triggered, currentText:', this.getInputText(), 'isInserting:', this.isInserting);
+
     if (!this.enabled) return;
 
     // Skip if we're in the middle of inserting a suggestion
     if (this.isInserting) {
-      console.log('🧛 Autocomplete: Skipping handleInput (insertion in progress)');
+      console.log('⚠️ [INPUT] SKIPPING handleInput - insertion in progress');
       return;
     }
 
     const currentText = this.getInputText();
 
     // Check if text has actually changed
-    if (currentText === this.lastText) return;
+    if (currentText === this.lastText) {
+      console.log('⚠️ [INPUT] SKIPPING handleInput - text unchanged:', currentText);
+      return;
+    }
+
+    console.log('✅ [INPUT] Text changed from:', this.lastText, 'to:', currentText);
     this.lastText = currentText;
 
     // Clear existing debounce timer
@@ -121,14 +128,28 @@ window.Gracula.AutocompleteManager = class {
    * SIMPLIFIED: Let dropdown handle all keys when visible
    */
   handleKeydown(event) {
+    console.log('🔍 [MANAGER] handleKeydown called:', {
+      key: event.key,
+      ctrlKey: event.ctrlKey,
+      shiftKey: event.shiftKey,
+      altKey: event.altKey,
+      dropdownVisible: this.autocompleteDropdown?.isVisible
+    });
+
     // If dropdown is visible, let it handle all keyboard events
     if (this.autocompleteDropdown?.isVisible) {
+      console.log('✅ [MANAGER] Dropdown is visible, delegating to dropdown');
       const handled = this.autocompleteDropdown?.handleKeydown(event);
+
+      console.log('🔍 [MANAGER] Dropdown handled:', handled);
 
       if (handled) {
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
+        console.log('✅ [MANAGER] Event prevented and stopped');
+      } else {
+        console.log('⚠️ [MANAGER] Event NOT handled by dropdown');
       }
       return;
     }
@@ -137,9 +158,12 @@ window.Gracula.AutocompleteManager = class {
     if (event.ctrlKey && event.code === 'Space') {
       event.preventDefault();
       event.stopPropagation();
+      console.log('✅ [MANAGER] Ctrl+Space pressed - triggering instant suggestions');
       this.triggerInstantSuggestions();
       return;
     }
+
+    console.log('⚠️ [MANAGER] No action taken for this key');
   }
 
   /**
@@ -180,13 +204,13 @@ window.Gracula.AutocompleteManager = class {
     this.abortController = new AbortController();
 
     try {
-      console.log('🧛 Autocomplete: Generating suggestions for:', partialText);
+      // console.log('🧛 Autocomplete: Generating suggestions for:', partialText);
 
       // NEW: Check cache first for instant response
       const cacheKey = this.getCacheKey(partialText);
       if (this.cache.has(cacheKey)) {
         const cachedSuggestions = this.cache.get(cacheKey);
-        console.log('⚡ Autocomplete: Using CACHED suggestions (INSTANT)');
+        // console.log('⚡ Autocomplete: Using CACHED suggestions (INSTANT)');
         this.autocompleteDropdown?.show(cachedSuggestions, this.inputField);
         this.isGenerating = false;
         return;
@@ -203,7 +227,7 @@ window.Gracula.AutocompleteManager = class {
       // NEW: Try instant local predictions first
       const instantSuggestions = this.getInstantPredictions(partialText, analysis, enhancedContext);
       if (instantSuggestions && instantSuggestions.length > 0) {
-        console.log('⚡ Autocomplete: Using INSTANT predictions');
+        // console.log('⚡ Autocomplete: Using INSTANT predictions');
         this.autocompleteDropdown?.show(instantSuggestions, this.inputField);
 
         // Still fetch AI suggestions in background and update
@@ -230,9 +254,9 @@ window.Gracula.AutocompleteManager = class {
 
     } catch (error) {
       if (error.name === 'AbortError') {
-        console.log('🧛 Autocomplete: Request aborted');
+        // console.log('🧛 Autocomplete: Request aborted');
       } else {
-        console.error('🧛 Autocomplete: Error generating suggestions:', error);
+        // console.error('🧛 Autocomplete: Error generating suggestions:', error);
         this.autocompleteDropdown?.hide();
       }
     } finally {
@@ -277,12 +301,12 @@ window.Gracula.AutocompleteManager = class {
    * PRIORITY: Check for reply-to message first (user explicitly selected a message to reply to)
    */
   analyzeLastMessage() {
-    console.log('🔍 analyzeLastMessage called');
+    // console.log('🔍 analyzeLastMessage called');
 
     // PRIORITY 1: Check if user is replying to a specific message (reply-to feature)
     const replyToMessage = this.detectReplyToMessage();
     if (replyToMessage && replyToMessage.text) {
-      console.log('🎯 Using REPLY-TO message as context:', replyToMessage);
+      // console.log('🎯 Using REPLY-TO message as context:', replyToMessage);
       const content = replyToMessage.text;
       const contentLower = content.toLowerCase();
 
@@ -321,16 +345,16 @@ window.Gracula.AutocompleteManager = class {
 
     // PRIORITY 2: Fall back to last message in conversation
     const messages = this.contextExtractor?.getSimpleContext() || [];
-    console.log('🔍 Messages from contextExtractor:', messages);
-    console.log('🔍 Total messages:', messages.length);
+    // console.log('🔍 Messages from contextExtractor:', messages);
+    // console.log('🔍 Total messages:', messages.length);
 
     if (messages.length === 0) {
-      console.warn('⚠️ No messages found in context!');
+      // console.warn('⚠️ No messages found in context!');
       return null;
     }
 
     const lastMessage = messages[messages.length - 1] || '';
-    console.log('🔍 Last message:', lastMessage);
+    // console.log('🔍 Last message:', lastMessage);
 
     const messageLower = lastMessage.toLowerCase();
 
@@ -340,7 +364,7 @@ window.Gracula.AutocompleteManager = class {
     const content = match ? match[2] : lastMessage;
     const contentLower = content.toLowerCase();
 
-    console.log('🔍 Parsed - Speaker:', speaker, 'Content:', content);
+    // console.log('🔍 Parsed - Speaker:', speaker, 'Content:', content);
 
     // Deep message analysis
     const analysis = {
@@ -466,7 +490,7 @@ window.Gracula.AutocompleteManager = class {
           const messageText = quotedText.textContent || quotedText.innerText || '';
           const senderName = quotedSender ? (quotedSender.textContent || quotedSender.innerText || 'Someone') : 'Someone';
 
-          console.log('🎯 Reply-To detected:', { sender: senderName, message: messageText });
+          // console.log('🎯 Reply-To detected:', { sender: senderName, message: messageText });
 
           return {
             text: messageText.trim(),
@@ -478,7 +502,7 @@ window.Gracula.AutocompleteManager = class {
 
       return null;
     } catch (error) {
-      console.error('Error detecting reply-to message:', error);
+      // console.error('Error detecting reply-to message:', error);
       return null;
     }
   }
@@ -508,66 +532,85 @@ window.Gracula.AutocompleteManager = class {
    * Insert selected suggestion - REWRITTEN to work with Lexical editor
    */
   insertSuggestion(suggestion) {
-    console.log('🔥🔥🔥 insertSuggestion CALLED with:', suggestion);
+    console.log('🔥🔥🔥 [INSERT] insertSuggestion CALLED with:', suggestion);
 
     if (!this.inputField) {
-      console.error('❌ insertSuggestion: No input field!');
+      console.error('❌ [INSERT] No input field!');
       return;
     }
 
     try {
-      console.log('🧛 Autocomplete: Starting insertion process...');
-      console.log('🧛 Suggestion to insert:', suggestion);
-      console.log('🧛 Current input text BEFORE:', this.getInputText());
+      console.log('✅ [INSERT] Starting insertion process...');
+      console.log('📝 [INSERT] Suggestion to insert:', suggestion);
+      console.log('📝 [INSERT] Current input text BEFORE:', this.getInputText());
+      console.log('📝 [INSERT] Input field type:', this.inputField.contentEditable === 'true' ? 'contenteditable' : 'regular');
 
       // CRITICAL: Set flag FIRST, before anything else
       this.isInserting = true;
+      console.log('🚩 [INSERT] isInserting flag set to TRUE');
 
       // CRITICAL: Update lastText IMMEDIATELY to the suggestion we're about to insert
       this.lastText = suggestion;
+      console.log('🚩 [INSERT] lastText updated to:', this.lastText);
 
       // Hide dropdown BEFORE insertion
       this.autocompleteDropdown?.hide();
+      console.log('✅ [INSERT] Dropdown hidden');
 
       if (this.inputField.contentEditable === 'true') {
         // For contenteditable elements (WhatsApp with Lexical editor)
-        // The key is to simulate actual user typing, not manipulate DOM directly
+        // NEW APPROACH: Simulate Ctrl+A then type (like a real user)
 
-        console.log('🧛 Using proper text insertion for Lexical editor');
+        console.log('✅ [INSERT] Using keyboard simulation for Lexical editor');
 
         // Step 1: Focus the input field
         this.inputField.focus();
+        console.log('✅ [INSERT] Input field focused');
 
-        // Step 2: Select all existing text (like Ctrl+A)
-        const selection = window.getSelection();
-        const range = document.createRange();
-        range.selectNodeContents(this.inputField);
-        selection.removeAllRanges();
-        selection.addRange(range);
+        // Step 2: Simulate Ctrl+A (Select All) using keyboard events
+        console.log('🔴 [INSERT] Simulating Ctrl+A to select all text...');
 
-        console.log('🧛 Selected all text, range:', range.toString());
+        const selectAllEvent = new KeyboardEvent('keydown', {
+          key: 'a',
+          code: 'KeyA',
+          keyCode: 65,
+          which: 65,
+          ctrlKey: true,
+          bubbles: true,
+          cancelable: true
+        });
 
-        // Step 3: Use execCommand to insert text (this properly triggers Lexical events)
-        // This is the standard way to programmatically insert text into contenteditable
-        const success = document.execCommand('insertText', false, suggestion);
+        this.inputField.dispatchEvent(selectAllEvent);
+        console.log('✅ [INSERT] Dispatched Ctrl+A event');
 
-        console.log('🧛 execCommand insertText result:', success);
-        console.log('✅ FINAL Text AFTER insertion:', this.getInputText());
-
-        // Step 4: Move cursor to end
+        // Small delay to let Lexical process the selection
         setTimeout(() => {
-          const sel = window.getSelection();
-          const rng = document.createRange();
-          rng.selectNodeContents(this.inputField);
-          rng.collapse(false); // Collapse to end
-          sel.removeAllRanges();
-          sel.addRange(rng);
+          console.log('📝 [INSERT] Text after Ctrl+A:', this.getInputText());
 
-          console.log('🧛 Cursor moved to end');
-        }, 10);
+          // Step 3: Now type the new text (this will replace the selection)
+          console.log('🔴 [INSERT] Inserting text via execCommand:', suggestion);
+          const insertSuccess = document.execCommand('insertText', false, suggestion);
+
+          console.log('✅ [INSERT] execCommand insertText result:', insertSuccess);
+          console.log('📝 [INSERT] FINAL Text AFTER insertion:', this.getInputText());
+          console.log('📝 [INSERT] FINAL HTML:', this.inputField.innerHTML);
+
+          // Step 4: Move cursor to end
+          setTimeout(() => {
+            const sel = window.getSelection();
+            const rng = document.createRange();
+            rng.selectNodeContents(this.inputField);
+            rng.collapse(false); // Collapse to end
+            sel.removeAllRanges();
+            sel.addRange(rng);
+
+            console.log('✅ [INSERT] Cursor moved to end');
+          }, 10);
+        }, 50); // 50ms delay for Lexical to process Ctrl+A
 
       } else {
         // For regular input/textarea elements
+        console.log('✅ [INSERT] Using regular input/textarea insertion');
         const prototype = Object.getPrototypeOf(this.inputField);
         const valueSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
 
@@ -579,20 +622,22 @@ window.Gracula.AutocompleteManager = class {
 
         const inputEvent = new Event('input', { bubbles: true, cancelable: true });
         this.inputField.dispatchEvent(inputEvent);
+        console.log('✅ [INSERT] Input event dispatched');
       }
 
       // Callback
       this.onSuggestionSelect(suggestion);
+      console.log('✅ [INSERT] onSuggestionSelect callback called');
 
-      console.log('✅ Autocomplete: Insertion complete');
+      console.log('✅✅✅ [INSERT] Insertion complete!');
 
       // Reset flag after a delay
       setTimeout(() => {
         this.isInserting = false;
-        console.log('🧛 Autocomplete: isInserting flag reset to false');
+        console.log('🚩 [INSERT] isInserting flag reset to FALSE');
       }, 300);
     } catch (error) {
-      console.error('❌ Autocomplete: Error inserting suggestion:', error);
+      console.error('❌❌❌ [INSERT] Error inserting suggestion:', error);
       this.isInserting = false;
     }
   }
@@ -612,7 +657,7 @@ window.Gracula.AutocompleteManager = class {
    */
   enable() {
     this.enabled = true;
-    console.log('🧛 Autocomplete: Enabled');
+    // console.log('🧛 Autocomplete: Enabled');
   }
 
   /**
@@ -622,7 +667,7 @@ window.Gracula.AutocompleteManager = class {
     this.enabled = false;
     this.autocompleteDropdown?.hide();
     this.clearDebounce();
-    console.log('🧛 Autocomplete: Disabled');
+    // console.log('🧛 Autocomplete: Disabled');
   }
 
   /**
@@ -678,7 +723,7 @@ window.Gracula.AutocompleteManager = class {
    * Pre-generate suggestions for common starters
    */
   async preGenerateCommonSuggestions() {
-    console.log('⚡ Autocomplete: Pre-generating common suggestions...');
+    // console.log('⚡ Autocomplete: Pre-generating common suggestions...');
 
     for (const starter of this.commonStarters) {
       setTimeout(async () => {
@@ -697,10 +742,10 @@ window.Gracula.AutocompleteManager = class {
 
           if (suggestions && suggestions.length > 0) {
             this.preGeneratedSuggestions.set(starter.toLowerCase(), suggestions);
-            console.log(`⚡ Pre-generated suggestions for: "${starter}"`);
+            // console.log(`⚡ Pre-generated suggestions for: "${starter}"`);
           }
         } catch (error) {
-          console.log(`Failed to pre-generate for "${starter}"`);
+          // console.log(`Failed to pre-generate for "${starter}"`);
         }
       }, Math.random() * 2000); // Stagger requests
     }
@@ -714,7 +759,7 @@ window.Gracula.AutocompleteManager = class {
 
     // Check pre-generated suggestions first
     if (this.preGeneratedSuggestions.has(textLower)) {
-      console.log('⚡ Using pre-generated suggestion (INSTANT!)');
+      // console.log('⚡ Using pre-generated suggestion (INSTANT!)');
       return this.preGeneratedSuggestions.get(textLower);
     }
 
@@ -722,7 +767,7 @@ window.Gracula.AutocompleteManager = class {
     const lastMsg = analysis.lastMessageContext;
     if (!lastMsg) return null;
 
-    console.log('🎯 Focusing on last message:', lastMsg.content);
+    // console.log('🎯 Focusing on last message:', lastMsg.content);
 
     const predictions = [];
 
@@ -730,7 +775,7 @@ window.Gracula.AutocompleteManager = class {
     // PRIORITY 1: Reply to LAST MESSAGE Question
     // ========================================
     if (lastMsg.isQuestion) {
-      console.log('🎯 Last message is a QUESTION:', lastMsg.questionType);
+      // console.log('🎯 Last message is a QUESTION:', lastMsg.questionType);
 
       switch (lastMsg.questionType) {
         case 'what':
@@ -811,7 +856,7 @@ window.Gracula.AutocompleteManager = class {
     // PRIORITY 2: Reply to LAST MESSAGE Request
     // ========================================
     else if (lastMsg.isRequest) {
-      console.log('🎯 Last message is a REQUEST:', lastMsg.requestType);
+      // console.log('🎯 Last message is a REQUEST:', lastMsg.requestType);
 
       if (analysis.isAgreement) {
         switch (lastMsg.requestType) {
@@ -867,7 +912,7 @@ window.Gracula.AutocompleteManager = class {
     // PRIORITY 3: Reply to LAST MESSAGE Sentiment
     // ========================================
     else if (lastMsg.emotion !== 'neutral') {
-      console.log('🎯 Last message has EMOTION:', lastMsg.emotion);
+      // console.log('🎯 Last message has EMOTION:', lastMsg.emotion);
 
       switch (lastMsg.emotion) {
         case 'excited':
@@ -936,7 +981,7 @@ window.Gracula.AutocompleteManager = class {
     // ========================================
     else if (lastMsg.topics.length > 0) {
       const topic = lastMsg.topics[0];
-      console.log('🎯 Responding to TOPIC:', topic);
+      // console.log('🎯 Responding to TOPIC:', topic);
 
       switch (topic) {
         case 'time':
@@ -1038,11 +1083,11 @@ window.Gracula.AutocompleteManager = class {
         const currentText = this.getInputText();
         if (currentText === partialText && this.autocompleteDropdown?.isVisible) {
           this.autocompleteDropdown.show(suggestions, this.inputField);
-          console.log('⚡ Updated with AI suggestions');
+          // console.log('⚡ Updated with AI suggestions');
         }
       }
     } catch (error) {
-      console.log('Background AI fetch failed:', error);
+      // console.log('Background AI fetch failed:', error);
     }
   }
 

@@ -19,8 +19,8 @@
             this.userName = null;
             this.cacheKey = 'gracula_user_name';
             this.cacheDuration = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-            
-            console.log('🔍 [USER PROFILE] UserProfileDetector initialized');
+
+            // console.log('🔍 [USER PROFILE] UserProfileDetector initialized');
         }
 
         /**
@@ -28,12 +28,12 @@
          * @returns {Promise<string|null>} User's name or null if detection fails
          */
         async detectUserProfile() {
-            console.log('🔍 [USER PROFILE] Starting user profile detection...');
+            // console.log('🔍 [USER PROFILE] Starting user profile detection...');
 
             // Strategy 1: Try cache first (fastest)
             const cachedName = this.getCachedUserName();
             if (cachedName) {
-                console.log('✅ [USER PROFILE] Using cached name:', cachedName);
+                // console.log('✅ [USER PROFILE] Using cached name:', cachedName);
                 this.userName = cachedName;
                 return cachedName;
             }
@@ -41,7 +41,7 @@
             // Strategy 2: Try extracting from current chat messages (MOST RELIABLE!)
             const chatName = this.detectFromChatMessages();
             if (chatName && this.validateUserName(chatName)) {
-                console.log('✅ [USER PROFILE] Detected from chat messages:', chatName);
+                // console.log('✅ [USER PROFILE] Detected from chat messages:', chatName);
                 this.userName = chatName;
                 this.cacheUserName(chatName);
                 return chatName;
@@ -258,18 +258,18 @@
          * @returns {string|null}
          */
         detectFromChatMessages() {
-            console.log('🔍 [USER PROFILE] Trying to extract from chat messages...');
+            // console.log('🔍 [USER PROFILE] Trying to extract from chat messages...');
 
             try {
                 // Find all message elements with data-pre-plain-text attribute
                 const messageElements = document.querySelectorAll('[data-pre-plain-text]');
 
                 if (messageElements.length === 0) {
-                    console.log('⚠️ [USER PROFILE] No messages found in current chat');
+                    // console.log('⚠️ [USER PROFILE] No messages found in current chat');
                     return null;
                 }
 
-                console.log(`🔍 [USER PROFILE] Found ${messageElements.length} messages in chat`);
+                // console.log(`🔍 [USER PROFILE] Found ${messageElements.length} messages in chat`);
 
                 // Map to store sender names and their frequency in outgoing messages
                 const senderCounts = new Map();
@@ -610,7 +610,7 @@
                 return false;
             }
 
-            console.log('✅ [USER PROFILE] Name validation passed:', trimmed);
+            // console.log('✅ [USER PROFILE] Name validation passed:', trimmed);
             return true;
         }
 
@@ -682,6 +682,6 @@
     }
     window.Gracula.UserProfileDetector = UserProfileDetector;
 
-    console.log('✅ [USER PROFILE] UserProfileDetector class registered');
+    // console.log('✅ [USER PROFILE] UserProfileDetector class registered');
 })();
 

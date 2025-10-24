@@ -343,50 +343,77 @@ window.Gracula.AutocompleteDropdown = class {
 
   /**
    * Handle keyboard events
-   * FIXED: Tab now inserts suggestion (like IDE autocomplete)
+   * FIXED: Ctrl+Tab inserts suggestion (Tab alone is used by WhatsApp)
    * Arrow keys only navigate
    */
   handleKeydown(event) {
-    if (!this.isVisible) return false;
+    console.log('🔍 [DROPDOWN] handleKeydown called:', {
+      key: event.key,
+      ctrlKey: event.ctrlKey,
+      shiftKey: event.shiftKey,
+      altKey: event.altKey,
+      isVisible: this.isVisible,
+      selectedIndex: this.selectedIndex,
+      suggestionsCount: this.suggestions.length
+    });
+
+    if (!this.isVisible) {
+      console.log('⚠️ [DROPDOWN] Dropdown not visible, ignoring key');
+      return false;
+    }
+
+    // Ctrl+Tab to insert suggestion (Tab alone is used by WhatsApp)
+    if (event.key === 'Tab' && event.ctrlKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      console.log('✅ [DROPDOWN] Ctrl+Tab pressed - inserting suggestion');
+      this.selectCurrent();
+      return true;
+    }
 
     switch (event.key) {
-      case 'Tab':
-        // Tab key inserts the selected suggestion (like IDE autocomplete)
-        event.preventDefault();
-        console.log('🎯 Tab pressed - inserting suggestion');
-        this.selectCurrent();
-        return true;
-
       case 'Enter':
-        // Enter also inserts the selected suggestion
+        // Enter inserts the selected suggestion
         event.preventDefault();
-        console.log('🎯 Enter pressed - inserting suggestion');
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        console.log('✅ [DROPDOWN] Enter pressed - inserting suggestion');
         this.selectCurrent();
         return true;
 
       case 'ArrowDown':
         // Arrow down navigates to next suggestion
         event.preventDefault();
-        console.log('🎯 ArrowDown pressed - navigating down');
+        event.stopPropagation();
+        console.log('✅ [DROPDOWN] ArrowDown pressed - navigating down');
         this.navigateDown();
         return true;
 
       case 'ArrowUp':
         // Arrow up navigates to previous suggestion
         event.preventDefault();
-        console.log('🎯 ArrowUp pressed - navigating up');
+        event.stopPropagation();
+        console.log('✅ [DROPDOWN] ArrowUp pressed - navigating up');
         this.navigateUp();
         return true;
 
       case 'Escape':
         // Escape dismisses the dropdown
         event.preventDefault();
-        console.log('🎯 Escape pressed - dismissing dropdown');
+        event.stopPropagation();
+        console.log('✅ [DROPDOWN] Escape pressed - dismissing dropdown');
         this.hide();
         this.onDismiss();
         return true;
 
+      case 'Tab':
+        // Tab alone should NOT be handled - let WhatsApp use it
+        console.log('⚠️ [DROPDOWN] Tab pressed without Ctrl - letting WhatsApp handle it');
+        return false;
+
       default:
+        console.log('⚠️ [DROPDOWN] Unhandled key:', event.key);
         return false;
     }
   }
