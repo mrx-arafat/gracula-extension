@@ -780,3 +780,171 @@
     font-size: 10px;
   }
 }
+
+/* ========================================
+   VOICE INPUT STYLES
+   ======================================== */
+
+/* Voice Button */
+.gracula-voice-button {
+  position: fixed !important;
+  width: 48px !important;
+  height: 48px !important;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  border-radius: 50% !important;
+  border: none !important;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4) !important;
+  cursor: pointer !important;
+  z-index: 2147483646 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.3s ease !important;
+  color: white !important;
+  padding: 0 !important;
+}
+
+.gracula-voice-button:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6) !important;
+}
+
+.gracula-voice-button svg {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+/* Recording Indicator */
+.gracula-recording-indicator {
+  position: fixed !important;
+  top: 20px !important;
+  right: 20px !important;
+  background: white !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2) !important;
+  z-index: 2147483647 !important;
+  padding: 16px !important;
+  min-width: 280px !important;
+  opacity: 0 !important;
+  transform: translateX(20px) !important;
+  transition: all 0.3s ease !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+.gracula-recording-content {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  margin-bottom: 12px !important;
+}
+
+.gracula-recording-icon {
+  position: relative !important;
+  width: 40px !important;
+  height: 40px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #ef4444 !important;
+}
+
+.gracula-recording-pulse {
+  position: absolute !important;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+  background: #ef4444 !important;
+  opacity: 0.3 !important;
+  animation: gracula-recording-pulse 1.5s ease-out infinite !important;
+}
+
+@keyframes gracula-recording-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+.gracula-recording-info {
+  flex: 1 !important;
+}
+
+.gracula-recording-message {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: #333 !important;
+  margin-bottom: 4px !important;
+}
+
+.gracula-recording-timer {
+  font-size: 12px !important;
+  color: #666 !important;
+  font-family: 'Courier New', monospace !important;
+}
+
+.gracula-recording-cancel {
+  background: #f3f4f6 !important;
+  border: none !important;
+  border-radius: 6px !important;
+  width: 32px !important;
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  color: #666 !important;
+}
+
+.gracula-recording-cancel:hover {
+  background: #e5e7eb !important;
+  color: #333 !important;
+}
+
+.gracula-recording-waveform {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  height: 32px !important;
+}
+
+.gracula-recording-bar {
+  width: 4px !important;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  border-radius: 2px !important;
+  animation: gracula-waveform 1s ease-in-out infinite !important;
+}
+
+.gracula-recording-bar:nth-child(1) {
+  animation-delay: 0s !important;
+}
+
+.gracula-recording-bar:nth-child(2) {
+  animation-delay: 0.1s !important;
+}
+
+.gracula-recording-bar:nth-child(3) {
+  animation-delay: 0.2s !important;
+}
+
+.gracula-recording-bar:nth-child(4) {
+  animation-delay: 0.3s !important;
+}
+
+.gracula-recording-bar:nth-child(5) {
+  animation-delay: 0.4s !important;
+}
+
+@keyframes gracula-waveform {
+  0%, 100% {
+    height: 8px;
+  }
+  50% {
+    height: 24px;
+  }
+}

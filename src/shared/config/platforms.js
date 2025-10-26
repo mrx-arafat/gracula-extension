@@ -14,16 +14,26 @@ window.Gracula.Config.PLATFORMS = {
     name: 'WhatsApp',
     domain: 'web.whatsapp.com',
     inputSelectors: [
-      // Most specific: footer with data-tab="10" and contenteditable
-      'footer div[contenteditable="true"][data-tab="10"]',
-      // Lexical editor in footer
-      'footer div[data-lexical-editor="true"][contenteditable="true"]',
-      // Any contenteditable in footer with role textbox
+      // Primary (Nov 2024+): dedicated compose input
+      'div[contenteditable="true"][data-testid="conversation-compose-box-input"]',
+      // Aria-labelled textbox (covers refreshed layout)
+      'div[contenteditable="true"][role="textbox"][aria-label]',
+      // Placeholder-based selector (legacy + A/B tests)
+      'div[contenteditable="true"][aria-placeholder]',
+      // Generic role-based textbox fallback
+      'div[contenteditable="true"][role="textbox"]',
+      // Lexical editor wrapper (no footer restriction)
+      'div[data-lexical-editor="true"][contenteditable="true"]',
+      // Broad contenteditable fallbacks (tab variations)
+      'div[contenteditable="true"][data-tab]',
+      'div[contenteditable="true"][data-tab="10"]',
+      'div[contenteditable="true"][data-tab="9"]',
+      'div[contenteditable="true"][data-tab="8"]',
+      'div[contenteditable="true"][data-tab="7"]',
+      'div[contenteditable="true"][data-tab="6"]',
+      // Legacy footer-based selectors
       'footer div[contenteditable="true"][role="textbox"]',
-      // Generic footer contenteditable
-      'footer div[contenteditable="true"]',
-      // Fallback: data-tab 10 not in header
-      'div[contenteditable="true"][data-tab="10"]:not(header *)'
+      'footer div[contenteditable="true"]'
     ],
     messageSelectors: [
       // Primary: message bubbles with copyable text

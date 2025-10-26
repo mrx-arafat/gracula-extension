@@ -17,12 +17,11 @@ window.Gracula.VoiceInputManager = class {
     // State
     this.isActive = false;
     this.config = null;
-
-    // Load configuration
-    this.loadConfig();
+    this.disabledShortcutListenerAttached = false;
 
     // Bind methods
     this.handleKeydown = this.handleKeydown.bind(this);
+    this.handleDisabledKeydown = this.handleDisabledKeydown.bind(this);
     this.handleButtonClick = this.handleButtonClick.bind(this);
 
     console.log('🎤 VoiceInputManager: Initialized');
@@ -31,29 +30,64 @@ window.Gracula.VoiceInputManager = class {
   /**
    * Load configuration from background
    */
-  loadConfig() {
-    chrome.runtime.sendMessage({ action: 'getApiConfig' }, (response) => {
-      if (response && response.success && response.config) {
-        this.config = response.config;
-        console.log('✅ VoiceInputManager: Config loaded');
-      }
+  async loadConfig() {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: 'getApiConfig' }, (response) => {
+        if (response && response.success && response.config) {
+          this.config = response.config;
+
+          if (typeof this.config.voiceInputEnabled === 'string') {
+            this.config.voiceInputEnabled = this.config.voiceInputEnabled.toLowerCase() !== 'false';
+          }
+
+          if (typeof this.config.voiceInputEnabled === 'undefined') {
+            this.config.voiceInputEnabled = true;
+          }
+
+          console.log('✅ VoiceInputManager: Config loaded', this.config);
+        } else {
+          // Default config if not loaded
+          this.config = {
+            voiceInputEnabled: true, // Enable by default for testing
+            voiceProvider: 'webspeech',
+            voiceLanguage: 'en'
+          };
+          console.log('⚠️ VoiceInputManager: Using default config');
+        }
+        resolve();
+      });
     });
   }
 
   /**
    * Start voice input manager
    */
-  start() {
-    if (!this.config?.voiceInputEnabled) {
-      console.log('🎤 VoiceInputManager: Voice input disabled');
+  async start() {
+    // Wait for config to load
+    await this.loadConfig();
+
+    const voiceEnabled = this.config?.voiceInputEnabled !== false;
+
+    // Always render the button so users know the feature exists
+    this.createVoiceButton({ enabled: voiceEnabled });
+
+    // Ensure disabled shortcut listener is cleared if previously attached
+    if (this.disabledShortcutListenerAttached) {
+      document.removeEventListener('keydown', this.handleDisabledKeydown);
+      this.disabledShortcutListenerAttached = false;
+    }
+
+    if (!voiceEnabled) {
+      console.log('🎤 VoiceInputManager: Voice input disabled in settings - showing disabled button');
+      if (!this.disabledShortcutListenerAttached) {
+        document.addEventListener('keydown', this.handleDisabledKeydown);
+        this.disabledShortcutListenerAttached = true;
+      }
       return;
     }
 
     // Add keyboard shortcut listener (Ctrl+Shift+V)
     document.addEventListener('keydown', this.handleKeydown);
-
-    // Create voice button
-    this.createVoiceButton();
 
     // Create transcription manager
     this.createTranscriptionManager();
@@ -71,6 +105,11 @@ window.Gracula.VoiceInputManager = class {
    */
   stop() {
     document.removeEventListener('keydown', this.handleKeydown);
+
+    if (this.disabledShortcutListenerAttached) {
+      document.removeEventListener('keydown', this.handleDisabledKeydown);
+      this.disabledShortcutListenerAttached = false;
+    }
 
     if (this.voiceButton) {
       this.voiceButton.destroy();
@@ -94,24 +133,40 @@ window.Gracula.VoiceInputManager = class {
    * Handle keyboard shortcut (Ctrl+Shift+V)
    */
   handleKeydown(event) {
-    if (event.ctrlKey && event.shiftKey && event.key === 'V') {
+    if (event.ctrlKey && event.shiftKey && event.key?.toLowerCase() === 'v') {
       event.preventDefault();
       this.toggleTranscription();
     }
   }
 
   /**
+   * Handle keyboard shortcut when voice input is disabled
+   */
+  handleDisabledKeydown(event) {
+    if (event.ctrlKey && event.shiftKey && event.key?.toLowerCase() === 'v') {
+      event.preventDefault();
+      this.handleVoiceDisabled();
+    }
+  }
+
+  /**
    * Create voice button
    */
-  createVoiceButton() {
+  createVoiceButton({ enabled = true } = {}) {
     if (this.voiceButton || !this.inputField) return;
+
+    const tooltip = enabled
+      ? 'Voice Input (Ctrl+Shift+V)'
+      : 'Enable voice input in the Gracula popup to use speech-to-text';
 
     this.voiceButton = new window.Gracula.VoiceButton({
       inputField: this.inputField,
-      onClick: this.handleButtonClick
+      onClick: enabled ? this.handleButtonClick : () => this.handleVoiceDisabled(),
+      disabled: !enabled,
+      tooltip
     });
 
-    console.log('✅ VoiceInputManager: Voice button created');
+    console.log(`✅ VoiceInputManager: Voice button created (enabled=${enabled})`);
   }
 
   /**
@@ -160,6 +215,14 @@ window.Gracula.VoiceInputManager = class {
   }
 
   /**
+   * Show guidance when voice input is disabled
+   */
+  handleVoiceDisabled() {
+    console.warn('🎤 VoiceInputManager: Voice input requested but feature is disabled');
+    this.onError('Enable voice input in the Gracula popup to use speech-to-text.');
+  }
+
+  /**
    * Handle button click
    */
   handleButtonClick() {
@@ -189,8 +252,18 @@ window.Gracula.VoiceInputManager = class {
     try {
       await this.transcriptionManager.start();
     } catch (error) {
+      if (error?.code === 'transcription-already-active') {
+        console.warn('🎤 VoiceInputManager: Start ignored because transcription is already running');
+        this.onError('Voice input is already running. Speak or press Esc to stop.');
+        return;
+      }
+
       console.error('❌ VoiceInputManager: Failed to start transcription:', error);
-      this.onError(error.message || 'Failed to start voice input');
+      this.onError(error?.message || 'Failed to start voice input');
+
+      if (typeof this.transcriptionManager.forceReset === 'function') {
+        this.transcriptionManager.forceReset('start-failed');
+      }
     }
   }
 

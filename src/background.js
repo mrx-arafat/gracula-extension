@@ -21,8 +21,8 @@ let apiConfig = {
   deepgramApiKey: '', // Deepgram API key
   // AI toggle for autosuggestions (disabled by default)
   useAIForAutosuggestions: false,
-  // Voice input toggle (disabled by default)
-  voiceInputEnabled: false
+  // Voice input toggle (enabled by default for quick access)
+  voiceInputEnabled: true
 };
 
 // Load saved API config

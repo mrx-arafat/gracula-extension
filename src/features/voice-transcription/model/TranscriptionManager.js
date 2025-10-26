@@ -11,26 +11,31 @@ window.Gracula.TranscriptionManager = class {
     this.onInterimResult = options.onInterimResult || (() => {});
     this.onAudioLevel = options.onAudioLevel || (() => {});
     this.onStateChange = options.onStateChange || (() => {});
-    
+
     // Configuration
     this.provider = options.provider || 'elevenlabs'; // Default to ElevenLabs
     this.language = options.language || 'en';
     this.useVAD = options.useVAD !== false; // Default true
     this.autoStop = options.autoStop !== false; // Default true
-    
+
     // Components
     this.audioRecorder = null;
     this.webSpeechRecognizer = null;
     this.vad = null;
-    
+
     // State
     this.state = 'idle'; // idle, recording, transcribing, complete, error
     this.currentTranscript = '';
     this.apiConfig = null;
-    
+
+    // Session tracking
+    this.sessionCounter = 0;
+    this.currentSessionId = 0;
+
+
     // Load API configuration
     this.loadConfig();
-    
+
     console.log('🎤 TranscriptionManager: Initialized with provider:', this.provider);
   }
 
@@ -51,22 +56,34 @@ window.Gracula.TranscriptionManager = class {
    */
   async start() {
     if (this.state !== 'idle') {
-      console.warn('🎤 TranscriptionManager: Already active');
-      return;
+      if (this.isBusy()) {
+        const error = new Error('Voice input is already running');
+        error.code = 'transcription-already-active';
+        console.warn('🎤 TranscriptionManager: Start requested while busy');
+        throw error;
+      }
+
+
+      console.warn(`🎤 TranscriptionManager: Resetting stale state before restart (state=${this.state})`);
+      this.forceReset('stale-state');
     }
+
+    const sessionId = ++this.sessionCounter;
+    this.currentSessionId = sessionId;
 
     try {
       console.log('🎤 TranscriptionManager: Starting transcription...');
+
       this.setState('recording');
       this.currentTranscript = '';
-      
+
       // Determine which method to use
       if (this.provider === 'webspeech') {
-        await this.startWebSpeech();
+        await this.startWebSpeech(sessionId);
       } else {
-        await this.startAudioRecording();
+        await this.startAudioRecording(sessionId);
       }
-      
+
       this.onTranscriptionStart();
       console.log('✅ TranscriptionManager: Transcription started');
     } catch (error) {
@@ -79,69 +96,112 @@ window.Gracula.TranscriptionManager = class {
   /**
    * Start Web Speech API recognition
    */
-  async startWebSpeech() {
+  async startWebSpeech(sessionId) {
     const languageCode = window.Gracula.VoiceProviders.getLanguageCode(this.language, 'webspeech');
-    
+
     this.webSpeechRecognizer = new window.Gracula.WebSpeechRecognizer({
       language: languageCode,
       continuous: true,
       interimResults: true,
       onResult: (transcript) => {
+        if (!this.isSessionActive(sessionId)) {
+          console.warn('🎤 TranscriptionManager: Ignoring Web Speech result for stale session');
+          return;
+        }
+
         this.currentTranscript = transcript;
         console.log('✅ TranscriptionManager: Final transcript:', transcript);
       },
       onInterimResult: (transcript) => {
+        if (!this.isSessionActive(sessionId)) {
+          return;
+        }
+
         this.onInterimResult(transcript);
         console.log('🎤 TranscriptionManager: Interim transcript:', transcript);
       },
       onStart: () => {
+        if (!this.isSessionActive(sessionId)) {
+          console.warn('🎤 TranscriptionManager: Web Speech start fired for stale session');
+          return;
+        }
+
         console.log('🎤 TranscriptionManager: Web Speech started');
       },
       onEnd: (transcript) => {
+        if (!this.isSessionActive(sessionId)) {
+          console.warn('🎤 TranscriptionManager: Ignoring Web Speech end for stale session');
+          return;
+        }
+
         this.currentTranscript = transcript || this.currentTranscript;
-        this.handleTranscriptionComplete(this.currentTranscript);
+        this.handleTranscriptionComplete(this.currentTranscript, sessionId);
       },
       onError: (error) => {
-        this.handleTranscriptionError(error);
+        if (!this.isSessionActive(sessionId)) {
+          console.warn('🎤 TranscriptionManager: Ignoring Web Speech error for stale session');
+          return;
+        }
+
+        this.handleTranscriptionError(error, sessionId);
       }
     });
-    
+
     this.webSpeechRecognizer.start();
   }
 
   /**
    * Start audio recording for cloud transcription
    */
-  async startAudioRecording() {
+  async startAudioRecording(sessionId) {
     this.audioRecorder = new window.Gracula.AudioRecorder({
       onStart: () => {
+        if (!this.isSessionActive(sessionId)) {
+          console.warn('🎤 TranscriptionManager: Ignoring audio recorder start for stale session');
+          return;
+        }
+
         console.log('🎤 TranscriptionManager: Audio recording started');
-        
+
         // Start VAD if enabled
         if (this.useVAD && this.audioRecorder.audioStream) {
           this.startVAD(this.audioRecorder.audioStream);
         }
       },
       onStop: async (audioBlob) => {
+        if (!this.isSessionActive(sessionId)) {
+          console.warn('🎤 TranscriptionManager: Ignoring audio recorder stop for stale session');
+          return;
+        }
+
         console.log('🎤 TranscriptionManager: Audio recording stopped');
         this.setState('transcribing');
-        
+
         // Stop VAD
         if (this.vad) {
           this.vad.stop();
         }
-        
+
         // Transcribe audio
-        await this.transcribeAudio(audioBlob);
+        await this.transcribeAudio(audioBlob, sessionId);
       },
       onError: (error) => {
-        this.handleTranscriptionError(error);
+        if (!this.isSessionActive(sessionId)) {
+          console.warn('🎤 TranscriptionManager: Ignoring audio recorder error for stale session');
+          return;
+        }
+
+        this.handleTranscriptionError(error, sessionId);
       },
       onAudioLevel: (level) => {
+        if (!this.isSessionActive(sessionId)) {
+          return;
+        }
+
         this.onAudioLevel(level);
       }
     });
-    
+
     await this.audioRecorder.startRecording();
   }
 
@@ -162,7 +222,7 @@ window.Gracula.TranscriptionManager = class {
         this.onAudioLevel(volume);
       }
     });
-    
+
     this.vad.start(audioStream);
   }
 
@@ -176,15 +236,15 @@ window.Gracula.TranscriptionManager = class {
     }
 
     console.log('🎤 TranscriptionManager: Stopping...');
-    
+
     if (this.webSpeechRecognizer) {
       this.webSpeechRecognizer.stop();
     }
-    
+
     if (this.audioRecorder) {
       this.audioRecorder.stopRecording();
     }
-    
+
     if (this.vad) {
       this.vad.stop();
     }
@@ -193,12 +253,22 @@ window.Gracula.TranscriptionManager = class {
   /**
    * Transcribe audio using cloud API
    */
-  async transcribeAudio(audioBlob) {
+  async transcribeAudio(audioBlob, sessionId = this.currentSessionId) {
+    if (!this.isSessionActive(sessionId)) {
+      console.warn('🎤 TranscriptionManager: Ignoring transcribeAudio for stale session');
+      return;
+    }
+
+    if (this.state === 'idle') {
+      console.warn('🎤 TranscriptionManager: Ignoring transcribeAudio because manager is idle');
+      return;
+    }
+
     try {
       console.log('🎤 TranscriptionManager: Transcribing audio with', this.provider);
-      
+
       let transcript = '';
-      
+
       if (this.provider === 'elevenlabs') {
         transcript = await this.transcribeWithElevenLabs(audioBlob);
       } else if (this.provider === 'openai') {
@@ -206,11 +276,11 @@ window.Gracula.TranscriptionManager = class {
       } else {
         throw new Error(`Unsupported provider: ${this.provider}`);
       }
-      
-      this.handleTranscriptionComplete(transcript);
+
+      this.handleTranscriptionComplete(transcript, sessionId);
     } catch (error) {
       console.error('❌ TranscriptionManager: Transcription failed:', error);
-      this.handleTranscriptionError(error.message || 'Transcription failed');
+      this.handleTranscriptionError(error.message || 'Transcription failed', sessionId);
     }
   }
 
@@ -228,7 +298,7 @@ window.Gracula.TranscriptionManager = class {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64Audio = reader.result.split(',')[1];
-        
+
         chrome.runtime.sendMessage({
           action: 'transcribeAudio',
           provider: 'elevenlabs',
@@ -262,7 +332,7 @@ window.Gracula.TranscriptionManager = class {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64Audio = reader.result.split(',')[1];
-        
+
         chrome.runtime.sendMessage({
           action: 'transcribeAudio',
           provider: 'openai',
@@ -285,7 +355,17 @@ window.Gracula.TranscriptionManager = class {
   /**
    * Handle transcription complete
    */
-  handleTranscriptionComplete(transcript) {
+  handleTranscriptionComplete(transcript, sessionId = this.currentSessionId) {
+    if (!this.isSessionActive(sessionId)) {
+      console.warn('🎤 TranscriptionManager: Ignoring completion callback for stale session');
+      return;
+    }
+
+    if (this.state === 'idle') {
+      console.warn('🎤 TranscriptionManager: Ignoring completion callback because manager is idle');
+      return;
+    }
+
     console.log('✅ TranscriptionManager: Transcription complete:', transcript);
     this.currentTranscript = transcript;
     this.setState('complete');
@@ -296,7 +376,17 @@ window.Gracula.TranscriptionManager = class {
   /**
    * Handle transcription error
    */
-  handleTranscriptionError(error) {
+  handleTranscriptionError(error, sessionId = this.currentSessionId) {
+    if (!this.isSessionActive(sessionId)) {
+      console.warn('🎤 TranscriptionManager: Ignoring error callback for stale session');
+      return;
+    }
+
+    if (this.state === 'idle') {
+      console.warn('🎤 TranscriptionManager: Ignoring error callback because manager is idle');
+      return;
+    }
+
     console.error('❌ TranscriptionManager: Error:', error);
     this.setState('error');
     this.onTranscriptionError(error);
@@ -317,27 +407,109 @@ window.Gracula.TranscriptionManager = class {
    */
   cleanup() {
     if (this.audioRecorder) {
-      this.audioRecorder.destroy();
+      try {
+        this.audioRecorder.destroy();
+      } catch (error) {
+        console.warn('Warning: TranscriptionManager failed to destroy audio recorder during cleanup:', error);
+      }
       this.audioRecorder = null;
     }
-    
+
     if (this.webSpeechRecognizer) {
-      this.webSpeechRecognizer.destroy();
+      try {
+        this.webSpeechRecognizer.destroy();
+      } catch (error) {
+        console.warn('Warning: TranscriptionManager failed to destroy web speech recognizer during cleanup:', error);
+      }
       this.webSpeechRecognizer = null;
     }
-    
+
     if (this.vad) {
-      this.vad.destroy();
+      try {
+        this.vad.destroy();
+      } catch (error) {
+        console.warn('Warning: TranscriptionManager failed to destroy VAD during cleanup:', error);
+      }
       this.vad = null;
     }
-    
-    // Reset to idle after a short delay
-    setTimeout(() => {
-      if (this.state !== 'recording') {
-        this.setState('idle');
-      }
-    }, 1000);
+
+    this.currentTranscript = '';
+
+    if (this.state !== 'idle') {
+      this.setState('idle');
+    }
   }
+
+  /**
+   * Determine if capture is currently active
+   */
+  isCaptureActive() {
+    const recognizerActive = Boolean(this.webSpeechRecognizer && this.webSpeechRecognizer.isRecognizing);
+    const recorderActive = Boolean(this.audioRecorder && this.audioRecorder.isRecording);
+    return recognizerActive || recorderActive;
+  }
+
+  /**
+   * Determine if manager is processing captured audio
+   */
+  isProcessing() {
+    return this.state === 'transcribing';
+  }
+
+  /**
+   * Determine if manager is busy handling audio
+   */
+  isBusy() {
+    return this.isCaptureActive() || this.isProcessing();
+  }
+
+  /**
+   * Check if a session is still active
+   */
+  isSessionActive(sessionId) {
+    return sessionId === this.currentSessionId;
+  }
+
+  /**
+   * Force reset manager back to idle
+   */
+  forceReset(reason = 'manual-reset') {
+    console.warn(`🎤 TranscriptionManager: Force reset triggered (${reason}) from state: ${this.state}`);
+
+    if (this.audioRecorder) {
+      try {
+        this.audioRecorder.destroy();
+      } catch (error) {
+        console.warn('Warning: TranscriptionManager failed to destroy audio recorder during force reset:', error);
+      }
+      this.audioRecorder = null;
+    }
+
+    if (this.webSpeechRecognizer) {
+      try {
+        this.webSpeechRecognizer.destroy();
+      } catch (error) {
+        console.warn('Warning: TranscriptionManager failed to destroy web speech recognizer during force reset:', error);
+      }
+      this.webSpeechRecognizer = null;
+    }
+
+    if (this.vad) {
+      try {
+        this.vad.destroy();
+      } catch (error) {
+        console.warn('Warning: TranscriptionManager failed to destroy VAD during force reset:', error);
+      }
+      this.vad = null;
+    }
+
+    this.currentTranscript = '';
+
+    if (this.state !== 'idle') {
+      this.setState('idle');
+    }
+  }
+
 
   /**
    * Get current state
