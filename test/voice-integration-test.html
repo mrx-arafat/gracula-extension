@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voice Integration Test - Gracula</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    
+    h1 {
+      color: #667eea;
+      text-align: center;
+    }
+    
+    .test-section {
+      background: white;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .test-section h2 {
+      color: #333;
+      margin-top: 0;
+    }
+    
+    .status {
+      padding: 10px;
+      border-radius: 4px;
+      margin: 10px 0;
+      font-weight: 600;
+    }
+    
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+    }
+    
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    
+    .status.pending {
+      background: #fff3cd;
+      color: #856404;
+    }
+    
+    button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin: 5px;
+    }
+    
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .test-input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      margin: 10px 0;
+    }
+    
+    .log {
+      background: #f8f9fa;
+      padding: 10px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+      margin: 10px 0;
+    }
+    
+    .log-entry {
+      margin: 5px 0;
+      padding: 5px;
+      border-left: 3px solid #667eea;
+      padding-left: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎤 Voice Integration Test</h1>
+  
+  <div class="test-section">
+    <h2>✅ Component Loading Tests</h2>
+    <div id="loadingTests"></div>
+  </div>
+  
+  <div class="test-section">
+    <h2>🎙️ Voice Input Test</h2>
+    <p>Test the voice input functionality:</p>
+    <input type="text" class="test-input" id="testInput" placeholder="Click here, then press Ctrl+Shift+V or click the mic button">
+    <button onclick="testVoiceInput()">Test Voice Input</button>
+    <div id="voiceTestStatus"></div>
+  </div>
+  
+  <div class="test-section">
+    <h2>📊 Test Logs</h2>
+    <div class="log" id="testLogs"></div>
+  </div>
+
+  <script>
+    // Test logging
+    const logs = [];
+    
+    function log(message, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString();
+      const logEntry = `[${timestamp}] ${message}`;
+      logs.push(logEntry);
+      
+      const logDiv = document.getElementById('testLogs');
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.textContent = logEntry;
+      logDiv.appendChild(entry);
+      logDiv.scrollTop = logDiv.scrollHeight;
+      
+      console.log(logEntry);
+    }
+    
+    // Test 1: Check if all classes are loaded
+    function testComponentLoading() {
+      const loadingDiv = document.getElementById('loadingTests');
+      const components = [
+        'VoiceButton',
+        'RecordingIndicator',
+        'AudioRecorder',
+        'WebSpeechRecognizer',
+        'VoiceActivityDetector',
+        'CloudTranscriber',
+        'TranscriptionManager',
+        'VoiceInputManager'
+      ];
+      
+      let allLoaded = true;
+      
+      components.forEach(component => {
+        const exists = window.Gracula && window.Gracula[component];
+        const status = document.createElement('div');
+        status.className = `status ${exists ? 'success' : 'error'}`;
+        status.textContent = `${exists ? '✅' : '❌'} ${component}: ${exists ? 'Loaded' : 'Not Found'}`;
+        loadingDiv.appendChild(status);
+        
+        log(`Component ${component}: ${exists ? 'LOADED' : 'MISSING'}`, exists ? 'success' : 'error');
+        
+        if (!exists) allLoaded = false;
+      });
+      
+      return allLoaded;
+    }
+    
+    // Test 2: Test voice input functionality
+    function testVoiceInput() {
+      const statusDiv = document.getElementById('voiceTestStatus');
+      const input = document.getElementById('testInput');
+      
+      if (!window.Gracula || !window.Gracula.VoiceInputManager) {
+        statusDiv.innerHTML = '<div class="status error">❌ VoiceInputManager not loaded</div>';
+        log('Voice input test FAILED: VoiceInputManager not loaded', 'error');
+        return;
+      }
+      
+      try {
+        // Create voice input manager
+        const voiceManager = new window.Gracula.VoiceInputManager({
+          inputField: input,
+          onTranscription: (text) => {
+            statusDiv.innerHTML = `<div class="status success">✅ Transcription received: "${text}"</div>`;
+            log(`Transcription received: ${text}`, 'success');
+          },
+          onError: (error) => {
+            statusDiv.innerHTML = `<div class="status error">❌ Error: ${error}</div>`;
+            log(`Voice input error: ${error}`, 'error');
+          }
+        });
+        
+        // Mock config for testing
+        voiceManager.config = {
+          voiceInputEnabled: true,
+          voiceProvider: 'webspeech',
+          voiceLanguage: 'en'
+        };
+        
+        voiceManager.start();
+        
+        statusDiv.innerHTML = '<div class="status success">✅ Voice input initialized! Press Ctrl+Shift+V or click the mic button to test.</div>';
+        log('Voice input manager started successfully', 'success');
+        
+      } catch (error) {
+        statusDiv.innerHTML = `<div class="status error">❌ Error: ${error.message}</div>`;
+        log(`Voice input test FAILED: ${error.message}`, 'error');
+      }
+    }
+    
+    // Run tests on load
+    window.addEventListener('DOMContentLoaded', () => {
+      log('Starting voice integration tests...', 'info');
+      
+      // Initialize Gracula namespace
+      window.Gracula = window.Gracula || {};
+      
+      // Test component loading
+      setTimeout(() => {
+        const allLoaded = testComponentLoading();
+        if (allLoaded) {
+          log('✅ All components loaded successfully!', 'success');
+        } else {
+          log('❌ Some components failed to load', 'error');
+        }
+      }, 1000);
+    });
+  </script>
+</body>
+</html>
+

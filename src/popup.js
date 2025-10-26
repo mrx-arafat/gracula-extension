@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('voiceSettingsForm').addEventListener('submit', saveVoiceSettings);
   document.getElementById('reportIssue').addEventListener('click', reportIssue);
   document.getElementById('provider').addEventListener('change', toggleProviderFields);
+  document.getElementById('voiceProvider').addEventListener('change', toggleVoiceProviderFields);
   document.getElementById('aiToggle').addEventListener('change', saveAIToggle);
   document.getElementById('voiceToggle').addEventListener('change', saveVoiceToggle);
 });
@@ -44,6 +45,28 @@ function toggleProviderFields() {
   }
 }
 
+function toggleVoiceProviderFields() {
+  const provider = document.getElementById('voiceProvider').value;
+  const elevenlabsGroup = document.getElementById('elevenlabsKeyGroup');
+  const googleGroup = document.getElementById('googleVoiceKeyGroup');
+  const deepgramGroup = document.getElementById('deepgramKeyGroup');
+
+  // Hide all groups first
+  elevenlabsGroup.style.display = 'none';
+  googleGroup.style.display = 'none';
+  deepgramGroup.style.display = 'none';
+
+  // Show the selected provider's group
+  if (provider === 'elevenlabs') {
+    elevenlabsGroup.style.display = 'block';
+  } else if (provider === 'google') {
+    googleGroup.style.display = 'block';
+  } else if (provider === 'deepgram') {
+    deepgramGroup.style.display = 'block';
+  }
+  // webspeech and openai don't need additional fields
+}
+
 function loadSettings() {
   chrome.runtime.sendMessage({ action: 'getApiConfig' }, (response) => {
     if (response.success && response.config) {
@@ -61,13 +84,18 @@ function loadSettings() {
       currentState.aiEnabled = aiEnabled;
 
       // Load voice settings
+      document.getElementById('voiceProvider').value = response.config.voiceProvider || 'webspeech';
       document.getElementById('elevenlabsApiKey').value = response.config.elevenlabsApiKey || '';
+      document.getElementById('googleVoiceApiKey').value = response.config.googleApiKey || '';
+      document.getElementById('deepgramApiKey').value = response.config.deepgramApiKey || '';
+      document.getElementById('voiceLanguage').value = response.config.voiceLanguage || 'en';
       const voiceEnabled = response.config.voiceInputEnabled || false;
       document.getElementById('voiceToggle').checked = voiceEnabled;
       currentState.voiceEnabled = voiceEnabled;
       currentState.provider = provider;
 
       toggleProviderFields();
+      toggleVoiceProviderFields();
       updateStatusIndicator();
     }
   });
@@ -182,13 +210,21 @@ function saveAIToggle(e) {
 function saveVoiceSettings(e) {
   e.preventDefault();
 
+  const voiceProvider = document.getElementById('voiceProvider').value;
   const elevenlabsApiKey = document.getElementById('elevenlabsApiKey').value.trim();
+  const googleVoiceApiKey = document.getElementById('googleVoiceApiKey').value.trim();
+  const deepgramApiKey = document.getElementById('deepgramApiKey').value.trim();
+  const voiceLanguage = document.getElementById('voiceLanguage').value;
   const voiceEnabled = document.getElementById('voiceToggle').checked;
 
   chrome.runtime.sendMessage({
     action: 'updateApiConfig',
     config: {
+      voiceProvider: voiceProvider,
       elevenlabsApiKey: elevenlabsApiKey,
+      googleApiKey: googleVoiceApiKey,
+      deepgramApiKey: deepgramApiKey,
+      voiceLanguage: voiceLanguage,
       voiceInputEnabled: voiceEnabled
     }
   }, (response) => {
@@ -198,6 +234,8 @@ function saveVoiceSettings(e) {
       statusEl.textContent = '✓ Voice settings saved successfully!';
       statusEl.className = 'status success';
       statusEl.style.display = 'block';
+      currentState.voiceEnabled = voiceEnabled;
+      updateStatusIndicator();
 
       setTimeout(() => {
         statusEl.style.display = 'none';

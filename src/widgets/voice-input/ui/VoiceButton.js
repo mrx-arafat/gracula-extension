@@ -1,0 +1,218 @@
+// Voice Button Component
+// Microphone button for voice input
+
+window.Gracula = window.Gracula || {};
+
+window.Gracula.VoiceButton = class {
+  constructor(options = {}) {
+    this.onClick = options.onClick || (() => {});
+    this.inputField = options.inputField;
+    
+    // State
+    this.isRecording = false;
+    this.button = null;
+    
+    // Create button
+    this.create();
+    
+    console.log('🎤 VoiceButton: Created');
+  }
+
+  /**
+   * Create button element
+   */
+  create() {
+    this.button = document.createElement('button');
+    this.button.className = 'gracula-voice-button';
+    this.button.setAttribute('aria-label', 'Voice Input');
+    this.button.setAttribute('title', 'Voice Input (Ctrl+Shift+V)');
+    
+    // Add microphone icon
+    this.button.innerHTML = `
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+        <line x1="12" y1="19" x2="12" y2="23"></line>
+        <line x1="8" y1="23" x2="16" y2="23"></line>
+      </svg>
+    `;
+    
+    // Style the button
+    this.applyStyles();
+    
+    // Add click handler
+    this.button.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.onClick();
+    });
+    
+    // Add to page
+    document.body.appendChild(this.button);
+    
+    // Position button
+    this.position();
+    
+    // Reposition on window resize
+    window.addEventListener('resize', () => this.position());
+    
+    // Reposition on scroll
+    window.addEventListener('scroll', () => this.position(), true);
+  }
+
+  /**
+   * Apply button styles
+   */
+  applyStyles() {
+    this.button.style.cssText = `
+      position: fixed;
+      z-index: 2147483646;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border: 3px solid white;
+      color: white;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      outline: none;
+      opacity: 0.9;
+    `;
+    
+    // Hover effect
+    this.button.addEventListener('mouseenter', () => {
+      if (!this.isRecording) {
+        this.button.style.transform = 'scale(1.1)';
+        this.button.style.opacity = '1';
+        this.button.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.6)';
+      }
+    });
+    
+    this.button.addEventListener('mouseleave', () => {
+      if (!this.isRecording) {
+        this.button.style.transform = 'scale(1)';
+        this.button.style.opacity = '0.9';
+        this.button.style.boxShadow = '0 4px 16px rgba(102, 126, 234, 0.4)';
+      }
+    });
+  }
+
+  /**
+   * Position button near input field
+   */
+  position() {
+    if (!this.button || !this.inputField) return;
+
+    try {
+      const rect = this.inputField.getBoundingClientRect();
+      
+      // Position to the right of the input field
+      const top = rect.top + window.scrollY + (rect.height / 2) - 24;
+      const left = rect.right + window.scrollX + 10;
+      
+      this.button.style.top = `${top}px`;
+      this.button.style.left = `${left}px`;
+    } catch (error) {
+      console.warn('🎤 VoiceButton: Failed to position button:', error);
+    }
+  }
+
+  /**
+   * Set recording state
+   */
+  setRecording(isRecording) {
+    this.isRecording = isRecording;
+    
+    if (isRecording) {
+      // Recording state
+      this.button.style.background = 'linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%)';
+      this.button.style.animation = 'gracula-pulse 1.5s ease-in-out infinite';
+      this.button.setAttribute('title', 'Stop Recording');
+      
+      // Change icon to stop
+      this.button.innerHTML = `
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="6" y="6" width="12" height="12" rx="2"></rect>
+        </svg>
+      `;
+    } else {
+      // Idle state
+      this.button.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+      this.button.style.animation = 'none';
+      this.button.setAttribute('title', 'Voice Input (Ctrl+Shift+V)');
+      
+      // Change icon back to microphone
+      this.button.innerHTML = `
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+          <line x1="12" y1="19" x2="12" y2="23"></line>
+          <line x1="8" y1="23" x2="16" y2="23"></line>
+        </svg>
+      `;
+    }
+  }
+
+  /**
+   * Show button
+   */
+  show() {
+    if (this.button) {
+      this.button.style.display = 'flex';
+      this.position();
+    }
+  }
+
+  /**
+   * Hide button
+   */
+  hide() {
+    if (this.button) {
+      this.button.style.display = 'none';
+    }
+  }
+
+  /**
+   * Remove button
+   */
+  remove() {
+    if (this.button) {
+      this.button.remove();
+      this.button = null;
+    }
+  }
+
+  /**
+   * Destroy button
+   */
+  destroy() {
+    this.remove();
+    console.log('🎤 VoiceButton: Destroyed');
+  }
+};
+
+// Add pulse animation to page
+if (!document.getElementById('gracula-voice-animations')) {
+  const style = document.createElement('style');
+  style.id = 'gracula-voice-animations';
+  style.textContent = `
+    @keyframes gracula-pulse {
+      0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 4px 16px rgba(255, 107, 107, 0.4);
+      }
+      50% {
+        transform: scale(1.05);
+        box-shadow: 0 6px 24px rgba(255, 107, 107, 0.6);
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+console.log('✅ VoiceButton class loaded');
+

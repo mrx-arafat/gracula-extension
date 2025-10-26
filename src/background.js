@@ -12,9 +12,13 @@ let apiConfig = {
   openrouterModel: 'google/gemini-2.0-flash-exp:free',
   googleEndpoint: 'https://generativelanguage.googleapis.com/v1beta/models/',
   googleModel: 'gemini-2.0-flash-exp',
-  // ElevenLabs configuration for voice-to-text
+  // Voice transcription configuration
+  voiceProvider: 'webspeech', // 'webspeech', 'elevenlabs', 'openai', 'google', 'deepgram'
+  voiceLanguage: 'en', // Language code for voice recognition
   elevenlabsApiKey: 'sk_17f927bfb2297bf127c442949b9b16ab964c7b916c6cd56a',
   elevenlabsEndpoint: 'https://api.elevenlabs.io/v1/speech-to-text',
+  googleApiKey: '', // Google Cloud Speech-to-Text API key
+  deepgramApiKey: '', // Deepgram API key
   // AI toggle for autosuggestions (disabled by default)
   useAIForAutosuggestions: false,
   // Voice input toggle (disabled by default)
@@ -42,6 +46,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'generateAutocompletions') {
     handleGenerateAutocompletions(request.partialText, request.analysis, request.context, request.enhancedContext)
       .then(suggestions => sendResponse({ success: true, suggestions }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true; // Keep channel open for async response
+  }
+
+  // NEW: Handle audio transcription
+  if (request.action === 'transcribeAudio') {
+    handleTranscribeAudio(request.provider, request.audioData, request.mimeType, request.language)
+      .then(transcript => sendResponse({ success: true, transcript }))
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true; // Keep channel open for async response
   }
@@ -1201,6 +1213,227 @@ function buildAutocompletePrompt(partialText, analysis, context, enhancedContext
   prompt += 'Completions:\n';
 
   return prompt;
+}
+
+// ========================================
+// VOICE TRANSCRIPTION HANDLER
+// ========================================
+
+async function handleTranscribeAudio(provider, audioData, mimeType, language) {
+  console.log('🎤 Gracula Background: Transcribing audio with provider:', provider);
+
+  try {
+    if (provider === 'elevenlabs') {
+      return await transcribeWithElevenLabs(audioData, mimeType, language);
+    } else if (provider === 'openai') {
+      return await transcribeWithOpenAI(audioData, mimeType, language);
+    } else if (provider === 'google') {
+      return await transcribeWithGoogle(audioData, mimeType, language);
+    } else if (provider === 'deepgram') {
+      return await transcribeWithDeepgram(audioData, mimeType, language);
+    } else {
+      throw new Error(`Unsupported transcription provider: ${provider}`);
+    }
+  } catch (error) {
+    console.error('❌ Gracula Background: Transcription error:', error);
+    throw error;
+  }
+}
+
+async function transcribeWithElevenLabs(audioData, mimeType, language) {
+  const apiKey = apiConfig.elevenlabsApiKey;
+  if (!apiKey) {
+    throw new Error('ElevenLabs API key not configured');
+  }
+
+  console.log('🎤 Calling ElevenLabs API...');
+
+  // Convert base64 to blob
+  const audioBlob = base64ToBlob(audioData, mimeType);
+
+  // Create form data
+  const formData = new FormData();
+  formData.append('audio', audioBlob, 'recording.webm');
+  formData.append('model_id', 'eleven_multilingual_v2');
+
+  // Call ElevenLabs API
+  const response = await fetch(apiConfig.elevenlabsEndpoint, {
+    method: 'POST',
+    headers: {
+      'xi-api-key': apiKey
+    },
+    body: formData
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`ElevenLabs API Error: ${response.status} - ${errorText}`);
+  }
+
+  const result = await response.json();
+  const transcript = result.text || '';
+
+  console.log('✅ ElevenLabs transcription complete:', transcript);
+  return transcript;
+}
+
+async function transcribeWithOpenAI(audioData, mimeType, language) {
+  const apiKey = apiConfig.apiKey; // OpenAI API key
+  if (!apiKey) {
+    throw new Error('OpenAI API key not configured');
+  }
+
+  console.log('🎤 Calling OpenAI Whisper API...');
+
+  // Convert base64 to blob
+  const audioBlob = base64ToBlob(audioData, mimeType);
+
+  // Create form data
+  const formData = new FormData();
+  formData.append('file', audioBlob, 'recording.webm');
+  formData.append('model', 'whisper-1');
+  if (language) {
+    formData.append('language', language);
+  }
+
+  // Call OpenAI Whisper API
+  const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: formData
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenAI API Error: ${response.status} - ${errorText}`);
+  }
+
+  const result = await response.json();
+  const transcript = result.text || '';
+
+  console.log('✅ OpenAI transcription complete:', transcript);
+  return transcript;
+}
+
+async function transcribeWithGoogle(audioData, mimeType, language) {
+  const apiKey = apiConfig.googleApiKey;
+  if (!apiKey) {
+    throw new Error('Google API key not configured');
+  }
+
+  console.log('🎤 Calling Google Speech-to-Text API...');
+
+  // Convert base64 to blob
+  const audioBlob = base64ToBlob(audioData, mimeType);
+
+  // Convert to base64 for Google API
+  const base64Audio = await blobToBase64(audioBlob);
+
+  // Prepare request
+  const requestBody = {
+    config: {
+      encoding: 'WEBM_OPUS',
+      sampleRateHertz: 48000,
+      languageCode: language || 'en-US',
+      enableAutomaticPunctuation: true
+    },
+    audio: {
+      content: base64Audio
+    }
+  };
+
+  // Call Google Speech-to-Text API
+  const response = await fetch(
+    `https://speech.googleapis.com/v1/speech:recognize?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestBody)
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Google API Error: ${response.status} - ${errorText}`);
+  }
+
+  const result = await response.json();
+  const transcript = result.results?.[0]?.alternatives?.[0]?.transcript || '';
+
+  console.log('✅ Google transcription complete:', transcript);
+  return transcript;
+}
+
+async function transcribeWithDeepgram(audioData, mimeType, language) {
+  const apiKey = apiConfig.deepgramApiKey;
+  if (!apiKey) {
+    throw new Error('Deepgram API key not configured');
+  }
+
+  console.log('🎤 Calling Deepgram API...');
+
+  // Convert base64 to blob
+  const audioBlob = base64ToBlob(audioData, mimeType);
+
+  // Prepare query parameters
+  const params = new URLSearchParams({
+    model: 'nova-2',
+    language: language || 'en',
+    punctuate: 'true',
+    smart_format: 'true'
+  });
+
+  // Call Deepgram API
+  const response = await fetch(
+    `https://api.deepgram.com/v1/listen?${params.toString()}`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Token ${apiKey}`,
+        'Content-Type': mimeType
+      },
+      body: audioBlob
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Deepgram API Error: ${response.status} - ${errorText}`);
+  }
+
+  const result = await response.json();
+  const transcript = result.results?.channels?.[0]?.alternatives?.[0]?.transcript || '';
+
+  console.log('✅ Deepgram transcription complete:', transcript);
+  return transcript;
+}
+
+// Helper function to convert base64 to Blob
+function base64ToBlob(base64, mimeType) {
+  const byteCharacters = atob(base64);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  return new Blob([byteArray], { type: mimeType });
+}
+
+// Helper function to convert blob to base64
+async function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
 }
 
 console.log('🧛 Gracula Background Script: Loaded');

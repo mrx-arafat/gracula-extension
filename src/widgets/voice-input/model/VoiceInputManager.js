@@ -1,5 +1,5 @@
-// Voice Input Manager
-// Handles voice recording and transcription using ElevenLabs API
+// Voice Input Manager (Refactored)
+// Orchestrates voice input using TranscriptionManager and UI components
 
 window.Gracula = window.Gracula || {};
 
@@ -8,20 +8,24 @@ window.Gracula.VoiceInputManager = class {
     this.inputField = options.inputField;
     this.onTranscription = options.onTranscription || (() => {});
     this.onError = options.onError || (() => {});
-    
+
+    // Components
+    this.transcriptionManager = null;
+    this.voiceButton = null;
+    this.recordingIndicator = null;
+
     // State
-    this.isRecording = false;
-    this.mediaRecorder = null;
-    this.audioChunks = [];
-    this.micButton = null;
-    
-    // Config
-    this.enabled = false;
-    this.apiKey = '';
+    this.isActive = false;
+    this.config = null;
+
+    // Load configuration
     this.loadConfig();
-    
+
     // Bind methods
     this.handleKeydown = this.handleKeydown.bind(this);
+    this.handleButtonClick = this.handleButtonClick.bind(this);
+
+    console.log('🎤 VoiceInputManager: Initialized');
   }
 
   /**
@@ -30,9 +34,8 @@ window.Gracula.VoiceInputManager = class {
   loadConfig() {
     chrome.runtime.sendMessage({ action: 'getApiConfig' }, (response) => {
       if (response && response.success && response.config) {
-        this.enabled = response.config.voiceInputEnabled || false;
-        this.apiKey = response.config.elevenlabsApiKey || '';
-        console.log('🎤 Voice Input: Enabled:', this.enabled);
+        this.config = response.config;
+        console.log('✅ VoiceInputManager: Config loaded');
       }
     });
   }
@@ -41,18 +44,26 @@ window.Gracula.VoiceInputManager = class {
    * Start voice input manager
    */
   start() {
-    if (!this.enabled) {
-      console.log('🎤 Voice Input: Disabled');
+    if (!this.config?.voiceInputEnabled) {
+      console.log('🎤 VoiceInputManager: Voice input disabled');
       return;
     }
 
     // Add keyboard shortcut listener (Ctrl+Shift+V)
     document.addEventListener('keydown', this.handleKeydown);
 
-    // Create microphone button
-    this.createMicButton();
+    // Create voice button
+    this.createVoiceButton();
 
-    console.log('🎤 Voice Input: Started (Ctrl+Shift+V to activate)');
+    // Create transcription manager
+    this.createTranscriptionManager();
+
+    // Create recording indicator
+    this.recordingIndicator = new window.Gracula.RecordingIndicator({
+      onCancel: () => this.stopTranscription()
+    });
+
+    console.log('✅ VoiceInputManager: Started (Ctrl+Shift+V to activate)');
   }
 
   /**
@@ -60,8 +71,23 @@ window.Gracula.VoiceInputManager = class {
    */
   stop() {
     document.removeEventListener('keydown', this.handleKeydown);
-    this.removeMicButton();
-    this.stopRecording();
+
+    if (this.voiceButton) {
+      this.voiceButton.destroy();
+      this.voiceButton = null;
+    }
+
+    if (this.transcriptionManager) {
+      this.transcriptionManager.destroy();
+      this.transcriptionManager = null;
+    }
+
+    if (this.recordingIndicator) {
+      this.recordingIndicator.destroy();
+      this.recordingIndicator = null;
+    }
+
+    console.log('✅ VoiceInputManager: Stopped');
   }
 
   /**
@@ -70,230 +96,187 @@ window.Gracula.VoiceInputManager = class {
   handleKeydown(event) {
     if (event.ctrlKey && event.shiftKey && event.key === 'V') {
       event.preventDefault();
-      this.toggleRecording();
+      this.toggleTranscription();
     }
   }
 
   /**
-   * Create microphone button near input field
+   * Create voice button
    */
-  createMicButton() {
-    if (this.micButton || !this.inputField) return;
+  createVoiceButton() {
+    if (this.voiceButton || !this.inputField) return;
 
-    this.micButton = document.createElement('button');
-    this.micButton.className = 'gracula-mic-button';
-    this.micButton.innerHTML = '🎤';
-    this.micButton.title = 'Voice Input (Ctrl+Shift+V)';
-    
-    // Style the button
-    this.micButton.style.cssText = `
-      position: absolute;
-      z-index: 2147483646;
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      border: 2px solid white;
-      color: white;
-      font-size: 20px;
-      cursor: pointer;
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-      transition: all 0.3s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    `;
+    this.voiceButton = new window.Gracula.VoiceButton({
+      inputField: this.inputField,
+      onClick: this.handleButtonClick
+    });
 
-    // Position near input field
-    this.positionMicButton();
-
-    // Add click handler
-    this.micButton.addEventListener('click', () => this.toggleRecording());
-
-    // Add to page
-    document.body.appendChild(this.micButton);
-
-    // Reposition on window resize
-    window.addEventListener('resize', () => this.positionMicButton());
+    console.log('✅ VoiceInputManager: Voice button created');
   }
 
   /**
-   * Position microphone button near input field
+   * Create transcription manager
    */
-  positionMicButton() {
-    if (!this.micButton || !this.inputField) return;
+  createTranscriptionManager() {
+    // Determine provider from config
+    const provider = this.config?.voiceProvider || 'webspeech';
+    const language = this.config?.voiceLanguage || 'en';
 
-    const rect = this.inputField.getBoundingClientRect();
-    this.micButton.style.top = `${rect.top + window.scrollY - 50}px`;
-    this.micButton.style.left = `${rect.right + window.scrollX - 50}px`;
+    this.transcriptionManager = new window.Gracula.TranscriptionManager({
+      provider: provider,
+      language: language,
+      useVAD: true,
+      autoStop: true,
+      onTranscriptionStart: () => {
+        console.log('🎤 VoiceInputManager: Transcription started');
+        this.isActive = true;
+        this.voiceButton?.setRecording(true);
+        this.recordingIndicator?.show('Listening...');
+      },
+      onTranscriptionComplete: (transcript) => {
+        console.log('✅ VoiceInputManager: Transcription complete:', transcript);
+        this.handleTranscriptionComplete(transcript);
+      },
+      onTranscriptionError: (error) => {
+        console.error('❌ VoiceInputManager: Transcription error:', error);
+        this.handleTranscriptionError(error);
+      },
+      onInterimResult: (transcript) => {
+        console.log('🎤 VoiceInputManager: Interim result:', transcript);
+        this.recordingIndicator?.updateMessage(`"${transcript}"`);
+      },
+      onAudioLevel: (level) => {
+        this.recordingIndicator?.updateAudioLevel(level);
+      },
+      onStateChange: (state) => {
+        console.log('🎤 VoiceInputManager: State changed to:', state);
+        if (state === 'transcribing') {
+          this.recordingIndicator?.updateMessage('Transcribing...');
+        }
+      }
+    });
+
+    console.log('✅ VoiceInputManager: Transcription manager created');
   }
 
   /**
-   * Remove microphone button
+   * Handle button click
    */
-  removeMicButton() {
-    if (this.micButton) {
-      this.micButton.remove();
-      this.micButton = null;
-    }
+  handleButtonClick() {
+    this.toggleTranscription();
   }
 
   /**
-   * Toggle recording on/off
+   * Toggle transcription on/off
    */
-  async toggleRecording() {
-    if (this.isRecording) {
-      this.stopRecording();
+  toggleTranscription() {
+    if (this.isActive) {
+      this.stopTranscription();
     } else {
-      await this.startRecording();
+      this.startTranscription();
     }
   }
 
   /**
-   * Start recording audio
+   * Start transcription
    */
-  async startRecording() {
-    if (!this.apiKey) {
-      this.onError('ElevenLabs API key not configured. Please add it in extension settings.');
+  async startTranscription() {
+    if (!this.transcriptionManager) {
+      console.error('❌ VoiceInputManager: Transcription manager not initialized');
       return;
     }
 
     try {
-      // Request microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
-      // Create media recorder
-      this.mediaRecorder = new MediaRecorder(stream);
-      this.audioChunks = [];
-
-      // Collect audio data
-      this.mediaRecorder.addEventListener('dataavailable', (event) => {
-        this.audioChunks.push(event.data);
-      });
-
-      // Handle recording stop
-      this.mediaRecorder.addEventListener('stop', async () => {
-        const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-        await this.transcribeAudio(audioBlob);
-        
-        // Stop all tracks
-        stream.getTracks().forEach(track => track.stop());
-      });
-
-      // Start recording
-      this.mediaRecorder.start();
-      this.isRecording = true;
-
-      // Update button appearance
-      if (this.micButton) {
-        this.micButton.style.background = 'linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%)';
-        this.micButton.innerHTML = '⏹️';
-        this.micButton.title = 'Stop Recording';
-      }
-
-      console.log('🎤 Voice Input: Recording started');
+      await this.transcriptionManager.start();
     } catch (error) {
-      console.error('🎤 Voice Input: Error starting recording:', error);
-      this.onError('Failed to access microphone. Please check permissions.');
+      console.error('❌ VoiceInputManager: Failed to start transcription:', error);
+      this.onError(error.message || 'Failed to start voice input');
     }
   }
 
   /**
-   * Stop recording audio
+   * Stop transcription
    */
-  stopRecording() {
-    if (this.mediaRecorder && this.isRecording) {
-      this.mediaRecorder.stop();
-      this.isRecording = false;
+  stopTranscription() {
+    if (!this.transcriptionManager) return;
 
-      // Reset button appearance
-      if (this.micButton) {
-        this.micButton.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-        this.micButton.innerHTML = '🎤';
-        this.micButton.title = 'Voice Input (Ctrl+Shift+V)';
-      }
-
-      console.log('🎤 Voice Input: Recording stopped');
-    }
+    this.transcriptionManager.stop();
+    this.isActive = false;
+    this.voiceButton?.setRecording(false);
+    this.recordingIndicator?.hide();
   }
 
   /**
-   * Transcribe audio using ElevenLabs API
+   * Handle transcription complete
    */
-  async transcribeAudio(audioBlob) {
+  handleTranscriptionComplete(transcript) {
+    if (!transcript) {
+      console.warn('⚠️ VoiceInputManager: Empty transcript');
+      this.onError('No speech detected');
+      this.cleanup();
+      return;
+    }
+
+    // Insert transcript into input field
+    this.insertTranscript(transcript);
+
+    // Call callback
+    this.onTranscription(transcript);
+
+    // Cleanup
+    this.cleanup();
+
+    console.log('✅ VoiceInputManager: Transcription inserted');
+  }
+
+  /**
+   * Handle transcription error
+   */
+  handleTranscriptionError(error) {
+    this.onError(error);
+    this.cleanup();
+  }
+
+  /**
+   * Insert transcript into input field
+   */
+  insertTranscript(transcript) {
+    if (!this.inputField || !transcript) return;
+
     try {
-      console.log('🎤 Voice Input: Transcribing audio...');
+      // Get current value
+      const currentValue = this.inputField.value || this.inputField.textContent || '';
 
-      // Convert blob to file
-      const audioFile = new File([audioBlob], 'recording.webm', { type: 'audio/webm' });
+      // Append transcript (add space if there's existing text)
+      const newValue = currentValue ? `${currentValue} ${transcript}` : transcript;
 
-      // Create form data
-      const formData = new FormData();
-      formData.append('audio', audioFile);
-      formData.append('model_id', 'eleven_multilingual_v2');
-
-      // Call ElevenLabs API
-      const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
-        method: 'POST',
-        headers: {
-          'xi-api-key': this.apiKey
-        },
-        body: formData
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`ElevenLabs API Error: ${response.status} - ${errorText}`);
-      }
-
-      const data = await response.json();
-      const transcription = data.text || '';
-
-      if (transcription) {
-        console.log('🎤 Voice Input: Transcription:', transcription);
-        this.onTranscription(transcription);
-        this.insertTranscription(transcription);
+      // Set new value
+      if (this.inputField.value !== undefined) {
+        this.inputField.value = newValue;
       } else {
-        this.onError('No transcription received. Please try again.');
+        this.inputField.textContent = newValue;
       }
 
+      // Trigger input event for platform detection
+      const inputEvent = new Event('input', { bubbles: true });
+      this.inputField.dispatchEvent(inputEvent);
+
+      // Focus input field
+      this.inputField.focus();
+
+      console.log('✅ VoiceInputManager: Transcript inserted into input field');
     } catch (error) {
-      console.error('🎤 Voice Input: Transcription error:', error);
-      this.onError('Failed to transcribe audio: ' + error.message);
+      console.error('❌ VoiceInputManager: Failed to insert transcript:', error);
     }
   }
 
   /**
-   * Insert transcription into input field
+   * Cleanup after transcription
    */
-  insertTranscription(text) {
-    if (!this.inputField) return;
-
-    // Get current text
-    const currentText = this.inputField.contentEditable === 'true' 
-      ? this.inputField.textContent || ''
-      : this.inputField.value || '';
-
-    // Append transcription with space if needed
-    const newText = currentText ? `${currentText} ${text}` : text;
-
-    // Insert text
-    if (this.inputField.contentEditable === 'true') {
-      this.inputField.textContent = newText;
-      
-      // Trigger input event
-      const event = new Event('input', { bubbles: true });
-      this.inputField.dispatchEvent(event);
-    } else {
-      this.inputField.value = newText;
-      
-      // Trigger input event
-      const event = new Event('input', { bubbles: true });
-      this.inputField.dispatchEvent(event);
-    }
-
-    // Focus input field
-    this.inputField.focus();
+  cleanup() {
+    this.isActive = false;
+    this.voiceButton?.setRecording(false);
+    this.recordingIndicator?.hide();
   }
 
   /**
@@ -302,6 +285,8 @@ window.Gracula.VoiceInputManager = class {
   destroy() {
     this.stop();
     this.inputField = null;
+    console.log('🎤 VoiceInputManager: Destroyed');
   }
 };
 
+console.log('✅ VoiceInputManager class loaded');

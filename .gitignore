@@ -41,3 +41,4 @@ coverage/
 *.pem
 
 ReferExtension/
+voice-refer/
