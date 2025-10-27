@@ -21,8 +21,13 @@ window.Gracula.VoiceInputManager = class {
 
     // Bind methods
     this.handleKeydown = this.handleKeydown.bind(this);
+    this.handleKeyup = this.handleKeyup.bind(this);
     this.handleDisabledKeydown = this.handleDisabledKeydown.bind(this);
     this.handleButtonClick = this.handleButtonClick.bind(this);
+    this.handleConfigUpdate = this.handleConfigUpdate.bind(this);
+
+    // Listen for config updates from background
+    chrome.runtime.onMessage.addListener(this.handleConfigUpdate);
 
     console.log('🎤 VoiceInputManager: Initialized');
   }
@@ -86,8 +91,9 @@ window.Gracula.VoiceInputManager = class {
       return;
     }
 
-    // Add keyboard shortcut listener (Ctrl+Shift+V)
+    // Add keyboard shortcut listeners (Ctrl+Shift+V - push to talk)
     document.addEventListener('keydown', this.handleKeydown);
+    document.addEventListener('keyup', this.handleKeyup);
 
     // Create transcription manager
     this.createTranscriptionManager();
@@ -106,6 +112,7 @@ window.Gracula.VoiceInputManager = class {
    */
   stop() {
     document.removeEventListener('keydown', this.handleKeydown);
+    document.removeEventListener('keyup', this.handleKeyup);
 
     if (this.disabledShortcutListenerAttached) {
       document.removeEventListener('keydown', this.handleDisabledKeydown);
@@ -131,12 +138,28 @@ window.Gracula.VoiceInputManager = class {
   }
 
   /**
-   * Handle keyboard shortcut (customizable)
+   * Handle keyboard shortcut - KEYDOWN starts recording (push-to-talk)
    */
   handleKeydown(event) {
     if (this.matchesShortcut(event)) {
       event.preventDefault();
-      this.toggleTranscription();
+      // Only start if not already recording
+      if (!this.isActive) {
+        this.startTranscription();
+      }
+    }
+  }
+
+  /**
+   * Handle keyboard shortcut - KEYUP stops recording (push-to-talk)
+   */
+  handleKeyup(event) {
+    if (this.matchesShortcut(event)) {
+      event.preventDefault();
+      // Stop recording when key is released
+      if (this.isActive) {
+        this.stopTranscription();
+      }
     }
   }
 
@@ -278,8 +301,9 @@ window.Gracula.VoiceInputManager = class {
       await this.transcriptionManager.start();
     } catch (error) {
       if (error?.code === 'transcription-already-active') {
-        console.warn('🎤 VoiceInputManager: Start ignored because transcription is already running');
-        this.onError('Voice input is already running. Speak or press Esc to stop.');
+        console.log('🎤 VoiceInputManager: Already recording - showing pulse animation');
+        // Silently ignore duplicate presses and show visual feedback
+        this.pulseRecordingIndicator();
         return;
       }
 
@@ -290,6 +314,31 @@ window.Gracula.VoiceInputManager = class {
         this.transcriptionManager.forceReset('start-failed');
       }
     }
+  }
+
+  /**
+   * Pulse the recording indicator to show it's already active
+   */
+  pulseRecordingIndicator() {
+    if (!this.recordingIndicator || !this.recordingIndicator.indicator) return;
+
+    // Add scale pulse animation to the entire indicator
+    const indicator = this.recordingIndicator.indicator;
+
+    // Save original transform
+    const originalTransform = indicator.style.transform;
+
+    // Apply scale pulse
+    indicator.style.transition = 'transform 0.15s ease-in-out';
+    indicator.style.transform = 'translateX(0) scale(1.05)';
+
+    // Reset after animation
+    setTimeout(() => {
+      indicator.style.transform = originalTransform;
+      setTimeout(() => {
+        indicator.style.transition = '';
+      }, 150);
+    }, 150);
   }
 
   /**
@@ -412,6 +461,73 @@ window.Gracula.VoiceInputManager = class {
   }
 
   /**
+   * Handle config update message from background
+   */
+  handleConfigUpdate(message, sender, sendResponse) {
+    if (message.action === 'configUpdated') {
+      console.log('🎤 VoiceInputManager: Config update received, reloading...');
+      this.reloadConfig();
+    }
+  }
+
+  /**
+   * Reload configuration and recreate components
+   */
+  async reloadConfig() {
+    console.log('🎤 VoiceInputManager: Reloading configuration...');
+
+    // Stop any active transcription
+    if (this.isActive) {
+      this.stopTranscription();
+    }
+
+    // Destroy old transcription manager
+    if (this.transcriptionManager) {
+      this.transcriptionManager.destroy();
+      this.transcriptionManager = null;
+    }
+
+    // Load new config
+    await this.loadConfig();
+
+    const voiceEnabled = this.config?.voiceInputEnabled !== false;
+
+    // Update voice button state
+    if (this.voiceButton) {
+      this.voiceButton.setEnabled(voiceEnabled);
+    }
+
+    // Remove old keyboard listeners
+    document.removeEventListener('keydown', this.handleKeydown);
+    document.removeEventListener('keyup', this.handleKeyup);
+    if (this.disabledShortcutListenerAttached) {
+      document.removeEventListener('keydown', this.handleDisabledKeydown);
+      this.disabledShortcutListenerAttached = false;
+    }
+
+    if (!voiceEnabled) {
+      console.log('🎤 VoiceInputManager: Voice input disabled after reload');
+      if (!this.disabledShortcutListenerAttached) {
+        document.addEventListener('keydown', this.handleDisabledKeydown);
+        this.disabledShortcutListenerAttached = true;
+      }
+      return;
+    }
+
+    // Add keyboard shortcut listeners (push-to-talk)
+    document.addEventListener('keydown', this.handleKeydown);
+    document.addEventListener('keyup', this.handleKeyup);
+
+    // Recreate transcription manager with new config
+    this.createTranscriptionManager();
+
+    console.log('✅ VoiceInputManager: Configuration reloaded successfully');
+    console.log('   Provider:', this.config?.voiceProvider);
+    console.log('   Language:', this.config?.voiceLanguage);
+    console.log('   Enabled:', voiceEnabled);
+  }
+
+  /**
    * Cleanup after transcription
    */
   cleanup() {
@@ -425,6 +541,17 @@ window.Gracula.VoiceInputManager = class {
    */
   destroy() {
     this.stop();
+
+    // Remove message listener
+    chrome.runtime.onMessage.removeListener(this.handleConfigUpdate);
+
+    // Remove keyboard listeners
+    document.removeEventListener('keydown', this.handleKeydown);
+    document.removeEventListener('keyup', this.handleKeyup);
+    if (this.disabledShortcutListenerAttached) {
+      document.removeEventListener('keydown', this.handleDisabledKeydown);
+    }
+
     this.inputField = null;
     console.log('🎤 VoiceInputManager: Destroyed');
   }

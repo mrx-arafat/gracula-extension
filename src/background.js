@@ -64,6 +64,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     apiConfig = { ...apiConfig, ...request.config };
     chrome.storage.sync.set({ apiConfig }, () => {
       console.log('🧛 Gracula: API Config saved:', { provider: apiConfig.provider, hasKey: !!apiConfig.apiKey });
+
+      // Broadcast config update to all tabs
+      chrome.tabs.query({}, (tabs) => {
+        tabs.forEach((tab) => {
+          chrome.tabs.sendMessage(tab.id, {
+            action: 'configUpdated',
+            config: apiConfig
+          }).catch(() => {
+            // Ignore errors for tabs that don't have content script
+          });
+        });
+      });
+
       sendResponse({ success: true });
     });
     return true;
@@ -131,8 +144,11 @@ function buildPrompt(tone, context, enhancedContext, responseMode = 'reply') {
     prompt += `Last interaction: ${newConv.lastInteraction}\n`;
     prompt += `Conversation state: ${newConv.conversationState}\n`;
 
-    if (newConv.suggestedTopics && newConv.suggestedTopics.length > 0) {
-      prompt += `💡 Suggested topics: ${newConv.suggestedTopics.join(', ')}\n`;
+    if (newConv.suggestedTopics) {
+      const topicsArray = Array.isArray(newConv.suggestedTopics) ? newConv.suggestedTopics : [newConv.suggestedTopics];
+      if (topicsArray.length > 0) {
+        prompt += `💡 Suggested topics: ${topicsArray.join(', ')}\n`;
+      }
     }
 
     prompt += '\n🎯 YOUR TASK:\n';
@@ -767,7 +783,12 @@ function generateMockReplies(prompt, options = {}) {
   // Determine who sent the last message
   const isYourLastMessage = summary.isYourLastMessage || false;
 
-  const topics = summary.topics || [];
+  // Ensure topics is always an array
+  let topics = summary.topics || [];
+  if (typeof topics === 'string') {
+    topics = [topics];
+  }
+
   const languageMix = analysis.languageMix || [];
   const styleMarkers = analysis.styleMarkers || {};
   const emojiUsage = analysis.emojiUsage || 'none';
@@ -788,7 +809,7 @@ function generateMockReplies(prompt, options = {}) {
   console.log('🧛 Gracula: Your last message:', yourLastMessage);
   console.log('🧛 Gracula: Last message from friend:', lastFriendMessage);
   console.log('🧛 Gracula: Is your last message?', isYourLastMessage);
-  console.log('🧛 Gracula: Topics:', topics.join(', '));
+  console.log('🧛 Gracula: Topics:', Array.isArray(topics) ? topics.join(', ') : topics);
 
   // Generate context-aware replies
   const replies = generateContextualReplies(detectedTone, {
@@ -1141,9 +1162,12 @@ function buildAutocompletePrompt(partialText, analysis, context, enhancedContext
       prompt += `⚡ URGENCY: This is urgent!\n`;
     }
 
-    if (lastMsgAnalysis.topics.length > 0) {
-      prompt += `📌 TOPICS: ${lastMsgAnalysis.topics.join(', ')}\n`;
-      prompt += `→ Address these topics in your reply\n`;
+    if (lastMsgAnalysis.topics) {
+      const topicsArray = Array.isArray(lastMsgAnalysis.topics) ? lastMsgAnalysis.topics : [lastMsgAnalysis.topics];
+      if (topicsArray.length > 0) {
+        prompt += `📌 TOPICS: ${topicsArray.join(', ')}\n`;
+        prompt += `→ Address these topics in your reply\n`;
+      }
     }
 
     prompt += '\n';
@@ -1249,26 +1273,50 @@ async function transcribeWithElevenLabs(audioData, mimeType, language) {
   }
 
   console.log('🎤 Calling ElevenLabs API...');
+  console.log('   MIME type:', mimeType);
+  console.log('   Language:', language);
 
   // Convert base64 to blob
   const audioBlob = base64ToBlob(audioData, mimeType);
+  console.log('   Audio blob size:', audioBlob.size, 'bytes');
+
+  // Determine file extension based on MIME type
+  let filename = 'recording.webm';
+  if (mimeType.includes('mp4')) {
+    filename = 'recording.mp4';
+  } else if (mimeType.includes('mpeg') || mimeType.includes('mp3')) {
+    filename = 'recording.mp3';
+  } else if (mimeType.includes('wav')) {
+    filename = 'recording.wav';
+  }
 
   // Create form data
   const formData = new FormData();
-  formData.append('audio', audioBlob, 'recording.webm');
-  formData.append('model_id', 'eleven_multilingual_v2');
+  formData.append('file', audioBlob, filename); // Changed from 'audio' to 'file'
+  formData.append('model_id', 'scribe_v1'); // Updated to valid model ID
+
+  // Add language if specified
+  if (language) {
+    formData.append('language', language);
+  }
+
+  console.log('   Sending to:', apiConfig.elevenlabsEndpoint);
 
   // Call ElevenLabs API
   const response = await fetch(apiConfig.elevenlabsEndpoint, {
     method: 'POST',
     headers: {
       'xi-api-key': apiKey
+      // Don't set Content-Type - let browser set it with boundary for multipart/form-data
     },
     body: formData
   });
 
+  console.log('   Response status:', response.status);
+
   if (!response.ok) {
     const errorText = await response.text();
+    console.error('❌ ElevenLabs API Error:', errorText);
     throw new Error(`ElevenLabs API Error: ${response.status} - ${errorText}`);
   }
 

@@ -299,19 +299,31 @@ window.Gracula.TranscriptionManager = class {
       reader.onloadend = () => {
         const base64Audio = reader.result.split(',')[1];
 
-        chrome.runtime.sendMessage({
-          action: 'transcribeAudio',
-          provider: 'elevenlabs',
-          audioData: base64Audio,
-          mimeType: audioBlob.type,
-          language: this.language
-        }, (response) => {
-          if (response.success) {
-            resolve(response.transcript);
-          } else {
-            reject(new Error(response.error || 'Transcription failed'));
-          }
-        });
+        try {
+          chrome.runtime.sendMessage({
+            action: 'transcribeAudio',
+            provider: 'elevenlabs',
+            audioData: base64Audio,
+            mimeType: audioBlob.type,
+            language: this.language
+          }, (response) => {
+            // Check for extension context invalidation
+            if (chrome.runtime.lastError) {
+              console.error('🎤 TranscriptionManager: Extension context error:', chrome.runtime.lastError);
+              reject(new Error('Extension was reloaded. Please refresh the page to continue using voice input.'));
+              return;
+            }
+
+            if (response && response.success) {
+              resolve(response.transcript);
+            } else {
+              reject(new Error(response?.error || 'Transcription failed'));
+            }
+          });
+        } catch (error) {
+          console.error('🎤 TranscriptionManager: Error sending message:', error);
+          reject(new Error('Extension connection lost. Please refresh the page.'));
+        }
       };
       reader.onerror = () => reject(new Error('Failed to read audio file'));
       reader.readAsDataURL(audioBlob);
@@ -333,19 +345,31 @@ window.Gracula.TranscriptionManager = class {
       reader.onloadend = () => {
         const base64Audio = reader.result.split(',')[1];
 
-        chrome.runtime.sendMessage({
-          action: 'transcribeAudio',
-          provider: 'openai',
-          audioData: base64Audio,
-          mimeType: audioBlob.type,
-          language: this.language
-        }, (response) => {
-          if (response.success) {
-            resolve(response.transcript);
-          } else {
-            reject(new Error(response.error || 'Transcription failed'));
-          }
-        });
+        try {
+          chrome.runtime.sendMessage({
+            action: 'transcribeAudio',
+            provider: 'openai',
+            audioData: base64Audio,
+            mimeType: audioBlob.type,
+            language: this.language
+          }, (response) => {
+            // Check for extension context invalidation
+            if (chrome.runtime.lastError) {
+              console.error('🎤 TranscriptionManager: Extension context error:', chrome.runtime.lastError);
+              reject(new Error('Extension was reloaded. Please refresh the page to continue using voice input.'));
+              return;
+            }
+
+            if (response && response.success) {
+              resolve(response.transcript);
+            } else {
+              reject(new Error(response?.error || 'Transcription failed'));
+            }
+          });
+        } catch (error) {
+          console.error('🎤 TranscriptionManager: Error sending message:', error);
+          reject(new Error('Extension connection lost. Please refresh the page.'));
+        }
       };
       reader.onerror = () => reject(new Error('Failed to read audio file'));
       reader.readAsDataURL(audioBlob);

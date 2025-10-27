@@ -207,6 +207,13 @@ window.Gracula.VoiceButton = class {
   }
 
   /**
+   * Enable button (convenience method)
+   */
+  setEnabled(isEnabled) {
+    this.setDisabled(!isEnabled);
+  }
+
+  /**
    * Update tooltip text
    */
   setTooltip(text) {

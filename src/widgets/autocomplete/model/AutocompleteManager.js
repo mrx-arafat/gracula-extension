@@ -61,12 +61,24 @@ window.Gracula.AutocompleteManager = class {
    * Load AI configuration from background
    */
   loadAIConfig() {
-    chrome.runtime.sendMessage({ action: 'getApiConfig' }, (response) => {
-      if (response && response.success && response.config) {
-        this.useAI = response.config.useAIForAutosuggestions || false;
-        console.log('🧛 Autocomplete: AI mode:', this.useAI ? 'ENABLED' : 'DISABLED (Offline)');
-      }
-    });
+    try {
+      chrome.runtime.sendMessage({ action: 'getApiConfig' }, (response) => {
+        // Check for extension context invalidation
+        if (chrome.runtime.lastError) {
+          console.warn('🧛 Autocomplete: Extension context error, using offline mode:', chrome.runtime.lastError.message);
+          this.useAI = false;
+          return;
+        }
+
+        if (response && response.success && response.config) {
+          this.useAI = response.config.useAIForAutosuggestions || false;
+          console.log('🧛 Autocomplete: AI mode:', this.useAI ? 'ENABLED' : 'DISABLED (Offline)');
+        }
+      });
+    } catch (error) {
+      console.warn('🧛 Autocomplete: Failed to load AI config, using offline mode:', error.message);
+      this.useAI = false;
+    }
   }
 
   /**

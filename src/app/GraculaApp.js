@@ -103,14 +103,36 @@ window.Gracula.GraculaApp = class {
    * Show loading notification
    */
   showLoadingNotification() {
-    // window.Gracula.logger.success('Ready! Look for the purple button.');
+    this.showNotification('🧛 <strong>Gracula AI</strong> is ready!', 'success');
+  }
 
+  /**
+   * Show notification
+   */
+  showNotification(message, type = 'info') {
     const notification = document.createElement('div');
+
+    // Determine background color based on type
+    let background;
+    switch (type) {
+      case 'error':
+        background = 'linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%)';
+        break;
+      case 'success':
+        background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+        break;
+      case 'warning':
+        background = 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
+        break;
+      default:
+        background = 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)';
+    }
+
     notification.style.cssText = `
       position: fixed;
       top: 20px;
       right: 20px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: ${background};
       color: white;
       padding: 15px 20px;
       border-radius: 10px;
@@ -120,8 +142,9 @@ window.Gracula.GraculaApp = class {
       font-size: 14px;
       opacity: 0;
       transition: opacity 0.3s ease;
+      max-width: 400px;
     `;
-    notification.innerHTML = '🧛 <strong>Gracula AI</strong> is ready!';
+    notification.innerHTML = message;
 
     setTimeout(() => {
       if (document.body) {
@@ -130,7 +153,7 @@ window.Gracula.GraculaApp = class {
         setTimeout(() => {
           notification.style.opacity = '0';
           setTimeout(() => notification.remove(), 300);
-        }, 2000);
+        }, type === 'error' ? 4000 : 2000); // Show errors longer
       }
     }, 100);
   }
@@ -282,8 +305,17 @@ window.Gracula.GraculaApp = class {
       },
       onError: (error) => {
         console.error('🎤 Voice Input: Error:', error);
-        // Show error notification
-        this.showNotification(error, 'error');
+
+        // Check if it's an extension context error
+        if (error.includes('Extension was reloaded') || error.includes('Extension connection lost')) {
+          this.showNotification(
+            '🔄 Extension was reloaded. Please <strong>refresh this page</strong> to continue using voice input.',
+            'warning'
+          );
+        } else {
+          // Show regular error notification
+          this.showNotification(error, 'error');
+        }
       }
     });
 

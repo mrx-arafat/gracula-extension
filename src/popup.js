@@ -174,7 +174,7 @@ function saveSettings(e) {
     const statusEl = document.getElementById('status');
 
     if (response.success) {
-      statusEl.textContent = '✓ Settings saved successfully! Reload messaging pages to apply.';
+      statusEl.textContent = '✓ Settings saved and applied in real-time! No reload needed.';
       statusEl.className = 'status success';
       statusEl.style.display = 'block';
 
@@ -240,7 +240,7 @@ function saveVoiceSettings(e) {
     const statusEl = document.getElementById('voiceStatus');
 
     if (response.success) {
-      statusEl.textContent = '✓ Voice settings saved successfully! Reload pages to apply shortcut.';
+      statusEl.textContent = '✓ Voice settings saved and applied in real-time! No reload needed.';
       statusEl.className = 'status success';
       statusEl.style.display = 'block';
       currentState.voiceEnabled = voiceEnabled;
@@ -248,7 +248,7 @@ function saveVoiceSettings(e) {
 
       setTimeout(() => {
         statusEl.style.display = 'none';
-      }, 3000);
+      }, 5000);
     } else {
       statusEl.textContent = '✗ Error saving voice settings';
       statusEl.className = 'status error';
