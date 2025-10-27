@@ -18,6 +18,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('voiceProvider').addEventListener('change', toggleVoiceProviderFields);
   document.getElementById('aiToggle').addEventListener('change', saveAIToggle);
   document.getElementById('voiceToggle').addEventListener('change', saveVoiceToggle);
+
+  // Voice shortcut customization
+  setupShortcutCapture();
 });
 
 function toggleProviderFields() {
@@ -93,6 +96,10 @@ function loadSettings() {
       document.getElementById('voiceToggle').checked = voiceEnabled;
       currentState.voiceEnabled = voiceEnabled;
       currentState.provider = provider;
+
+      // Load keyboard shortcut (default: Ctrl+Shift+V)
+      const shortcut = response.config.voiceShortcut || 'Ctrl+Shift+V';
+      document.getElementById('voiceShortcut').value = shortcut;
 
       toggleProviderFields();
       toggleVoiceProviderFields();
@@ -216,6 +223,7 @@ function saveVoiceSettings(e) {
   const deepgramApiKey = document.getElementById('deepgramApiKey').value.trim();
   const voiceLanguage = document.getElementById('voiceLanguage').value;
   const voiceEnabled = document.getElementById('voiceToggle').checked;
+  const voiceShortcut = document.getElementById('voiceShortcut').value || 'Ctrl+Shift+V';
 
   chrome.runtime.sendMessage({
     action: 'updateApiConfig',
@@ -225,13 +233,14 @@ function saveVoiceSettings(e) {
       googleApiKey: googleVoiceApiKey,
       deepgramApiKey: deepgramApiKey,
       voiceLanguage: voiceLanguage,
-      voiceInputEnabled: voiceEnabled
+      voiceInputEnabled: voiceEnabled,
+      voiceShortcut: voiceShortcut
     }
   }, (response) => {
     const statusEl = document.getElementById('voiceStatus');
 
     if (response.success) {
-      statusEl.textContent = '✓ Voice settings saved successfully!';
+      statusEl.textContent = '✓ Voice settings saved successfully! Reload pages to apply shortcut.';
       statusEl.className = 'status success';
       statusEl.style.display = 'block';
       currentState.voiceEnabled = voiceEnabled;
@@ -279,5 +288,60 @@ function reportIssue(e) {
   const body = encodeURIComponent('Please describe the issue you encountered:\n\n');
 
   window.open(`mailto:support@gracula.app?subject=${subject}&body=${body}`, '_blank');
+}
+
+// Keyboard shortcut capture
+function setupShortcutCapture() {
+  const shortcutInput = document.getElementById('voiceShortcut');
+
+  shortcutInput.addEventListener('click', () => {
+    shortcutInput.value = 'Press keys...';
+    shortcutInput.style.background = '#fff3cd';
+  });
+
+  shortcutInput.addEventListener('keydown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const keys = [];
+
+    // Modifiers
+    if (e.ctrlKey || e.metaKey) keys.push('Ctrl');
+    if (e.altKey) keys.push('Alt');
+    if (e.shiftKey) keys.push('Shift');
+
+    // Main key (ignore modifier keys alone)
+    const mainKey = e.key;
+    if (!['Control', 'Alt', 'Shift', 'Meta'].includes(mainKey)) {
+      keys.push(mainKey.toUpperCase());
+    }
+
+    // Require at least one modifier + one key
+    if (keys.length >= 2) {
+      const shortcut = keys.join('+');
+      shortcutInput.value = shortcut;
+      shortcutInput.style.background = '#d4edda';
+
+      setTimeout(() => {
+        shortcutInput.style.background = '#f8f9fa';
+      }, 1000);
+    } else if (keys.length === 1) {
+      // Show warning if only one key pressed
+      shortcutInput.value = 'Need modifier (Ctrl/Alt/Shift) + key';
+      shortcutInput.style.background = '#f8d7da';
+
+      setTimeout(() => {
+        shortcutInput.value = 'Ctrl+Shift+V';
+        shortcutInput.style.background = '#f8f9fa';
+      }, 1500);
+    }
+  });
+
+  shortcutInput.addEventListener('blur', () => {
+    if (shortcutInput.value === 'Press keys...') {
+      shortcutInput.value = 'Ctrl+Shift+V';
+    }
+    shortcutInput.style.background = '#f8f9fa';
+  });
 }
 

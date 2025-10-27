@@ -22,7 +22,9 @@ let apiConfig = {
   // AI toggle for autosuggestions (disabled by default)
   useAIForAutosuggestions: false,
   // Voice input toggle (enabled by default for quick access)
-  voiceInputEnabled: true
+  voiceInputEnabled: true,
+  // Voice input keyboard shortcut
+  voiceShortcut: 'Ctrl+Shift+V'
 };
 
 // Load saved API config

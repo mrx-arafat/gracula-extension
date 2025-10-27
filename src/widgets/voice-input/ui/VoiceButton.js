@@ -112,7 +112,7 @@ window.Gracula.VoiceButton = class {
   }
 
   /**
-   * Position button near input field
+   * Position button inside the input field (right side)
    */
   position() {
     if (!this.button || !this.inputField) return;
@@ -120,9 +120,9 @@ window.Gracula.VoiceButton = class {
     try {
       const rect = this.inputField.getBoundingClientRect();
 
-      // Position to the right of the input field
+      // Position INSIDE the input field on the right side
       const top = rect.top + window.scrollY + (rect.height / 2) - 24;
-      const left = rect.right + window.scrollX + 10;
+      const left = rect.right + window.scrollX - 58; // 48px button width + 10px margin from right edge
 
       this.button.style.top = `${top}px`;
       this.button.style.left = `${left}px`;

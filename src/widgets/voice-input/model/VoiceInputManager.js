@@ -97,7 +97,8 @@ window.Gracula.VoiceInputManager = class {
       onCancel: () => this.stopTranscription()
     });
 
-    console.log('✅ VoiceInputManager: Started (Ctrl+Shift+V to activate)');
+    const shortcut = this.config?.voiceShortcut || 'Ctrl+Shift+V';
+    console.log(`✅ VoiceInputManager: Started (${shortcut} to activate)`);
   }
 
   /**
@@ -130,10 +131,10 @@ window.Gracula.VoiceInputManager = class {
   }
 
   /**
-   * Handle keyboard shortcut (Ctrl+Shift+V)
+   * Handle keyboard shortcut (customizable)
    */
   handleKeydown(event) {
-    if (event.ctrlKey && event.shiftKey && event.key?.toLowerCase() === 'v') {
+    if (this.matchesShortcut(event)) {
       event.preventDefault();
       this.toggleTranscription();
     }
@@ -143,10 +144,33 @@ window.Gracula.VoiceInputManager = class {
    * Handle keyboard shortcut when voice input is disabled
    */
   handleDisabledKeydown(event) {
-    if (event.ctrlKey && event.shiftKey && event.key?.toLowerCase() === 'v') {
+    if (this.matchesShortcut(event)) {
       event.preventDefault();
       this.handleVoiceDisabled();
     }
+  }
+
+  /**
+   * Check if event matches the configured shortcut
+   */
+  matchesShortcut(event) {
+    const shortcut = this.config?.voiceShortcut || 'Ctrl+Shift+V';
+    const parts = shortcut.split('+').map(p => p.trim());
+
+    // Check modifiers
+    const needsCtrl = parts.includes('Ctrl');
+    const needsAlt = parts.includes('Alt');
+    const needsShift = parts.includes('Shift');
+
+    if (needsCtrl && !event.ctrlKey && !event.metaKey) return false;
+    if (needsAlt && !event.altKey) return false;
+    if (needsShift && !event.shiftKey) return false;
+
+    // Check main key (last part)
+    const mainKey = parts[parts.length - 1];
+    const eventKey = event.key?.toUpperCase();
+
+    return eventKey === mainKey.toUpperCase();
   }
 
   /**
@@ -155,8 +179,9 @@ window.Gracula.VoiceInputManager = class {
   createVoiceButton({ enabled = true } = {}) {
     if (this.voiceButton || !this.inputField) return;
 
+    const shortcut = this.config?.voiceShortcut || 'Ctrl+Shift+V';
     const tooltip = enabled
-      ? 'Voice Input (Ctrl+Shift+V)'
+      ? `Voice Input (${shortcut})`
       : 'Enable voice input in the Gracula popup to use speech-to-text';
 
     this.voiceButton = new window.Gracula.VoiceButton({
@@ -317,25 +342,68 @@ window.Gracula.VoiceInputManager = class {
     if (!this.inputField || !transcript) return;
 
     try {
-      // Get current value
-      const currentValue = this.inputField.value || this.inputField.textContent || '';
+      const field = this.inputField;
 
-      // Append transcript (add space if there's existing text)
-      const newValue = currentValue ? `${currentValue} ${transcript}` : transcript;
+      // Handle contentEditable divs (WhatsApp, Discord, Slack, etc.)
+      if (field.contentEditable === 'true') {
+        field.focus();
 
-      // Set new value
-      if (this.inputField.value !== undefined) {
-        this.inputField.value = newValue;
+        // Get current content
+        const currentText = field.textContent || '';
+
+        // Append transcript (add space if there's existing text)
+        const newText = currentText ? `${currentText} ${transcript}` : transcript;
+
+        // Clear the field
+        field.innerHTML = '';
+
+        // Create a text node with the new content
+        const textNode = document.createTextNode(newText);
+        field.appendChild(textNode);
+
+        // Set cursor to end
+        const selection = window.getSelection();
+        if (selection) {
+          selection.removeAllRanges();
+          const range = document.createRange();
+          range.setStart(textNode, newText.length);
+          range.collapse(true);
+          selection.addRange(range);
+        }
+
+        // Trigger input event for React/Vue to detect change
+        const inputEvent = new InputEvent('input', {
+          bubbles: true,
+          cancelable: true,
+          data: transcript,
+          inputType: 'insertText'
+        });
+        field.dispatchEvent(inputEvent);
       } else {
-        this.inputField.textContent = newValue;
+        // Handle regular input/textarea elements
+        const currentValue = field.value || '';
+        const newValue = currentValue ? `${currentValue} ${transcript}` : transcript;
+
+        // Use native setter for React compatibility
+        const prototype = Object.getPrototypeOf(field);
+        const valueSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+        if (valueSetter) {
+          valueSetter.call(field, newValue);
+        } else {
+          field.value = newValue;
+        }
+
+        // Trigger input event
+        const inputEvent = new Event('input', { bubbles: true, cancelable: true });
+        field.dispatchEvent(inputEvent);
+
+        // Set cursor to end
+        field.selectionStart = newValue.length;
+        field.selectionEnd = newValue.length;
       }
 
-      // Trigger input event for platform detection
-      const inputEvent = new Event('input', { bubbles: true });
-      this.inputField.dispatchEvent(inputEvent);
-
       // Focus input field
-      this.inputField.focus();
+      field.focus();
 
       console.log('✅ VoiceInputManager: Transcript inserted into input field');
     } catch (error) {

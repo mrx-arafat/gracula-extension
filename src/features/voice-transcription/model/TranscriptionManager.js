@@ -13,7 +13,7 @@ window.Gracula.TranscriptionManager = class {
     this.onStateChange = options.onStateChange || (() => {});
 
     // Configuration
-    this.provider = options.provider || 'elevenlabs'; // Default to ElevenLabs
+    this.provider = options.provider || 'webspeech'; // Default to Web Speech API (always available, free)
     this.language = options.language || 'en';
     this.useVAD = options.useVAD !== false; // Default true
     this.autoStop = options.autoStop !== false; // Default true

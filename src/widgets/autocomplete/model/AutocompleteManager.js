@@ -612,54 +612,43 @@ window.Gracula.AutocompleteManager = class {
 
       if (this.inputField.contentEditable === 'true') {
         // For contenteditable elements (WhatsApp with Lexical editor)
-        // NEW APPROACH: Simulate Ctrl+A then type (like a real user)
-
-        console.log('✅ [INSERT] Using keyboard simulation for Lexical editor');
+        console.log('✅ [INSERT] Using contenteditable insertion for Lexical editor');
 
         // Step 1: Focus the input field
         this.inputField.focus();
         console.log('✅ [INSERT] Input field focused');
 
-        // Step 2: Simulate Ctrl+A (Select All) using keyboard events
-        console.log('🔴 [INSERT] Simulating Ctrl+A to select all text...');
+        // Step 2: Select all existing text
+        console.log('🔴 [INSERT] Selecting all text...');
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(this.inputField);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        console.log('✅ [INSERT] All text selected');
 
-        const selectAllEvent = new KeyboardEvent('keydown', {
-          key: 'a',
-          code: 'KeyA',
-          keyCode: 65,
-          which: 65,
-          ctrlKey: true,
-          bubbles: true,
-          cancelable: true
-        });
+        // Step 3: Use execCommand to replace selection with new text
+        // This works with Lexical because it simulates real typing
+        console.log('🔴 [INSERT] Inserting suggestion via execCommand:', suggestion);
 
-        this.inputField.dispatchEvent(selectAllEvent);
-        console.log('✅ [INSERT] Dispatched Ctrl+A event');
-
-        // Small delay to let Lexical process the selection
+        // Small delay to ensure selection is processed
         setTimeout(() => {
-          console.log('📝 [INSERT] Text after Ctrl+A:', this.getInputText());
-
-          // Step 3: Now type the new text (this will replace the selection)
-          console.log('🔴 [INSERT] Inserting text via execCommand:', suggestion);
-          const insertSuccess = document.execCommand('insertText', false, suggestion);
-
-          console.log('✅ [INSERT] execCommand insertText result:', insertSuccess);
-          console.log('📝 [INSERT] FINAL Text AFTER insertion:', this.getInputText());
+          const success = document.execCommand('insertText', false, suggestion);
+          console.log('✅ [INSERT] execCommand result:', success);
+          console.log('📝 [INSERT] FINAL Text:', this.getInputText());
           console.log('📝 [INSERT] FINAL HTML:', this.inputField.innerHTML);
 
-          // Step 4: Move cursor to end
+          // Move cursor to end
           setTimeout(() => {
             const sel = window.getSelection();
             const rng = document.createRange();
             rng.selectNodeContents(this.inputField);
-            rng.collapse(false); // Collapse to end
+            rng.collapse(false);
             sel.removeAllRanges();
             sel.addRange(rng);
-
             console.log('✅ [INSERT] Cursor moved to end');
           }, 10);
-        }, 50); // 50ms delay for Lexical to process Ctrl+A
+        }, 10);
 
       } else {
         // For regular input/textarea elements

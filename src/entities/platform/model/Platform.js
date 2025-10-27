@@ -41,6 +41,12 @@ window.Gracula.Platform = class {
         continue;
       }
 
+      // Skip search boxes - they shouldn't be the main input field
+      if (this.isSearchBox(element)) {
+        console.log(`⚠️ [PLATFORM CLASS] Skipping search box for selector: ${selector}`);
+        continue;
+      }
+
       const candidate = this.normaliseInputElement(element);
       if (candidate) {
         console.log(`✅ [PLATFORM CLASS] Found input field with selector: ${selector}`);
@@ -50,6 +56,50 @@ window.Gracula.Platform = class {
 
     console.log(`❌ [PLATFORM CLASS] No input field found for ${this.name}`);
     return null;
+  }
+
+  /**
+   * Check if an element is a search box (should be excluded)
+   */
+  isSearchBox(element) {
+    if (!element) return false;
+
+    // Check for search-related attributes
+    const ariaLabel = element.getAttribute && element.getAttribute('aria-label');
+    if (ariaLabel && /search|find|filter/i.test(ariaLabel)) {
+      return true;
+    }
+
+    const placeholder = element.getAttribute && element.getAttribute('placeholder');
+    if (placeholder && /search|find|filter/i.test(placeholder)) {
+      return true;
+    }
+
+    const ariaPlaceholder = element.getAttribute && element.getAttribute('aria-placeholder');
+    if (ariaPlaceholder && /search|find|filter/i.test(ariaPlaceholder)) {
+      return true;
+    }
+
+    // Check for search-related data attributes
+    const dataTestId = element.getAttribute && element.getAttribute('data-testid');
+    if (dataTestId && /search/i.test(dataTestId)) {
+      return true;
+    }
+
+    // Check parent elements for search context
+    let parent = element.parentElement;
+    let depth = 0;
+    while (parent && depth < 3) {
+      const parentClass = parent.className || '';
+      const parentId = parent.id || '';
+      if (/search|filter/i.test(parentClass) || /search|filter/i.test(parentId)) {
+        return true;
+      }
+      parent = parent.parentElement;
+      depth++;
+    }
+
+    return false;
   }
 
   normaliseInputElement(element) {
