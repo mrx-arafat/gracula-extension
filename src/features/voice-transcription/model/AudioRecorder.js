@@ -20,11 +20,12 @@ window.Gracula.AudioRecorder = class {
     this.analyser = null;
     this.animationFrame = null;
     
-    // Configuration
+    // Configuration - Optimized for ElevenLabs Scribe v1
     this.mimeType = this.getSupportedMimeType();
-    this.audioBitsPerSecond = 128000; // 128 kbps
-    
+    this.audioBitsPerSecond = 256000; // 256 kbps for premium quality transcription
+
     console.log('🎤 AudioRecorder: Initialized with MIME type:', this.mimeType);
+    console.log('🎤 AudioRecorder: Using premium quality (256kbps) for optimal transcription accuracy');
   }
 
   /**
@@ -59,13 +60,15 @@ window.Gracula.AudioRecorder = class {
     try {
       console.log('🎤 AudioRecorder: Requesting microphone access...');
       
-      // Request microphone access
+      // Request microphone access with premium settings for ElevenLabs
       this.audioStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
-          sampleRate: 48000
+          sampleRate: 48000, // High sample rate for better quality
+          channelCount: 1, // Mono audio (sufficient for speech)
+          latency: 0 // Minimize latency for real-time feedback
         }
       });
 

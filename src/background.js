@@ -1,5 +1,23 @@
 // Gracula Background Script - API Handler
 
+// Hot Reload Support - Notify content scripts when extension updates
+chrome.runtime.onInstalled.addListener((details) => {
+  if (details.reason === 'update' || details.reason === 'install') {
+    console.log('🔥 Hot Reload: Extension updated, notifying all tabs...');
+
+    // Broadcast to all tabs
+    chrome.tabs.query({}, (tabs) => {
+      tabs.forEach((tab) => {
+        chrome.tabs.sendMessage(tab.id, {
+          action: 'hotReload'
+        }).catch(() => {
+          // Ignore errors for tabs without content script
+        });
+      });
+    });
+  }
+});
+
 // Default API configuration
 let apiConfig = {
   provider: 'openai', // 'openai', 'huggingface', 'openrouter', or 'google'
@@ -1290,16 +1308,25 @@ async function transcribeWithElevenLabs(audioData, mimeType, language) {
     filename = 'recording.wav';
   }
 
-  // Create form data
+  // Create form data with enhanced parameters
   const formData = new FormData();
-  formData.append('file', audioBlob, filename); // Changed from 'audio' to 'file'
-  formData.append('model_id', 'scribe_v1'); // Updated to valid model ID
+  formData.append('file', audioBlob, filename);
+  formData.append('model_id', 'scribe_v1');
 
-  // Add language if specified
+  // Add language if specified (supports 99 languages)
   if (language) {
     formData.append('language', language);
   }
 
+  // Enable word-level timestamps for better accuracy
+  formData.append('timestamps', 'true');
+
+  // Enable speaker diarization (identifies different speakers)
+  formData.append('diarization', 'true');
+
+  console.log('🎤 Transcribing with ElevenLabs Scribe v1...');
+  console.log('   Language:', language || 'auto-detect');
+  console.log('   Features: timestamps ✓, diarization ✓');
   console.log('   Sending to:', apiConfig.elevenlabsEndpoint);
 
   // Call ElevenLabs API
@@ -1321,9 +1348,17 @@ async function transcribeWithElevenLabs(audioData, mimeType, language) {
   }
 
   const result = await response.json();
-  const transcript = result.text || '';
 
-  console.log('✅ ElevenLabs transcription complete:', transcript);
+  // Log detailed response for debugging
+  console.log('✅ ElevenLabs transcription complete');
+  console.log('   Text:', result.text);
+  console.log('   Language:', result.language_code, `(${(result.language_probability * 100).toFixed(1)}% confidence)`);
+  if (result.words && result.words.length > 0) {
+    console.log('   Words:', result.words.length, 'with timestamps');
+    console.log('   Speakers detected:', [...new Set(result.words.map(w => w.speaker_id))].length);
+  }
+
+  const transcript = result.text || '';
   return transcript;
 }
 

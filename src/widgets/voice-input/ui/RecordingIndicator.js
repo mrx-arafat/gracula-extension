@@ -74,10 +74,10 @@ window.Gracula.RecordingIndicator = class {
     // Start timer
     this.startTimer();
     
-    // Animate in
+    // Animate in with bounce effect
     setTimeout(() => {
       this.indicator.style.opacity = '1';
-      this.indicator.style.transform = 'translateX(0)';
+      this.indicator.style.transform = 'translateX(0) scale(1)';
     }, 10);
     
     console.log('✅ RecordingIndicator: Shown');
@@ -92,14 +92,15 @@ window.Gracula.RecordingIndicator = class {
       top: 20px;
       right: 20px;
       z-index: 2147483647;
-      background: white;
-      border-radius: 16px;
-      padding: 16px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-      min-width: 280px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1);
+      min-width: 300px;
       opacity: 0;
-      transform: translateX(20px);
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      transform: translateX(20px) scale(0.95);
+      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      backdrop-filter: blur(10px);
     `;
     
     // Add internal styles
@@ -113,69 +114,78 @@ window.Gracula.RecordingIndicator = class {
       
       .gracula-recording-icon {
         position: relative;
-        width: 40px;
-        height: 40px;
+        width: 48px;
+        height: 48px;
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #ff6b6b;
+        color: #ffffff;
+        filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.2));
       }
-      
+
       .gracula-recording-pulse {
         position: absolute;
         width: 100%;
         height: 100%;
         border-radius: 50%;
-        background: #ff6b6b;
-        opacity: 0.3;
+        background: rgba(255, 255, 255, 0.4);
+        opacity: 0.6;
         animation: gracula-recording-pulse 1.5s ease-out infinite;
       }
-      
+
       @keyframes gracula-recording-pulse {
         0% {
           transform: scale(0.8);
-          opacity: 0.5;
+          opacity: 0.6;
         }
         100% {
-          transform: scale(1.5);
+          transform: scale(1.8);
           opacity: 0;
         }
       }
-      
+
       .gracula-recording-info {
         flex: 1;
       }
-      
+
       .gracula-recording-message {
-        font-size: 14px;
+        font-size: 15px;
         font-weight: 600;
-        color: #1a1a1a;
+        color: #ffffff;
         margin-bottom: 4px;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
       }
-      
+
       .gracula-recording-timer {
-        font-size: 12px;
-        color: #666;
-        font-family: 'Courier New', monospace;
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.9);
+        font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+        font-weight: 500;
       }
       
       .gracula-recording-cancel {
-        width: 32px;
-        height: 32px;
+        width: 36px;
+        height: 36px;
         border-radius: 50%;
-        border: none;
-        background: #f5f5f5;
-        color: #666;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        background: rgba(255, 255, 255, 0.1);
+        color: #ffffff;
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: all 0.2s;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        backdrop-filter: blur(10px);
       }
-      
+
       .gracula-recording-cancel:hover {
-        background: #e0e0e0;
-        color: #333;
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.5);
+        transform: scale(1.1);
+      }
+
+      .gracula-recording-cancel:active {
+        transform: scale(0.95);
       }
       
       .gracula-recording-waveform {
@@ -190,9 +200,11 @@ window.Gracula.RecordingIndicator = class {
       .gracula-recording-bar {
         width: 4px;
         height: 8px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 3px;
         animation: gracula-recording-wave 1s ease-in-out infinite;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transition: height 0.1s ease-out;
       }
       
       .gracula-recording-bar:nth-child(1) { animation-delay: 0s; }

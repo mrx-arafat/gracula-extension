@@ -1,0 +1,12 @@
+{
+  "name": "gracula-extension",
+  "version": "1.0.0",
+  "description": "Gracula Chrome Extension - AI-powered messaging assistant",
+  "scripts": {
+    "watch": "node watch-and-reload.js"
+  },
+  "keywords": ["chrome-extension", "ai", "messaging"],
+  "author": "Arafat",
+  "license": "MIT"
+}
+
