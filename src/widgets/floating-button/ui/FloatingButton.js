@@ -7,6 +7,8 @@ window.Gracula.FloatingButton = class {
   constructor(options = {}) {
     this.onClick = options.onClick || (() => {});
     this.inputField = options.inputField || null;
+    this.container = options.container || null;
+    this.compact = Boolean(options.compact);
     this.element = null;
     this.isVisible = false;
   }
@@ -24,6 +26,11 @@ window.Gracula.FloatingButton = class {
       className: 'gracula-btn-visible'
     });
 
+    // Optional compact style
+    if (this.compact) {
+      this.element.classList.add('gracula-compact');
+    }
+
     this.element.innerHTML = `
       <div class="gracula-btn-icon">🧛</div>
       <div class="gracula-btn-tooltip">Gracula AI - Click me!</div>
@@ -32,14 +39,15 @@ window.Gracula.FloatingButton = class {
     // Add click listener
     this.element.addEventListener('click', (e) => {
       e.stopPropagation();
-      // window.Gracula.logger.info('Floating button clicked');
       this.onClick();
     });
 
-    document.body.appendChild(this.element);
+    if (this.container) {
+      this.container.appendChild(this.element);
+    } else {
+      document.body.appendChild(this.element);
+    }
     this.isVisible = true;
-
-    // window.Gracula.logger.success('Floating button rendered');
 
     return this.element;
   }

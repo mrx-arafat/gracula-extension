@@ -35,6 +35,9 @@ window.Gracula.GraculaApp = class {
     this.currentGenerationId = null;
     this.lastInsertedText = null;
 
+    // Unified top-right dock for action buttons
+    this.actionDock = null;
+
     // Hot reload support
     this.setupHotReload();
   }
@@ -205,6 +208,21 @@ window.Gracula.GraculaApp = class {
   }
 
   /**
+   * Ensure unified top-right action dock exists
+   */
+  ensureActionDock() {
+    if (this.actionDock && document.body.contains(this.actionDock)) return this.actionDock;
+    let dock = document.getElementById('gracula-action-dock');
+    if (!dock) {
+      dock = document.createElement('div');
+      dock.id = 'gracula-action-dock';
+      document.body.appendChild(dock);
+    }
+    this.actionDock = dock;
+    return dock;
+  }
+
+  /**
    * Attach floating button to input field
    */
   attachFloatingButton(inputField) {
@@ -213,21 +231,19 @@ window.Gracula.GraculaApp = class {
       this.floatingButton.destroy();
     }
 
-    // Create new button
+    // Create or reuse dock
+    const dock = this.ensureActionDock();
+
+    // Create new button and render into dock in compact mode
     this.floatingButton = new window.Gracula.FloatingButton({
       inputField: inputField,
-      onClick: () => this.handleButtonClick()
+      onClick: () => this.handleButtonClick(),
+      container: dock,
+      compact: true
     });
 
     this.floatingButton.render();
-    this.floatingButton.position(inputField);
-
-    // Reposition on resize
-    window.addEventListener('resize', () => {
-      if (this.floatingButton) {
-        this.floatingButton.updatePosition();
-      }
-    });
+    // No need to call position/updatePosition when docked
 
     // NEW: Attach autocomplete to input field
     this.attachAutocomplete(inputField);
@@ -309,6 +325,7 @@ window.Gracula.GraculaApp = class {
     // Create voice input manager
     this.voiceInputManager = new window.Gracula.VoiceInputManager({
       inputField: inputField,
+      container: this.ensureActionDock(),
       onTranscription: (text) => {
         console.log('🎤 Voice Input: Transcription received:', text);
       },
@@ -1058,6 +1075,12 @@ window.Gracula.GraculaApp = class {
     if (this.autocompleteManager) {
       this.autocompleteManager.cleanup?.();
       this.autocompleteManager = null;
+    }
+
+    // Remove action dock
+    if (this.actionDock) {
+      this.actionDock.remove();
+      this.actionDock = null;
     }
 
     // Reset state

@@ -8,6 +8,7 @@ window.Gracula.VoiceInputManager = class {
     this.inputField = options.inputField;
     this.onTranscription = options.onTranscription || (() => {});
     this.onError = options.onError || (() => {});
+    this.container = options.container || null;
 
     // Components
     this.transcriptionManager = null;
@@ -211,7 +212,9 @@ window.Gracula.VoiceInputManager = class {
       inputField: this.inputField,
       onClick: enabled ? this.handleButtonClick : () => this.handleVoiceDisabled(),
       disabled: !enabled,
-      tooltip
+      tooltip,
+      container: this.container,
+      compact: true
     });
 
     console.log(`✅ VoiceInputManager: Voice button created (enabled=${enabled})`);

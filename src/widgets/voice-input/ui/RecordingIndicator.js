@@ -6,13 +6,13 @@ window.Gracula = window.Gracula || {};
 window.Gracula.RecordingIndicator = class {
   constructor(options = {}) {
     this.onCancel = options.onCancel || (() => {});
-    
+
     // State
     this.indicator = null;
     this.startTime = null;
     this.timerInterval = null;
     this.audioLevel = 0;
-    
+
     console.log('🎤 RecordingIndicator: Created');
   }
 
@@ -25,11 +25,11 @@ window.Gracula.RecordingIndicator = class {
     }
 
     this.startTime = Date.now();
-    
+
     // Create indicator element
     this.indicator = document.createElement('div');
     this.indicator.className = 'gracula-recording-indicator';
-    
+
     this.indicator.innerHTML = `
       <div class="gracula-recording-content">
         <div class="gracula-recording-icon">
@@ -57,29 +57,38 @@ window.Gracula.RecordingIndicator = class {
         <div class="gracula-recording-bar"></div>
       </div>
     `;
-    
+
     // Apply styles
     this.applyStyles();
-    
+
     // Add cancel handler
     const cancelBtn = this.indicator.querySelector('.gracula-recording-cancel');
     cancelBtn.addEventListener('click', () => {
       this.onCancel();
       this.hide();
     });
-    
+
     // Add to page
     document.body.appendChild(this.indicator);
-    
+
+    // Avoid overlapping the action dock if present
+    const dock = document.getElementById('gracula-action-dock');
+    if (dock) {
+      const rect = dock.getBoundingClientRect();
+      // Place indicator just below the dock with a small gap
+      this.indicator.style.top = `${window.scrollY + rect.bottom + 12}px`;
+    }
+
+
     // Start timer
     this.startTimer();
-    
+
     // Animate in with bounce effect
     setTimeout(() => {
       this.indicator.style.opacity = '1';
       this.indicator.style.transform = 'translateX(0) scale(1)';
     }, 10);
-    
+
     console.log('✅ RecordingIndicator: Shown');
   }
 
@@ -102,7 +111,7 @@ window.Gracula.RecordingIndicator = class {
       transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
       backdrop-filter: blur(10px);
     `;
-    
+
     // Add internal styles
     const style = document.createElement('style');
     style.textContent = `
@@ -111,7 +120,7 @@ window.Gracula.RecordingIndicator = class {
         align-items: center;
         gap: 12px;
       }
-      
+
       .gracula-recording-icon {
         position: relative;
         width: 48px;
@@ -162,7 +171,7 @@ window.Gracula.RecordingIndicator = class {
         font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
         font-weight: 500;
       }
-      
+
       .gracula-recording-cancel {
         width: 36px;
         height: 36px;
@@ -187,7 +196,7 @@ window.Gracula.RecordingIndicator = class {
       .gracula-recording-cancel:active {
         transform: scale(0.95);
       }
-      
+
       .gracula-recording-waveform {
         display: flex;
         align-items: center;
@@ -196,7 +205,7 @@ window.Gracula.RecordingIndicator = class {
         height: 32px;
         margin-top: 12px;
       }
-      
+
       .gracula-recording-bar {
         width: 4px;
         height: 8px;
@@ -206,13 +215,13 @@ window.Gracula.RecordingIndicator = class {
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         transition: height 0.1s ease-out;
       }
-      
+
       .gracula-recording-bar:nth-child(1) { animation-delay: 0s; }
       .gracula-recording-bar:nth-child(2) { animation-delay: 0.1s; }
       .gracula-recording-bar:nth-child(3) { animation-delay: 0.2s; }
       .gracula-recording-bar:nth-child(4) { animation-delay: 0.3s; }
       .gracula-recording-bar:nth-child(5) { animation-delay: 0.4s; }
-      
+
       @keyframes gracula-recording-wave {
         0%, 100% {
           height: 8px;
@@ -234,7 +243,7 @@ window.Gracula.RecordingIndicator = class {
       const minutes = Math.floor(elapsed / 60);
       const seconds = elapsed % 60;
       const timerText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-      
+
       const timerEl = this.indicator?.querySelector('.gracula-recording-timer');
       if (timerEl) {
         timerEl.textContent = timerText;
@@ -247,7 +256,7 @@ window.Gracula.RecordingIndicator = class {
    */
   updateMessage(message) {
     if (!this.indicator) return;
-    
+
     const messageEl = this.indicator.querySelector('.gracula-recording-message');
     if (messageEl) {
       messageEl.textContent = message;
@@ -259,9 +268,9 @@ window.Gracula.RecordingIndicator = class {
    */
   updateAudioLevel(level) {
     if (!this.indicator) return;
-    
+
     this.audioLevel = level;
-    
+
     // Update waveform bars based on audio level
     const bars = this.indicator.querySelectorAll('.gracula-recording-bar');
     bars.forEach((bar, index) => {
@@ -275,24 +284,24 @@ window.Gracula.RecordingIndicator = class {
    */
   hide() {
     if (!this.indicator) return;
-    
+
     // Stop timer
     if (this.timerInterval) {
       clearInterval(this.timerInterval);
       this.timerInterval = null;
     }
-    
+
     // Animate out
     this.indicator.style.opacity = '0';
     this.indicator.style.transform = 'translateX(20px)';
-    
+
     setTimeout(() => {
       if (this.indicator) {
         this.indicator.remove();
         this.indicator = null;
       }
     }, 300);
-    
+
     console.log('✅ RecordingIndicator: Hidden');
   }
 

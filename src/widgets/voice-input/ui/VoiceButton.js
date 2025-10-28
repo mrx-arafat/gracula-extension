@@ -9,6 +9,8 @@ window.Gracula.VoiceButton = class {
     this.inputField = options.inputField;
     this.isDisabled = Boolean(options.disabled);
     this.tooltip = options.tooltip || 'Voice Input (Ctrl+Shift+V)';
+    this.container = options.container || null;
+    this.compact = Boolean(options.compact);
 
     // State
     this.isRecording = false;
@@ -57,17 +59,27 @@ window.Gracula.VoiceButton = class {
       this.onClick();
     });
 
-    // Add to page
-    document.body.appendChild(this.button);
+    // Add to page (dock if container provided)
+    if (this.compact) {
+      this.button.classList.add('gracula-compact');
+    }
+    if (this.container) {
+      this.button.style.position = 'static';
+      this.button.style.width = '44px';
+      this.button.style.height = '44px';
+      this.container.appendChild(this.button);
+    } else {
+      document.body.appendChild(this.button);
 
-    // Position button
-    this.position();
+      // Position button when not docked
+      this.position();
 
-    // Reposition on window resize
-    window.addEventListener('resize', () => this.position());
+      // Reposition on window resize
+      window.addEventListener('resize', () => this.position());
 
-    // Reposition on scroll
-    window.addEventListener('scroll', () => this.position(), true);
+      // Reposition on scroll
+      window.addEventListener('scroll', () => this.position(), true);
+    }
   }
 
   /**
@@ -116,6 +128,7 @@ window.Gracula.VoiceButton = class {
    */
   position() {
     if (!this.button || !this.inputField) return;
+    if (this.container) return; // Docked in action dock, no absolute positioning needed
 
     try {
       const rect = this.inputField.getBoundingClientRect();

@@ -948,3 +948,50 @@
     height: 24px;
   }
 }
+
+
+/* ========================================
+   ACTION DOCK (Unified buttons container)
+   ======================================== */
+#gracula-action-dock {
+  position: fixed !important;
+  top: 16px !important;
+  right: 16px !important;
+  z-index: 2147483647 !important;
+  display: flex !important;
+  gap: 8px !important;
+  align-items: center !important;
+  padding: 8px !important;
+  background: rgba(24, 24, 27, 0.7) !important; /* zinc-900 / 70% */
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25) !important;
+  backdrop-filter: blur(6px) !important;
+}
+
+#gracula-action-dock > * {
+  position: static !important;
+  width: 44px !important;
+  height: 44px !important;
+  margin: 0 !important;
+}
+
+#gracula-action-dock #gracula-floating-btn {
+  position: static !important;
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 50% !important;
+  box-shadow: 0 6px 18px rgba(102, 126, 234, 0.35) !important;
+}
+
+#gracula-action-dock .gracula-voice-button {
+  position: static !important;
+  width: 44px !important;
+  height: 44px !important;
+}
+
+/* Utility to opt-in compact size on any control */
+.gracula-compact {
+  width: 44px !important;
+  height: 44px !important;
+}
