@@ -1186,20 +1186,23 @@ window.Gracula.GraculaApp = class {
    * Insert reply into input field with undo support
    */
   insertReply(reply) {
-    // Prevent duplicate inserts
     if (this.isInserting) {
-      // window.Gracula.logger.warn('Insert already in progress');
       return;
     }
-
-    if (!this.currentInputField) {
-      // window.Gracula.logger.warn('No input field found');
-      return;
-    }
-
-    this.isInserting = true;
 
     let field = this.currentInputField;
+
+    if (!field || (document.body && !document.body.contains(field))) {
+      const refreshedField = this.platform?.findInputField?.();
+      if (refreshedField) {
+        this.currentInputField = refreshedField;
+        field = refreshedField;
+      }
+    }
+
+    if (!field) {
+      return;
+    }
 
     if (this.platform && !this.platform.isEditableElement(field)) {
       const normalizedField = this.platform.normaliseInputElement(field);
@@ -1209,66 +1212,119 @@ window.Gracula.GraculaApp = class {
       }
     }
 
+    this.isInserting = true;
+
     const normalizedReply = reply || '';
 
-    // Save previous text for undo
     const previousText = field.contentEditable === 'true' ? field.textContent : field.value;
     this.lastInsertedText = {
       previous: previousText,
       inserted: normalizedReply,
-      field: field
+      field
     };
-
-    // Show undo notification
-    this.showUndoNotification();
 
     try {
       if (field.contentEditable === 'true') {
         field.focus();
 
-        // Clear the field first
-        field.innerHTML = '';
-
-        // Create a text node with the reply
-        const textNode = document.createTextNode(normalizedReply);
-        field.appendChild(textNode);
-
-        // Set cursor to end
         const selection = window.getSelection();
         if (selection) {
-          selection.removeAllRanges();
           const range = document.createRange();
-          range.setStart(textNode, normalizedReply.length);
-          range.collapse(true);
+          range.selectNodeContents(field);
+          selection.removeAllRanges();
           selection.addRange(range);
         }
 
-        // Trigger input event for React/Vue to detect change
-        const inputEvent = new InputEvent('input', {
-          bubbles: true,
-          cancelable: true,
-          data: normalizedReply,
-          inputType: 'insertText'
-        });
-        field.dispatchEvent(inputEvent);
+        try {
+          if (typeof document.execCommand === 'function') {
+            document.execCommand('selectAll', false, null);
+          }
+        } catch (execSelectError) {
+          // ignore selectAll failures
+        }
+
+        // WhatsApp uses the Lexical editor; execCommand simulates real typing
+        const commitInsertion = () => {
+          let insertedViaExecCommand = false;
+
+          try {
+            if (typeof document.execCommand === 'function') {
+              insertedViaExecCommand = document.execCommand('insertText', false, normalizedReply);
+            }
+          } catch (execInsertError) {
+            insertedViaExecCommand = false;
+          }
+
+          if (!insertedViaExecCommand) {
+            field.innerHTML = '';
+            field.appendChild(document.createTextNode(normalizedReply));
+          }
+
+          const updateCaret = () => {
+            const sel = window.getSelection();
+            if (sel) {
+              const caretRange = document.createRange();
+              caretRange.selectNodeContents(field);
+              caretRange.collapse(false);
+              sel.removeAllRanges();
+              sel.addRange(caretRange);
+            }
+          };
+
+          if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(updateCaret);
+          } else {
+            setTimeout(updateCaret, 0);
+          }
+
+          if (window.Gracula?.DOMUtils?.triggerInputEvent) {
+            window.Gracula.DOMUtils.triggerInputEvent(field);
+          } else {
+            try {
+              const inputEvent = new InputEvent('input', {
+                bubbles: true,
+                cancelable: true,
+                data: normalizedReply,
+                inputType: 'insertText'
+              });
+              field.dispatchEvent(inputEvent);
+            } catch (eventError) {
+              const fallbackEvent = new Event('input', { bubbles: true, cancelable: true });
+              field.dispatchEvent(fallbackEvent);
+            }
+          }
+        };
+
+        if (typeof requestAnimationFrame === 'function') {
+          requestAnimationFrame(commitInsertion);
+        } else {
+          setTimeout(commitInsertion, 0);
+        }
       } else {
         const prototype = Object.getPrototypeOf(field);
         const valueSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+
         if (valueSetter) {
           valueSetter.call(field, normalizedReply);
         } else {
           field.value = normalizedReply;
         }
 
+        if (typeof field.setSelectionRange === 'function') {
+          field.setSelectionRange(normalizedReply.length, normalizedReply.length);
+        } else {
+          field.selectionStart = normalizedReply.length;
+          field.selectionEnd = normalizedReply.length;
+        }
+
+        field.focus();
+
         const inputEvent = new Event('input', { bubbles: true, cancelable: true });
         field.dispatchEvent(inputEvent);
       }
-
-      // window.Gracula.logger.success('Reply inserted');
     } catch (error) {
       // window.Gracula.logger.error('Failed to insert reply:', error);
     } finally {
-      // Close modal and reset flag
       if (this.modal) {
         this.modal.close();
         this.modal = null;

@@ -47,7 +47,7 @@ let apiConfig = {
 
 // Load saved API config
 chrome.storage.sync.get(['apiConfig'], (result) => {
-  if (result.apiConfig) {
+  if (result && result.apiConfig) {
     apiConfig = { ...apiConfig, ...result.apiConfig };
   }
   console.log('🧛 Gracula: API Config loaded:', { provider: apiConfig.provider, model: apiConfig.model });
@@ -245,12 +245,15 @@ function buildPrompt(tone, context, enhancedContext, responseMode = 'reply') {
 
   // Only show identity section if we have a real user name (not "You")
   if (userName && userName !== 'You') {
-    prompt += `=== 👤 IMPORTANT: WHO IS WHO ===\n`;
-    prompt += `YOU are: ${userName}\n`;
-    prompt += `You are replying to: ${friendName}\n`;
-    prompt += `DO NOT address yourself (${userName}) in the reply!\n`;
-    prompt += `DO NOT use "${userName}" in the reply - that's YOU!\n`;
-    prompt += `Address the OTHER person (${friendName}) instead.\n\n`;
+    prompt += `=== 👤 CRITICAL: WHO IS WHO ===\n`;
+    prompt += `⚠️⚠️⚠️ YOU ARE: ${userName}\n`;
+    prompt += `⚠️⚠️⚠️ You are REPLYING TO: ${friendName}\n`;
+    prompt += `\n`;
+    prompt += `🚫 NEVER use "${userName}" in your reply - that's YOUR name!\n`;
+    prompt += `🚫 NEVER address yourself as "${userName}"\n`;
+    prompt += `🚫 NEVER say things like "Hey ${userName}" or mention "${userName}"\n`;
+    prompt += `✅ Address the OTHER person (${friendName}) instead\n`;
+    prompt += `✅ You are ${userName} writing TO ${friendName}\n\n`;
   }
 
   // Add CURRENT TOPIC at the very top (critical for context)
@@ -436,6 +439,12 @@ function buildPrompt(tone, context, enhancedContext, responseMode = 'reply') {
 
   // Add specific instructions
   prompt += '📋 CRITICAL INSTRUCTIONS:\n';
+
+  // Add identity reminder if we have a real user name
+  if (userName && userName !== 'You') {
+    prompt += `0. 🚫 NEVER use "${userName}" in your reply - that's YOUR name, not who you're talking to!\n`;
+  }
+
   if (lastFriendMessage && lastFriendSpeaker) {
     prompt += `1. ⚠️⚠️⚠️ REPLY TO ${lastFriendSpeaker}'s message: "${lastFriendMessage}"\n`;
     prompt += `2. ⚠️  DO NOT refer to your own previous messages\n`;
@@ -558,7 +567,16 @@ async function callOpenAIAPI(prompt, options = {}) {
       messages: [
         {
           role: 'system',
-          content: 'You are a helpful assistant that generates natural, conversational message replies. Always provide exactly 3 different reply options, numbered 1., 2., and 3. Match the conversation length, pacing, and style guidance provided.'
+          content: `You are a message reply generator. Your ONLY job is to generate actual message replies that a person would send.
+
+CRITICAL RULES:
+- Generate ONLY the actual message text that would be sent
+- DO NOT explain what you're doing
+- DO NOT say "Here are 3 different ways..." or similar meta-commentary
+- DO NOT include instructions or explanations
+- Just write the actual replies as if YOU are the person sending them
+
+Format: Provide exactly 3 reply options, numbered 1., 2., and 3.`
         },
         {
           role: 'user',
@@ -805,7 +823,18 @@ async function callGoogleAIAPI(prompt, options = {}) {
     body: JSON.stringify({
       contents: [{
         parts: [{
-          text: `You are a helpful assistant that generates natural, conversational message replies. Always provide exactly 3 different reply options, numbered 1., 2., and 3. Match the conversation length, pacing, and style guidance provided.\n\n${prompt}`
+          text: `You are a message reply generator. Your ONLY job is to generate actual message replies that a person would send.
+
+CRITICAL RULES:
+- Generate ONLY the actual message text that would be sent
+- DO NOT explain what you're doing
+- DO NOT say "Here are 3 different ways..." or similar meta-commentary
+- DO NOT include instructions or explanations
+- Just write the actual replies as if YOU are the person sending them
+
+Format: Provide exactly 3 reply options, numbered 1., 2., and 3.
+
+${prompt}`
         }]
       }],
       generationConfig: {
