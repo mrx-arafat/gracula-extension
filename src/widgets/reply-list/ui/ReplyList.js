@@ -54,6 +54,7 @@ window.Gracula.ReplyList = class {
    */
   displayReplies(replies, container) {
     console.log(`📝 displayReplies called with ${replies?.length} replies`);
+    console.log('   Container:', container?.className);
 
     if (!replies || replies.length === 0) {
       console.error('❌ No replies to display!');
@@ -62,14 +63,20 @@ window.Gracula.ReplyList = class {
     }
 
     this.replies = replies;
-    this.hideLoading(container);
 
-    // Make sure replies container is visible
+    // Make sure replies container is visible FIRST
     const repliesContainer = container.querySelector('.gracula-replies-container');
-    if (repliesContainer) {
-      repliesContainer.style.display = 'block';
-      console.log('✅ Replies container made visible');
+    if (!repliesContainer) {
+      console.error('❌ Replies container not found in DOM!');
+      console.error('   Container HTML:', container?.innerHTML?.substring(0, 200));
+      return;
     }
+
+    repliesContainer.style.display = 'block';
+    console.log('✅ Replies container made visible');
+
+    // Now hide the loading
+    this.hideLoading(container);
 
     const list = container.querySelector('.gracula-replies-list');
     if (!list) {
@@ -122,10 +129,15 @@ window.Gracula.ReplyList = class {
    * Show error message
    */
   showError(message, container) {
-    this.hideLoading(container);
+    // Make sure replies container is visible
+    const repliesContainer = container.querySelector('.gracula-replies-container');
+    if (repliesContainer) {
+      repliesContainer.style.display = 'block';
+    }
 
     const loading = container.querySelector('.gracula-loading');
     if (loading) {
+      loading.style.display = 'block';
       loading.innerHTML = `
         <p style="color: #ff4444; font-size: 16px; margin: 10px 0;">❌ Error Generating Replies</p>
         <p style="color: #666; font-size: 14px;">${message}</p>

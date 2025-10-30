@@ -119,12 +119,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 async function handleGenerateReplies(tone, context, enhancedContext, responseMode = 'reply') {
   console.log('🧛 Gracula Background: Generating replies with tone:', tone.name, 'mode:', responseMode);
+  console.log('   Tone object:', tone);
+  console.log('   Context length:', context?.length);
+  console.log('   Enhanced context:', enhancedContext ? 'present' : 'missing');
 
   // Build the prompt with enhanced context and response mode
   const prompt = buildPrompt(tone, context, enhancedContext, responseMode);
+  console.log('   Prompt length:', prompt.length);
 
   // Call AI API
   const replies = await callAIAPI(prompt, { enhancedContext, metrics: enhancedContext?.metrics, responseMode });
+
+  console.log('   Generated replies:', replies);
+  console.log('   Replies count:', replies?.length);
 
   return replies;
 }
@@ -473,25 +480,37 @@ function buildPrompt(tone, context, enhancedContext, responseMode = 'reply') {
 async function callAIAPI(prompt, options = {}) {
   // Check which provider to use
   try {
+    console.log('🧛 Gracula: callAIAPI called with provider:', apiConfig.provider);
+
     if (apiConfig.provider === 'openai') {
       console.log('🧛 Gracula: Using OpenAI API');
-      return await callOpenAIAPI(prompt, options);
+      const replies = await callOpenAIAPI(prompt, options);
+      console.log('🧛 Gracula: OpenAI returned:', replies);
+      return replies;
     } else if (apiConfig.provider === 'openrouter') {
       console.log('🧛 Gracula: Using OpenRouter API');
-      return await callOpenRouterAPI(prompt, options);
+      const replies = await callOpenRouterAPI(prompt, options);
+      console.log('🧛 Gracula: OpenRouter returned:', replies);
+      return replies;
     } else if (apiConfig.provider === 'google') {
       console.log('🧛 Gracula: Using Google AI Studio API');
-      return await callGoogleAIAPI(prompt, options);
+      const replies = await callGoogleAIAPI(prompt, options);
+      console.log('🧛 Gracula: Google returned:', replies);
+      return replies;
     } else {
       console.log('🧛 Gracula: Using Hugging Face API');
-      return await callHuggingFaceAPI(prompt, options);
+      const replies = await callHuggingFaceAPI(prompt, options);
+      console.log('🧛 Gracula: Hugging Face returned:', replies);
+      return replies;
     }
   } catch (error) {
     console.error(`🧛 Gracula: ${apiConfig.provider} API error:`, error);
 
     // Fallback to mock responses for demo
     console.log('🧛 Gracula: Using fallback mock responses');
-    return generateMockReplies(prompt, options);
+    const mockReplies = generateMockReplies(prompt, options);
+    console.log('🧛 Gracula: Mock replies generated:', mockReplies);
+    return mockReplies;
   }
 }
 
@@ -868,6 +887,8 @@ function generateMockReplies(prompt, options = {}) {
   // In production, this would only be used if API fails
 
   console.log('🧛 Gracula: Generating context-aware mock replies');
+  console.log('   Prompt:', prompt.substring(0, 100) + '...');
+  console.log('   Options:', options);
 
   // Extract context information
   const enhancedContext = options.enhancedContext || {};
@@ -925,6 +946,10 @@ function generateMockReplies(prompt, options = {}) {
     styleMarkers,
     emojiUsage
   });
+
+  console.log('🧛 Gracula: Generated mock replies:', replies);
+  console.log('   Replies count:', replies?.length);
+  console.log('   Replies type:', Array.isArray(replies) ? 'array' : typeof replies);
 
   return replies;
 }
@@ -1000,6 +1025,8 @@ function generateContextualReplies(tone, context) {
 
   // Generate replies based on tone
   let replies = [];
+
+  console.log('🧛 Gracula: Generating replies for tone:', tone);
 
   switch (tone) {
     case 'default':
@@ -1215,6 +1242,7 @@ function generateContextualReplies(tone, context) {
       ];
   }
 
+  console.log('🧛 Gracula: Final replies for tone', tone, ':', replies);
   return replies;
 }
 

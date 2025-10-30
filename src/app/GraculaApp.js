@@ -20,6 +20,7 @@ window.Gracula.GraculaApp = class {
     this.isInitialized = false;
     this.context = [];
     this.enhancedContext = null;
+    this.contextMessages = [];
     this.isInserting = false;
 
     // NEW: Autocomplete components
@@ -375,8 +376,31 @@ window.Gracula.GraculaApp = class {
 
     // Await the async extract() method
     const messages = await this.contextExtractor.extract();
-    this.context = this.contextExtractor.getSimpleContext();
+
     this.enhancedContext = this.contextExtractor.getEnhancedContext();
+    this.context = this.contextExtractor.getSimpleContext();
+
+    const enhancedMessages = Array.isArray(this.enhancedContext?.messages) ? this.enhancedContext.messages : [];
+    if (enhancedMessages.length > 0) {
+      this.contextMessages = enhancedMessages;
+    } else {
+      this.contextMessages = Array.isArray(messages)
+        ? messages
+            .map(msg => {
+              if (!msg) return null;
+              if (typeof msg.toJSON === 'function') {
+                return msg.toJSON();
+              }
+              return {
+                text: msg.text || msg.message || '',
+                speaker: msg.speaker || msg.sender || 'Unknown',
+                timestamp: msg.timestamp || Date.now(),
+                isOutgoing: Boolean(msg.isOutgoing)
+              };
+            })
+            .filter(Boolean)
+        : [];
+    }
 
     // window.Gracula.logger.success(`Context extracted: ${this.context.length} messages`);
   }
@@ -861,52 +885,125 @@ window.Gracula.GraculaApp = class {
    * - new_conversation: Return null (no specific message to reply to)
    */
   getLastMessage() {
-    if (!this.context || this.context.length === 0) return null;
+    const mode = this.selectedMode;
 
-    // Mode 3: New conversation - don't focus on any message
-    if (this.selectedMode === 'new_conversation') {
+    if (mode === 'new_conversation') {
       return null;
     }
 
-    // Mode 1: Reply to absolute last message (any sender)
-    if (this.selectedMode === 'reply_last') {
-      const lastMsg = this.context[this.context.length - 1];
-      return lastMsg;
+    const userName = (this.enhancedContext?.summary?.userName || '').trim() || 'You';
+    const userNameLower = userName.toLowerCase();
+
+    const normalizeMessage = (msg, fallbackSender = 'Unknown') => {
+      if (!msg) return null;
+
+      const text = (msg.text || msg.message || msg.content || '').trim();
+      if (!text) return null;
+
+      let timestamp = msg.timestamp;
+      if (timestamp instanceof Date) {
+        timestamp = timestamp.getTime();
+      } else if (typeof timestamp === 'string') {
+        const parsed = Date.parse(timestamp);
+        timestamp = Number.isNaN(parsed) ? Date.now() : parsed;
+      } else if (typeof timestamp !== 'number' || Number.isNaN(timestamp)) {
+        timestamp = Date.now();
+      }
+
+      const sender = (msg.speaker || msg.sender || (msg.isOutgoing ? userName : null) || fallbackSender || 'Unknown').trim();
+
+      return {
+        text,
+        timestamp,
+        sender
+      };
+    };
+
+    const isUserSender = sender => {
+      if (!sender) return false;
+      const normalized = sender.trim().toLowerCase();
+      return normalized === userNameLower || normalized === 'you';
+    };
+
+    const structuredMessages = Array.isArray(this.contextMessages) ? this.contextMessages : [];
+
+    if (mode === 'reply_friend') {
+      for (let i = structuredMessages.length - 1; i >= 0; i--) {
+        const normalized = normalizeMessage(structuredMessages[i]);
+        if (!normalized) continue;
+        if (isUserSender(normalized.sender)) continue;
+        return normalized;
+      }
+    } else if (mode === 'reply_last') {
+      if (structuredMessages.length > 0) {
+        const normalized = normalizeMessage(structuredMessages[structuredMessages.length - 1]);
+        if (normalized) {
+          return normalized;
+        }
+      }
     }
 
-    // Mode 2: Reply to friend's last message (default - skip user messages)
-    // Get the user's name from enhanced context
-    const userName = this.enhancedContext?.summary?.userName || 'You';
-
-    // Loop through messages from the end to find the friend's last message
-    for (let i = this.context.length - 1; i >= 0; i--) {
-      const msg = this.context[i];
-      const sender = msg.sender || msg.speaker || 'Unknown';
-
-      // Check if this message is NOT from the user
-      const isUserMessage =
-        sender === userName ||
-        sender === 'You' ||
-        sender.toLowerCase() === userName.toLowerCase() ||
-        sender.toLowerCase() === 'you';
-
-      if (!isUserMessage) {
-        // This is the friend's message - return it
+    if (mode === 'reply_friend' && this.enhancedContext?.summary?.lastFriendMessage) {
+      const sender = this.enhancedContext.summary.lastFriendSpeaker || 'Friend';
+      const text = this.enhancedContext.summary.lastFriendMessage;
+      if (text && text.trim()) {
         return {
-          text: msg.text || msg.message || '',
-          timestamp: msg.timestamp || Date.now(),
-          sender: sender
+          text: text.trim(),
+          timestamp: Date.now(),
+          sender
         };
       }
     }
 
-    // Fallback: if no friend message found, return the last message
-    const lastMsg = this.context[this.context.length - 1];
-    return {
-      text: lastMsg.text || lastMsg.message || '',
-      timestamp: lastMsg.timestamp || Date.now(),
-      sender: lastMsg.sender || lastMsg.speaker || 'Unknown'
+    const startsWithMetadataEmoji = value => {
+      if (!value) return false;
+      return /^[📅📊🎯🔄💬✨❓🗣️🔧💻🌐🧠💭📌📣🔔🚨🎙️]/.test(value);
     };
+
+    const parseContextLine = line => {
+      if (typeof line !== 'string') return null;
+      const trimmed = line.trim();
+      if (!trimmed || startsWithMetadataEmoji(trimmed)) return null;
+
+      const separatorIndex = trimmed.indexOf(':');
+      if (separatorIndex === -1) return null;
+
+      const sender = trimmed.slice(0, separatorIndex).trim();
+      const text = trimmed.slice(separatorIndex + 1).trim();
+      if (!text) return null;
+
+      return {
+        sender: sender || 'Unknown',
+        text,
+        timestamp: Date.now()
+      };
+    };
+
+    if (Array.isArray(this.context) && this.context.length > 0) {
+      for (let i = this.context.length - 1; i >= 0; i--) {
+        const parsed = parseContextLine(this.context[i]);
+        if (!parsed) continue;
+
+        if (mode === 'reply_friend' && isUserSender(parsed.sender)) {
+          continue;
+        }
+
+        return parsed;
+      }
+    }
+
+    if (mode === 'reply_last' && this.enhancedContext?.summary?.lastUserMessage) {
+      const text = this.enhancedContext.summary.lastUserMessage.trim();
+      if (text) {
+        return {
+          text,
+          timestamp: Date.now(),
+          sender: userName
+        };
+      }
+    }
+
+    return null;
   }
 
   /**

@@ -52,7 +52,8 @@ window.Gracula.Tone = class {
       id: this.id,
       name: this.name,
       emoji: this.emoji,
-      prompt: this.prompt
+      prompt: this.prompt,
+      useAI: this.useAI !== undefined ? this.useAI : true
     };
   }
 }

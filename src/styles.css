@@ -513,10 +513,18 @@
 }
 
 /* Replies Container */
+.gracula-replies-container {
+  width: 100%;
+  margin-top: 16px;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 .gracula-replies-container h3 {
   margin: 0 0 16px 0;
   font-size: 16px;
   color: #333;
+  font-weight: 600;
 }
 
 /* Loading */
