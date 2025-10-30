@@ -38,6 +38,9 @@ window.Gracula.GraculaApp = class {
     // Unified top-right dock for action buttons
     this.actionDock = null;
 
+    // Response mode selection (default: reply_friend)
+    this.selectedMode = 'reply_friend';
+
     // Hot reload support
     this.setupHotReload();
   }
@@ -379,6 +382,107 @@ window.Gracula.GraculaApp = class {
   }
 
   /**
+   * Render response mode tabs
+   */
+  renderModeTabs() {
+    return `
+      <div class="gracula-mode-tabs">
+        <button class="gracula-mode-tab ${this.selectedMode === 'reply_last' ? 'active' : ''}" data-mode="reply_last">
+          <span class="gracula-mode-tab-icon">📝</span>
+          <span class="gracula-mode-tab-label">Reply Last</span>
+          <span class="gracula-mode-tab-desc">Any last message</span>
+        </button>
+        <button class="gracula-mode-tab ${this.selectedMode === 'reply_friend' ? 'active' : ''}" data-mode="reply_friend">
+          <span class="gracula-mode-tab-icon">💬</span>
+          <span class="gracula-mode-tab-label">Reply Friend</span>
+          <span class="gracula-mode-tab-desc">Friend's message (default)</span>
+        </button>
+        <button class="gracula-mode-tab ${this.selectedMode === 'new_conversation' ? 'active' : ''}" data-mode="new_conversation">
+          <span class="gracula-mode-tab-icon">✨</span>
+          <span class="gracula-mode-tab-label">New Topic</span>
+          <span class="gracula-mode-tab-desc">Start fresh</span>
+        </button>
+      </div>
+    `;
+  }
+
+  /**
+   * Attach mode tab listeners
+   */
+  attachModeTabListeners(modalBody) {
+    const tabs = modalBody.querySelectorAll('.gracula-mode-tab');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const mode = tab.dataset.mode;
+        this.selectedMode = mode;
+
+        // Update UI
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+
+        console.log(`🎯 Mode changed to: ${mode}`);
+
+        // Update context viewer to show relevant context for this mode
+        this.updateContextViewerForMode();
+      });
+    });
+  }
+
+  /**
+   * Update context viewer based on selected mode
+   */
+  updateContextViewerForMode() {
+    const modalBody = this.modal?.getBody();
+    if (!modalBody) return;
+
+    const contextPreview = modalBody.querySelector('.gracula-context-preview');
+    if (!contextPreview) return;
+
+    const userName = this.enhancedContext?.summary?.userName || 'You';
+
+    let modeDescription = '';
+    let contextToShow = [];
+
+    switch (this.selectedMode) {
+      case 'reply_last':
+        modeDescription = '📝 Replying to last message (any sender)';
+        // Show last 5 messages
+        contextToShow = this.context.slice(-5);
+        break;
+
+      case 'reply_friend':
+        modeDescription = '💬 Replying to friend\'s messages (your messages hidden)';
+        // Show only friend's messages
+        contextToShow = this.context.filter(msg =>
+          !msg.includes(`${userName}:`) && !msg.startsWith('You:')
+        ).slice(-5);
+        break;
+
+      case 'new_conversation':
+        modeDescription = '✨ Starting new conversation (context for reference only)';
+        // Show last 3 messages for context
+        contextToShow = this.context.slice(-3);
+        break;
+
+      default:
+        contextToShow = this.context.slice(-5);
+    }
+
+    // Update the preview
+    let html = `<div style="font-weight: 600; color: #667eea; margin-bottom: 8px;">${modeDescription}</div>`;
+
+    if (contextToShow.length === 0) {
+      html += '<em style="color: #999;">No messages to display for this mode</em>';
+    } else {
+      contextToShow.forEach((msg, idx) => {
+        html += `<div style="margin-bottom: 4px; padding: 4px 0; border-bottom: 1px solid #f0f0f0;">${msg}</div>`;
+      });
+    }
+
+    contextPreview.innerHTML = html;
+  }
+
+  /**
    * Show modal with tone selector
    */
   showModal() {
@@ -411,6 +515,7 @@ window.Gracula.GraculaApp = class {
     // Build modal content
     const content = `
       ${this.contextViewer.render()}
+      ${this.renderModeTabs()}
       ${this.toneSelector.render()}
       ${this.replyList.render()}
     `;
@@ -425,8 +530,10 @@ window.Gracula.GraculaApp = class {
     // Attach listeners
     const modalBody = this.modal.getBody();
     if (modalBody) {
+      this.attachModeTabListeners(modalBody);
       this.toneSelector.attachListeners(modalBody);
       this.contextViewer.attachListeners(modalBody);
+      this.updateContextViewerForMode(); // Update context based on selected mode
     }
 
     // window.Gracula.logger.success('Modal opened');
@@ -438,8 +545,20 @@ window.Gracula.GraculaApp = class {
    * SMART: Real-time message monitoring with auto-regenerate
    */
   async handleToneSelection(tone) {
+    console.log('🎯 handleToneSelection called with tone:', tone?.name, 'mode:', this.selectedMode);
+
     const modalBody = this.modal.getBody();
-    if (!modalBody) return;
+    if (!modalBody) {
+      console.error('❌ Modal body not found');
+      return;
+    }
+
+    // Validate tone object
+    if (!tone) {
+      console.error('❌ No tone provided');
+      this.replyList.showError('Please select a tone first.', modalBody);
+      return;
+    }
 
     // Cancel any ongoing generation
     if (this.isGenerating) {
@@ -474,11 +593,16 @@ window.Gracula.GraculaApp = class {
       return;
     }
 
-    if (!lastMessageBeforeGeneration || !lastMessageBeforeGeneration.text) {
-      console.error('❌ No friend message found to respond to');
-      this.replyList.showError('No message from your friend found. Please make sure there are messages in the chat.', modalBody);
-      this.isGenerating = false;
-      return;
+    // Validate last message - ONLY for reply modes (not for new_conversation)
+    if (this.selectedMode !== 'new_conversation') {
+      if (!lastMessageBeforeGeneration || !lastMessageBeforeGeneration.text) {
+        console.error('❌ No message found to respond to');
+        this.replyList.showError('No message found to reply to. Please make sure there are messages in the chat.', modalBody);
+        this.isGenerating = false;
+        return;
+      }
+    } else {
+      console.log('✨ New conversation mode - no specific message to reply to');
     }
 
     // Start monitoring for new messages during generation
@@ -548,16 +672,24 @@ window.Gracula.GraculaApp = class {
       this.replyList.displayReplies(replies, modalBody);
 
     } catch (error) {
-      console.error('Error:', error);
+      console.error('❌ Generation error:', error);
+      console.error('   Error stack:', error.stack);
+      console.error('   Selected mode:', this.selectedMode);
+      console.error('   Tone:', tone?.name);
+      console.error('   Context length:', this.context?.length);
 
       this.stopGenerationMonitor();
       this.isGenerating = false;
 
       let errorMessage = error.message;
       if (error.message.includes('API key')) {
-        errorMessage = 'Please add your API key in the extension settings.';
+        errorMessage = '🔑 Please add your API key in the extension settings.';
       } else if (error.message.includes('rate limit')) {
-        errorMessage = error.message + ' Try using cached suggestions (disable "Use AI" toggle).';
+        errorMessage = '⏱️ ' + error.message + ' Try using cached suggestions (disable "Use AI" toggle).';
+      } else if (error.message.includes('cached')) {
+        errorMessage = '📊 ' + error.message;
+      } else {
+        errorMessage = '❌ ' + error.message;
       }
 
       this.replyList.showError(errorMessage, modalBody);
@@ -568,7 +700,23 @@ window.Gracula.GraculaApp = class {
    * Show enhanced loading with status message
    */
   showEnhancedLoading(modalBody, statusMessage) {
+    console.log(`⏳ showEnhancedLoading: ${statusMessage}`);
+
+    // Show the replies container
+    const repliesContainer = modalBody.querySelector('.gracula-replies-container');
+    if (repliesContainer) {
+      repliesContainer.style.display = 'block';
+    }
+
     const loadingContainer = modalBody.querySelector('.gracula-loading');
+    if (!loadingContainer) {
+      console.error('❌ Loading container not found!');
+      return;
+    }
+
+    loadingContainer.style.display = 'block';
+    console.log('✅ Loading container made visible');
+
     if (loadingContainer) {
       const statusEl = loadingContainer.querySelector('.loading-status');
       if (statusEl) {
@@ -707,12 +855,26 @@ window.Gracula.GraculaApp = class {
   }
 
   /**
-   * Get the FRIEND's last message (not the user's own message)
-   * This is what we should be responding to
+   * Get last message based on selected mode
+   * - reply_last: Get absolute last message (any sender)
+   * - reply_friend: Get friend's last message (skip user's messages)
+   * - new_conversation: Return null (no specific message to reply to)
    */
   getLastMessage() {
     if (!this.context || this.context.length === 0) return null;
 
+    // Mode 3: New conversation - don't focus on any message
+    if (this.selectedMode === 'new_conversation') {
+      return null;
+    }
+
+    // Mode 1: Reply to absolute last message (any sender)
+    if (this.selectedMode === 'reply_last') {
+      const lastMsg = this.context[this.context.length - 1];
+      return lastMsg;
+    }
+
+    // Mode 2: Reply to friend's last message (default - skip user messages)
     // Get the user's name from enhanced context
     const userName = this.enhancedContext?.summary?.userName || 'You';
 
@@ -896,21 +1058,27 @@ window.Gracula.GraculaApp = class {
    * Generate replies using background script
    */
   async generateReplies(tone) {
-    // Get selected mode from modal
-    const modalBody = this.modal.getBody();
-    const selectedMode = modalBody?.dataset?.selectedMode || 'reply';
-
     return new Promise((resolve, reject) => {
+      console.log(`🎯 Generating replies with mode: ${this.selectedMode}`);
+
       chrome.runtime.sendMessage({
         action: 'generateReplies',
         tone: tone.toJSON(),
         context: this.context,
         enhancedContext: this.enhancedContext,
-        responseMode: selectedMode  // NEW: Pass selected mode
+        responseMode: this.selectedMode  // Pass selected mode (reply_last, reply_friend, new_conversation)
       }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.error('❌ Chrome runtime error:', chrome.runtime.lastError);
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+
         if (response && response.success) {
+          console.log('✅ Replies generated successfully');
           resolve(response.replies);
         } else {
+          console.error('❌ Generation failed:', response?.error);
           reject(new Error(response?.error || 'Unknown error'));
         }
       });
@@ -1027,6 +1195,18 @@ window.Gracula.GraculaApp = class {
         setTimeout(() => {
           this.init();
         }, 100);
+      }
+
+      // Listen for config updates (real-time API key changes, etc.)
+      if (request.action === 'configUpdated') {
+        console.log('⚙️ Config Updated: Settings changed, applying in real-time...');
+        console.log('   New config:', request.config);
+
+        // Show notification
+        this.showNotification('✅ Settings updated successfully! No reload needed.', 'success');
+
+        // If modal is open, you could update UI here if needed
+        // For now, the API calls will automatically use the new config
       }
     });
   }

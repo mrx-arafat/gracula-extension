@@ -72,38 +72,52 @@ function toggleVoiceProviderFields() {
 
 function loadSettings() {
   chrome.runtime.sendMessage({ action: 'getApiConfig' }, (response) => {
-    if (response.success && response.config) {
-      const provider = response.config.provider || 'openai';
+    if (response && response.success && response.config) {
+      const config = response.config;
+
+      // Store the full config in currentState for later use
+      currentState.fullConfig = config;
+
+      const provider = config.provider || 'openai';
       document.getElementById('provider').value = provider;
-      document.getElementById('apiKey').value = response.config.apiKey || '';
-      document.getElementById('openaiModel').value = response.config.model || 'gpt-3.5-turbo';
-      document.getElementById('googleModel').value = response.config.googleModel || 'gemini-2.0-flash-exp';
-      document.getElementById('openrouterModel').value = response.config.openrouterModel || 'google/gemini-2.0-flash-exp:free';
-      document.getElementById('huggingfaceModel').value = response.config.huggingfaceModel || 'mistralai/Mistral-7B-Instruct-v0.2';
+      document.getElementById('apiKey').value = config.apiKey || '';
+      document.getElementById('openaiModel').value = config.model || 'gpt-4o';  // Default to latest GPT-4o
+      document.getElementById('googleModel').value = config.googleModel || 'gemini-2.0-flash-exp';
+      document.getElementById('openrouterModel').value = config.openrouterModel || 'anthropic/claude-3.5-sonnet';  // Default to Claude 3.5
+      document.getElementById('huggingfaceModel').value = config.huggingfaceModel || 'mistralai/Mistral-7B-Instruct-v0.2';
 
       // Load AI toggle state (default: false/disabled)
-      const aiEnabled = response.config.useAIForAutosuggestions || false;
+      const aiEnabled = config.useAIForAutosuggestions === true;
       document.getElementById('aiToggle').checked = aiEnabled;
       currentState.aiEnabled = aiEnabled;
 
       // Load voice settings
-      document.getElementById('voiceProvider').value = response.config.voiceProvider || 'webspeech';
-      document.getElementById('elevenlabsApiKey').value = response.config.elevenlabsApiKey || '';
-      document.getElementById('googleVoiceApiKey').value = response.config.googleApiKey || '';
-      document.getElementById('deepgramApiKey').value = response.config.deepgramApiKey || '';
-      document.getElementById('voiceLanguage').value = response.config.voiceLanguage || 'en';
-      const voiceEnabled = response.config.voiceInputEnabled || false;
+      document.getElementById('voiceProvider').value = config.voiceProvider || 'webspeech';
+      document.getElementById('elevenlabsApiKey').value = config.elevenlabsApiKey || '';
+      document.getElementById('googleVoiceApiKey').value = config.googleApiKey || '';
+      document.getElementById('deepgramApiKey').value = config.deepgramApiKey || '';
+      document.getElementById('voiceLanguage').value = config.voiceLanguage || 'en';
+      const voiceEnabled = config.voiceInputEnabled === true;
       document.getElementById('voiceToggle').checked = voiceEnabled;
       currentState.voiceEnabled = voiceEnabled;
       currentState.provider = provider;
 
       // Load keyboard shortcut (default: Ctrl+Shift+V)
-      const shortcut = response.config.voiceShortcut || 'Ctrl+Shift+V';
+      const shortcut = config.voiceShortcut || 'Ctrl+Shift+V';
       document.getElementById('voiceShortcut').value = shortcut;
 
       toggleProviderFields();
       toggleVoiceProviderFields();
       updateStatusIndicator();
+
+      console.log('✅ Settings loaded successfully:', {
+        provider,
+        hasApiKey: !!config.apiKey,
+        aiEnabled,
+        voiceEnabled
+      });
+    } else {
+      console.warn('⚠️ Failed to load settings:', response);
     }
   });
 }
@@ -139,10 +153,12 @@ function saveSettings(e) {
   const provider = document.getElementById('provider').value;
   const apiKey = document.getElementById('apiKey').value.trim();
 
-  let config = {
-    provider: provider,
-    apiKey: apiKey
-  };
+  // Start with the existing full config to preserve all settings
+  let config = currentState.fullConfig ? { ...currentState.fullConfig } : {};
+
+  // Update with new values
+  config.provider = provider;
+  config.apiKey = apiKey;
 
   if (provider === 'openai') {
     config.model = document.getElementById('openaiModel').value;
@@ -167,21 +183,41 @@ function saveSettings(e) {
     return;
   }
 
+  console.log('💾 Saving settings:', {
+    provider: config.provider,
+    hasApiKey: !!config.apiKey,
+    model: config.model || config.googleModel || config.openrouterModel || config.huggingfaceModel
+  });
+
   chrome.runtime.sendMessage({
     action: 'updateApiConfig',
     config: config
   }, (response) => {
     const statusEl = document.getElementById('status');
 
-    if (response.success) {
+    if (chrome.runtime.lastError) {
+      console.error('❌ Chrome runtime error:', chrome.runtime.lastError);
+      statusEl.textContent = `✗ Error: ${chrome.runtime.lastError.message}`;
+      statusEl.className = 'status error';
+      statusEl.style.display = 'block';
+      return;
+    }
+
+    if (response && response.success) {
+      // Update the stored config
+      currentState.fullConfig = config;
+
       statusEl.textContent = '✓ Settings saved and applied in real-time! No reload needed.';
       statusEl.className = 'status success';
       statusEl.style.display = 'block';
+
+      console.log('✅ Settings saved successfully');
 
       setTimeout(() => {
         statusEl.style.display = 'none';
       }, 5000);
     } else {
+      console.error('❌ Save failed:', response);
       statusEl.textContent = '✗ Error saving settings';
       statusEl.className = 'status error';
       statusEl.style.display = 'block';
@@ -193,12 +229,24 @@ function saveAIToggle(e) {
   const useAI = e.target.checked;
   currentState.aiEnabled = useAI;
 
+  // Preserve full config
+  let config = currentState.fullConfig ? { ...currentState.fullConfig } : {};
+  config.useAIForAutosuggestions = useAI;
+
   chrome.runtime.sendMessage({
     action: 'updateApiConfig',
-    config: { useAIForAutosuggestions: useAI }
+    config: config
   }, (response) => {
-    if (response.success) {
-      console.log('AI toggle saved:', useAI);
+    if (chrome.runtime.lastError) {
+      console.error('❌ Chrome runtime error:', chrome.runtime.lastError);
+      return;
+    }
+
+    if (response && response.success) {
+      // Update stored config
+      currentState.fullConfig = config;
+
+      console.log('✅ AI toggle saved:', useAI);
       updateStatusIndicator();
 
       // Show feedback
@@ -210,6 +258,8 @@ function saveAIToggle(e) {
       setTimeout(() => {
         statusEl.style.display = 'none';
       }, 3000);
+    } else {
+      console.error('❌ AI toggle save failed:', response);
     }
   });
 }
@@ -225,31 +275,55 @@ function saveVoiceSettings(e) {
   const voiceEnabled = document.getElementById('voiceToggle').checked;
   const voiceShortcut = document.getElementById('voiceShortcut').value || 'Ctrl+Shift+V';
 
+  // Preserve full config
+  let config = currentState.fullConfig ? { ...currentState.fullConfig } : {};
+
+  // Update voice settings
+  config.voiceProvider = voiceProvider;
+  config.elevenlabsApiKey = elevenlabsApiKey;
+  config.googleApiKey = googleVoiceApiKey;
+  config.deepgramApiKey = deepgramApiKey;
+  config.voiceLanguage = voiceLanguage;
+  config.voiceInputEnabled = voiceEnabled;
+  config.voiceShortcut = voiceShortcut;
+
+  console.log('💾 Saving voice settings:', {
+    voiceProvider,
+    voiceEnabled,
+    voiceLanguage
+  });
+
   chrome.runtime.sendMessage({
     action: 'updateApiConfig',
-    config: {
-      voiceProvider: voiceProvider,
-      elevenlabsApiKey: elevenlabsApiKey,
-      googleApiKey: googleVoiceApiKey,
-      deepgramApiKey: deepgramApiKey,
-      voiceLanguage: voiceLanguage,
-      voiceInputEnabled: voiceEnabled,
-      voiceShortcut: voiceShortcut
-    }
+    config: config
   }, (response) => {
     const statusEl = document.getElementById('voiceStatus');
 
-    if (response.success) {
+    if (chrome.runtime.lastError) {
+      console.error('❌ Chrome runtime error:', chrome.runtime.lastError);
+      statusEl.textContent = `✗ Error: ${chrome.runtime.lastError.message}`;
+      statusEl.className = 'status error';
+      statusEl.style.display = 'block';
+      return;
+    }
+
+    if (response && response.success) {
+      // Update stored config
+      currentState.fullConfig = config;
+      currentState.voiceEnabled = voiceEnabled;
+
       statusEl.textContent = '✓ Voice settings saved and applied in real-time! No reload needed.';
       statusEl.className = 'status success';
       statusEl.style.display = 'block';
-      currentState.voiceEnabled = voiceEnabled;
       updateStatusIndicator();
+
+      console.log('✅ Voice settings saved successfully');
 
       setTimeout(() => {
         statusEl.style.display = 'none';
       }, 5000);
     } else {
+      console.error('❌ Voice settings save failed:', response);
       statusEl.textContent = '✗ Error saving voice settings';
       statusEl.className = 'status error';
       statusEl.style.display = 'block';
@@ -261,12 +335,24 @@ function saveVoiceToggle(e) {
   const voiceEnabled = e.target.checked;
   currentState.voiceEnabled = voiceEnabled;
 
+  // Preserve full config
+  let config = currentState.fullConfig ? { ...currentState.fullConfig } : {};
+  config.voiceInputEnabled = voiceEnabled;
+
   chrome.runtime.sendMessage({
     action: 'updateApiConfig',
-    config: { voiceInputEnabled: voiceEnabled }
+    config: config
   }, (response) => {
-    if (response.success) {
-      console.log('Voice toggle saved:', voiceEnabled);
+    if (chrome.runtime.lastError) {
+      console.error('❌ Chrome runtime error:', chrome.runtime.lastError);
+      return;
+    }
+
+    if (response && response.success) {
+      // Update stored config
+      currentState.fullConfig = config;
+
+      console.log('✅ Voice toggle saved:', voiceEnabled);
 
       // Show feedback
       const statusEl = document.getElementById('voiceStatus');
@@ -277,6 +363,8 @@ function saveVoiceToggle(e) {
       setTimeout(() => {
         statusEl.style.display = 'none';
       }, 3000);
+    } else {
+      console.error('❌ Voice toggle save failed:', response);
     }
   });
 }

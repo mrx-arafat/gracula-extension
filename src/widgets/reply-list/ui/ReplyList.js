@@ -53,11 +53,29 @@ window.Gracula.ReplyList = class {
    * Display replies
    */
   displayReplies(replies, container) {
+    console.log(`📝 displayReplies called with ${replies?.length} replies`);
+
+    if (!replies || replies.length === 0) {
+      console.error('❌ No replies to display!');
+      this.showError('No replies generated. Please try again.', container);
+      return;
+    }
+
     this.replies = replies;
     this.hideLoading(container);
 
+    // Make sure replies container is visible
+    const repliesContainer = container.querySelector('.gracula-replies-container');
+    if (repliesContainer) {
+      repliesContainer.style.display = 'block';
+      console.log('✅ Replies container made visible');
+    }
+
     const list = container.querySelector('.gracula-replies-list');
-    if (!list) return;
+    if (!list) {
+      console.error('❌ Reply list element not found!');
+      return;
+    }
 
     // Clear any existing listeners before rebuilding DOM
     list.innerHTML = '';
@@ -94,6 +112,9 @@ window.Gracula.ReplyList = class {
     });
 
     list.appendChild(frag);
+    console.log(`✅ ${replies.length} reply cards added to DOM`);
+    console.log('   Sample replies:', replies.slice(0, 2));
+
     this.attachListeners(container);
   }
 

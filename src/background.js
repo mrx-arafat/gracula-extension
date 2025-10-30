@@ -81,7 +81,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'updateApiConfig') {
     apiConfig = { ...apiConfig, ...request.config };
     chrome.storage.sync.set({ apiConfig }, () => {
-      console.log('🧛 Gracula: API Config saved:', { provider: apiConfig.provider, hasKey: !!apiConfig.apiKey });
+      if (chrome.runtime.lastError) {
+        console.error('🧛 Gracula: Error saving API Config:', chrome.runtime.lastError);
+        sendResponse({ success: false, error: chrome.runtime.lastError.message });
+        return;
+      }
+
+      console.log('🧛 Gracula: API Config saved successfully:', {
+        provider: apiConfig.provider,
+        hasKey: !!apiConfig.apiKey,
+        voiceEnabled: apiConfig.voiceInputEnabled,
+        aiEnabled: apiConfig.useAIForAutosuggestions
+      });
 
       // Broadcast config update to all tabs
       chrome.tabs.query({}, (tabs) => {
@@ -154,8 +165,20 @@ function buildPrompt(tone, context, enhancedContext, responseMode = 'reply') {
                      (Array.isArray(context) && context.length > 0 ? context[context.length - 1] : null);
   const lastSpeaker = dualAnalysis?.replyMode?.speaker || summary.lastSpeaker || 'Friend';
 
-  // Handle NEW CONVERSATION mode
-  if (responseMode === 'new' && dualAnalysis?.newConversation) {
+  // CRITICAL: Get the FRIEND's last message (not the user's message)
+  const lastFriendMessage = summary.lastFriendMessage || '';
+  const lastFriendSpeaker = summary.lastFriendSpeaker || '';
+
+  // Get absolute last message (any sender) for reply_last mode
+  const absoluteLastMessage = Array.isArray(context) && context.length > 0 ? context[context.length - 1] : '';
+
+  // ========================================
+  // MODE HANDLING: 3 RESPONSE MODES
+  // ========================================
+  console.log('🎯 Response Mode:', responseMode);
+
+  // Handle NEW CONVERSATION mode (Mode 3: Start fresh)
+  if (responseMode === 'new_conversation' || (responseMode === 'new' && dualAnalysis?.newConversation)) {
     const newConv = dualAnalysis.newConversation;
 
     prompt += '=== 💬 START NEW CONVERSATION ===\n\n';
@@ -257,7 +280,60 @@ function buildPrompt(tone, context, enhancedContext, responseMode = 'reply') {
   }
 
   // ========================================
-  // ADAPTIVE CONTEXT DISPLAY
+  // CRITICAL: SHOW CORRECT MESSAGES BASED ON MODE
+  // ========================================
+
+  // Mode 1: reply_last - Show absolute last message
+  if (responseMode === 'reply_last') {
+    prompt += '=== 🎯🎯🎯 CRITICAL: REPLY TO THIS LAST MESSAGE ===\n';
+    prompt += `>>> ${absoluteLastMessage} <<<\n\n`;
+    prompt += `⚠️⚠️⚠️ YOUR REPLY MUST RESPOND TO THIS LAST MESSAGE!\n`;
+    prompt += `⚠️  This is the most recent message in the conversation.\n`;
+    prompt += `⚠️  Reply directly to what was said above.\n\n`;
+  }
+  // Mode 2: reply_friend (default) - Show friend's messages only
+  else if (responseMode === 'reply_friend' || !responseMode) {
+    // Get all friend messages (not user's messages) for better context
+    const friendMessages = [];
+    if (Array.isArray(context) && context.length > 0) {
+      // Look backwards through context to find friend's messages
+      for (let i = context.length - 1; i >= 0 && friendMessages.length < 3; i--) {
+        const msg = context[i];
+        // Skip messages that look like they're from the user
+        // User messages typically start with "You:" or contain the user's name
+        if (!msg.includes(`${userName}:`) && !msg.startsWith('You:')) {
+          friendMessages.unshift(msg); // Add to beginning to maintain order
+        }
+      }
+    }
+
+    // Show friend's messages prominently
+    if (friendMessages.length > 0) {
+      prompt += '=== 🎯🎯🎯 CRITICAL: REPLY TO THESE MESSAGES FROM YOUR FRIEND ===\n';
+      friendMessages.forEach((msg, idx) => {
+        prompt += `${idx + 1}. >>> ${msg} <<<\n`;
+      });
+      prompt += '\n';
+      prompt += `⚠️⚠️⚠️ YOUR REPLY MUST RESPOND TO YOUR FRIEND'S MESSAGES ABOVE!\n`;
+      prompt += `⚠️  These are what your FRIEND said - reply to THEM, not to yourself!\n`;
+      prompt += `⚠️  DO NOT refer to your own previous messages.\n`;
+      prompt += `⚠️  IGNORE any messages from "${userName}" or "You".\n`;
+      prompt += `⚠️  Focus ONLY on what your FRIEND said in their messages.\n\n`;
+    } else if (lastFriendMessage && lastFriendSpeaker) {
+      // Fallback to single friend message if extraction failed
+      prompt += '=== 🎯🎯🎯 CRITICAL: REPLY TO THIS MESSAGE ===\n';
+      prompt += `>>> ${lastFriendSpeaker}: "${lastFriendMessage}" <<<\n\n`;
+      prompt += `⚠️⚠️⚠️ YOUR REPLY MUST RESPOND TO THIS MESSAGE!\n`;
+      prompt += `⚠️  This is what your FRIEND just said - reply to THEM, not to yourself!\n`;
+      prompt += `⚠️  Focus ONLY on what ${lastFriendSpeaker} said in this message.\n`;
+      prompt += `⚠️  DO NOT refer to your own previous messages.\n\n`;
+    }
+  }
+  // Mode 3: new_conversation - Don't show specific messages to reply to
+  // (already handled above in the new_conversation block)
+
+  // ========================================
+  // ADAPTIVE CONTEXT DISPLAY (For Reference)
   // ========================================
 
   if (Array.isArray(context) && context.length > 0) {
@@ -352,10 +428,18 @@ function buildPrompt(tone, context, enhancedContext, responseMode = 'reply') {
   prompt += `${tone.prompt}\n\n`;
 
   // Add specific instructions
-  prompt += '📋 Instructions:\n';
-  prompt += `- Reply directly to the message marked with ">>>" above\n`;
-  prompt += `- Stay on topic: ${currentTopic}\n`;
-  prompt += `- Use ${tone.name} tone\n`;
+  prompt += '📋 CRITICAL INSTRUCTIONS:\n';
+  if (lastFriendMessage && lastFriendSpeaker) {
+    prompt += `1. ⚠️⚠️⚠️ REPLY TO ${lastFriendSpeaker}'s message: "${lastFriendMessage}"\n`;
+    prompt += `2. ⚠️  DO NOT refer to your own previous messages\n`;
+    prompt += `3. ⚠️  Focus ONLY on what your FRIEND just said\n`;
+    prompt += `4. Stay on topic: ${currentTopic}\n`;
+    prompt += `5. Use ${tone.name} tone\n`;
+  } else {
+    prompt += `1. Reply directly to the message marked with ">>>" above\n`;
+    prompt += `2. Stay on topic: ${currentTopic}\n`;
+    prompt += `3. Use ${tone.name} tone\n`;
+  }
 
   // Length guidance (keep it simple)
   const recommended = metrics?.recommendedReplyLength;
@@ -876,20 +960,30 @@ function generateContextualReplies(tone, context) {
 
   // Analyze last message for better context
   const analyzeMessage = (msg) => {
-    if (!msg) return { isQuestion: false, isNegative: false, topic: null };
+    if (!msg) return {
+      isQuestion: false,
+      isNegative: false,
+      isRequest: false,
+      isMoney: false,
+      isConfirmation: false,
+      topic: null
+    };
     const msgLower = msg.toLowerCase();
     return {
       isQuestion: /\?|ki|keno|kobe|kothay|how|what|when|where/.test(msgLower),
       isNegative: /nai|na|not|no|can't|couldn't|won't/.test(msgLower),
-      isPositive: /yes|hoo|thik|okay|good|great|nice/.test(msgLower),
-      hasUrgency: /asap|jaldi|taratari|now|urgent/.test(msgLower)
+      isPositive: /yes|hoo|thik|okay|good|great|nice|received|got it/.test(msgLower),
+      hasUrgency: /asap|jaldi|taratari|now|urgent/.test(msgLower),
+      isRequest: /check|kor|dekh|pathao|send|bhej|please/.test(msgLower),
+      isMoney: /taka|money|pathaise|sent|paisa|tk|bdt|dollar|payment/.test(msgLower),
+      isConfirmation: /received|got it|done|okay|ok|thik|ache/.test(msgLower),
+      isGreeting: /hi|hello|hey|salam|assalam|kemon|how are you/.test(msgLower)
     };
   };
 
-  // Determine which message to analyze based on context
-  // If YOU sent the last message, analyze what you said
-  // If a FRIEND sent the last message, analyze what they said
-  const contextMessage = isYourLastMessage ? yourLastMessage : lastFriendMessage;
+  // CRITICAL: Always analyze the FRIEND's message, not the user's message
+  // The user wants to reply to what their FRIEND said
+  const contextMessage = lastFriendMessage || lastAnyMessage;
   const lastMessageAnalysis = analyzeMessage(contextMessage);
 
   // Extract topic keywords for reference
@@ -898,8 +992,10 @@ function generateContextualReplies(tone, context) {
   const primaryTopic = topicKeywords[0] || '';
 
   // Log context for debugging
-  console.log('🧛 Gracula: Context analysis - isYourLastMessage:', isYourLastMessage);
-  console.log('🧛 Gracula: Analyzing message:', contextMessage);
+  console.log('🧛 Gracula: Mock response generation');
+  console.log('🧛 Gracula: Friend said:', lastFriendMessage);
+  console.log('🧛 Gracula: Friend speaker:', lastFriendSpeaker);
+  console.log('🧛 Gracula: Analyzing friend\'s message:', contextMessage);
   console.log('🧛 Gracula: Message analysis:', lastMessageAnalysis);
 
   // Generate replies based on tone
@@ -907,7 +1003,26 @@ function generateContextualReplies(tone, context) {
 
   switch (tone) {
     case 'default':
-      if (lastMessageAnalysis.isQuestion && hasTopic) {
+      // Handle money-related messages
+      if (lastMessageAnalysis.isMoney && lastMessageAnalysis.isRequest) {
+        replies = [
+          applyStyle("Checking now, give me a sec"),
+          applyStyle("Let me check the payment"),
+          applyStyle("Okay, lemme verify")
+        ];
+      } else if (lastMessageAnalysis.isMoney) {
+        replies = [
+          applyStyle("Thanks! Checking now"),
+          applyStyle("Got it, let me confirm"),
+          applyStyle("Received, thanks bro")
+        ];
+      } else if (lastMessageAnalysis.isRequest) {
+        replies = [
+          applyStyle("Sure, checking now"),
+          applyStyle("Okay, let me see"),
+          applyStyle("On it, give me a moment")
+        ];
+      } else if (lastMessageAnalysis.isQuestion && hasTopic) {
         replies = [
           applyStyle(`Hmm, ${primaryTopic} er byapare ektu dekhi`),
           applyStyle(`Let me check about ${primaryTopic}`),
@@ -918,6 +1033,12 @@ function generateContextualReplies(tone, context) {
           applyStyle(`Oh, ${primaryTopic} nai? Let me see what we can do`),
           applyStyle(`No worries about ${primaryTopic}, we'll figure it out`),
           applyStyle(`Okay, ${primaryTopic} na thakle alternative dekhbo`)
+        ];
+      } else if (lastMessageAnalysis.isGreeting) {
+        replies = [
+          applyStyle("Hey! What's up?"),
+          applyStyle("Hi! Kemon acho?"),
+          applyStyle("Hello! How's it going?")
         ];
       } else if (hasTopic) {
         replies = [

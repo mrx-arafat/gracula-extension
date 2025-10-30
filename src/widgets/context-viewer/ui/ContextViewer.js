@@ -30,8 +30,6 @@ Friend: Hey, what are you doing tonight?
 Me: Nothing much, just chilling
 Friend: Want to grab dinner?">${this.getFullContext()}</textarea>
         </div>
-        ${this.showEnhanced ? this.renderModeSelector() : ''}
-        ${this.showEnhanced ? this.renderSelectedModeContext() : ''}
         ${this.showEnhanced ? this.renderAnalysis() : ''}
         <div class="gracula-context-actions" style="display: none;">
           <button class="gracula-save-context-btn">💾 Save Context</button>

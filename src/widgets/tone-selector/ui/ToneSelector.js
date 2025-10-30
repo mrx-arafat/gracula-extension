@@ -7,7 +7,7 @@ window.Gracula.ToneSelector = class {
   constructor(options = {}) {
     this.onToneSelect = options.onToneSelect || (() => {});
     this.tones = window.Gracula.Config.TONES.map(config => new window.Gracula.Tone(config));
-    this.useAI = false; // Default: use local/cached suggestions
+    this.useAI = true; // Default: AI enabled (user can turn off for offline mode)
   }
 
   /**
@@ -16,16 +16,23 @@ window.Gracula.ToneSelector = class {
   render() {
     const html = `
       <div class="gracula-tone-selector">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-          <h3 style="margin: 0;">Select Tone:</h3>
-          <div class="gracula-ai-toggle">
-            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: #666;">
-              <input type="checkbox" id="gracula-use-ai-toggle" style="cursor: pointer;">
-              <span>🤖 Use AI (costs API)</span>
+        <h3 style="margin: 0 0 12px 0;">Select Tone:</h3>
+
+        <!-- AI Toggle -->
+        <div class="gracula-ai-toggle-container">
+          <label class="gracula-ai-toggle-label">
+            <span class="gracula-ai-toggle-text">
+              <span class="gracula-ai-toggle-title">🤖 AI Mode</span>
+              <span class="gracula-ai-toggle-subtitle">Turn off for faster offline responses</span>
+            </span>
+            <label class="gracula-toggle-switch">
+              <input type="checkbox" id="gracula-use-ai-toggle" checked>
+              <span class="gracula-toggle-slider"></span>
             </label>
-          </div>
+          </label>
         </div>
-        <div class="gracula-tone-grid">
+
+        <div class="gracula-tone-grid" style="margin-top: 16px;">
           ${this.renderToneButtons()}
         </div>
       </div>
@@ -55,22 +62,42 @@ window.Gracula.ToneSelector = class {
     if (aiToggle) {
       aiToggle.addEventListener('change', (e) => {
         this.useAI = e.target.checked;
-        console.log('🤖 Use AI:', this.useAI ? 'ENABLED (will call API)' : 'DISABLED (local/cached only)');
+        if (this.useAI) {
+          console.log('🤖 AI Mode: ENABLED - Will call API for intelligent responses');
+        } else {
+          console.log('📊 Offline Mode: ENABLED - Will use local pattern-based responses (faster, no API costs)');
+        }
       });
     }
 
     // Handle tone buttons
     const buttons = container.querySelectorAll('.gracula-tone-btn');
-    buttons.forEach(btn => {
+    console.log(`🎨 Found ${buttons.length} tone buttons`);
+
+    if (buttons.length === 0) {
+      console.error('❌ No tone buttons found! Check if tone grid is rendered properly.');
+      return;
+    }
+
+    buttons.forEach((btn, index) => {
       btn.addEventListener('click', () => {
+        console.log(`🎨 Tone button ${index + 1} clicked!`);
         const toneId = btn.dataset.toneId;
+        console.log(`   Tone ID: ${toneId}`);
+
         const tone = this.tones.find(t => t.id === toneId);
-        if (tone) {
-          // Pass useAI flag with tone
-          tone.useAI = this.useAI;
-          window.Gracula.logger.info(`Tone selected: ${tone.name} (AI: ${this.useAI})`);
-          this.onToneSelect(tone);
+
+        if (!tone) {
+          console.error(`❌ Tone not found for ID: ${toneId}`);
+          return;
         }
+
+        // Pass useAI flag with tone
+        tone.useAI = this.useAI;
+        console.log(`✅ Tone selected: ${tone.name} (AI: ${this.useAI})`);
+        console.log(`   Calling onToneSelect callback...`);
+
+        this.onToneSelect(tone);
       });
     });
   }
