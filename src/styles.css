@@ -109,14 +109,15 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(4px);
-  z-index: 9999999;
+  z-index: 2147483646;
   display: flex;
   align-items: center;
   justify-content: center;
   animation: fadeIn 0.3s ease;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow: auto;
 }
 
 @keyframes fadeIn {
@@ -382,11 +383,12 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 10px 12px;
   background: linear-gradient(135deg, #f8f9ff 0%, #efe9ff 100%);
-  border-radius: 10px;
+  border-radius: 8px;
   border: 2px solid #e0e0ff;
   transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 .gracula-ai-toggle-container:hover {
@@ -1157,4 +1159,778 @@
 .gracula-compact {
   width: 44px !important;
   height: 44px !important;
+}
+
+
+/* ========================================
+   NEW THREE-COLUMN LAYOUT
+   ======================================== */
+
+.gracula-modal-new-layout {
+  max-width: 1400px !important;
+  width: 92% !important;
+  max-height: 85vh !important;
+  height: 85vh !important;
+  border-radius: 16px !important;
+}
+
+.gracula-modal-body-wrapper {
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Mode Section (Top) */
+.gracula-mode-section {
+  padding: 20px 28px;
+  border-bottom: 2px solid #e5e7eb;
+  background: linear-gradient(to bottom, #f8f9ff, #ffffff);
+  flex-shrink: 0;
+}
+
+/* Visual Mode Cards (replacing tabs) */
+.gracula-mode-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 0;
+}
+
+.gracula-mode-card {
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.gracula-mode-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+}
+
+.gracula-mode-card:hover {
+  border-color: #667eea;
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.15);
+  transform: translateY(-2px);
+}
+
+.gracula-mode-card.active {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #f8f9ff 0%, #efe9ff 100%);
+  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.25);
+}
+
+.gracula-mode-card.active::before {
+  transform: scaleX(1);
+}
+
+.gracula-mode-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.gracula-mode-card-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.gracula-mode-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.gracula-mode-card-description {
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+.gracula-mode-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #667eea;
+  font-weight: 500;
+}
+
+.gracula-mode-card-meta-icon {
+  font-size: 14px;
+}
+
+/* Three-column layout */
+.gracula-three-column-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr 300px;
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Left Sidebar - Tone Selector */
+.gracula-left-sidebar {
+  background: #fafafa;
+  border-right: 1px solid #e5e7eb;
+  padding: 16px 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.gracula-left-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.gracula-left-sidebar::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 3px;
+  margin: 4px 0;
+}
+
+.gracula-left-sidebar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.gracula-left-sidebar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Center Content - Replies */
+.gracula-center-content {
+  background: white;
+  padding: 16px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  scroll-behavior: smooth;
+}
+
+.gracula-replies-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.gracula-replies-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.gracula-empty-state {
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.gracula-center-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.gracula-center-content::-webkit-scrollbar-track {
+  background: #f9fafb;
+  border-radius: 3px;
+}
+
+.gracula-center-content::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.gracula-center-content::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Right Sidebar - Context Insights */
+.gracula-right-sidebar {
+  background: #fafafa;
+  border-left: 1px solid #e5e7eb;
+  padding: 20px 16px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
+.gracula-right-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.gracula-right-sidebar::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 3px;
+  margin: 4px 0;
+}
+
+.gracula-right-sidebar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.gracula-right-sidebar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Context Insights Panel */
+.gracula-context-insights {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.gracula-insight-card {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 2px solid #e5e7eb;
+  transition: all 0.2s;
+}
+
+.gracula-insight-card:hover {
+  border-color: #667eea;
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.12);
+  transform: translateY(-2px);
+}
+
+.gracula-insight-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.01em;
+}
+
+.gracula-insight-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.gracula-insight-content {
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+.gracula-insight-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: #e0e7ff;
+  color: #4338ca;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+
+/* Topic Pills */
+.gracula-topic-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.gracula-topic-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #667eea20, #764ba220);
+  border: 1px solid #667eea50;
+  border-radius: 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #667eea;
+  transition: all 0.2s;
+}
+
+.gracula-topic-pill:hover {
+  background: linear-gradient(135deg, #667eea30, #764ba230);
+  border-color: #667eea;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+}
+
+/* Sentiment Meter */
+.gracula-sentiment-meter {
+  margin-top: 10px;
+}
+
+.gracula-sentiment-bar {
+  height: 8px;
+  background: linear-gradient(to right, #ef4444, #fbbf24, #10b981);
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+.gracula-sentiment-indicator {
+  position: absolute;
+  top: -4px;
+  width: 16px;
+  height: 16px;
+  background: white;
+  border: 2px solid #667eea;
+  border-radius: 50%;
+  transform: translateX(-8px);
+  transition: left 0.3s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* Urgency Level */
+.gracula-urgency-level {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.gracula-urgency-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #e5e7eb;
+  transition: background 0.2s;
+}
+
+.gracula-urgency-dot.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.4);
+}
+
+/* Bottom Bar */
+.gracula-bottom-bar {
+  background: white;
+  border-top: 1px solid #e5e7eb;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.gracula-bottom-bar-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gracula-voice-input-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.gracula-voice-input-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.45);
+}
+
+.gracula-voice-input-button svg,
+.gracula-voice-input-button .gracula-voice-icon {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+}
+
+.gracula-autocomplete-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.gracula-autocomplete-toggle:hover {
+  background: #f3f4f6;
+  border-color: #667eea;
+}
+
+.gracula-autocomplete-toggle.active {
+  background: linear-gradient(135deg, #f8f9ff 0%, #efe9ff 100%);
+  border-color: #667eea;
+  color: #667eea;
+}
+
+/* Responsive Layout */
+@media (max-width: 1024px) {
+  .gracula-three-column-layout {
+    grid-template-columns: 280px 1fr;
+  }
+
+  .gracula-right-sidebar {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .gracula-modal-new-layout {
+    width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .gracula-three-column-layout {
+    grid-template-columns: 1fr;
+    max-height: none;
+  }
+
+  .gracula-left-sidebar {
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+    max-height: 300px;
+  }
+
+  .gracula-mode-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Enhanced Reply Cards for Center Column */
+.gracula-reply-card-enhanced {
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 18px;
+  margin-bottom: 14px;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.gracula-reply-card-enhanced:hover {
+  border-color: #667eea;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.12);
+  transform: translateY(-2px);
+}
+
+.gracula-reply-card-enhanced.best-match {
+  border-color: #10b981;
+  background: linear-gradient(to bottom, #f0fdf4, #ffffff);
+}
+
+.gracula-reply-card-enhanced .gracula-reply-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #1f2937;
+  margin-bottom: 12px;
+}
+
+.gracula-reply-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.gracula-reply-quality {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #fbbf24;
+}
+
+.gracula-reply-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.gracula-reply-btn-enhanced {
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.gracula-reply-btn-insert {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.gracula-reply-btn-insert:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.gracula-reply-btn-copy {
+  background: white;
+  color: #667eea;
+  border: 1px solid #667eea;
+}
+
+.gracula-reply-btn-copy:hover {
+  background: #f8f9ff;
+}
+
+/* ========================================
+   CATEGORIZED TONE SELECTOR
+   ======================================== */
+
+.gracula-tone-selector-categorized {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 0;
+  min-height: 0;
+}
+
+.gracula-tone-selector-header {
+  flex-shrink: 0;
+  padding-bottom: 12px;
+}
+
+.gracula-tone-selector-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+/* AI Toggle Container */
+.gracula-ai-toggle-container {
+  flex-shrink: 0;
+  margin-bottom: 12px;
+}
+
+/* Tone Search */
+.gracula-tone-search-container {
+  flex-shrink: 0;
+  margin-bottom: 12px;
+}
+
+.gracula-tone-search {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  transition: all 0.2s;
+  background: white;
+}
+
+.gracula-tone-search:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.gracula-tone-search::placeholder {
+  color: #9ca3af;
+}
+
+/* Tone Categories - Simplified (No Accordion) */
+.gracula-tone-categories {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 120px;
+  scroll-behavior: smooth;
+}
+
+.gracula-tone-categories::-webkit-scrollbar {
+  width: 6px;
+}
+
+.gracula-tone-categories::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 3px;
+  margin: 4px 0;
+}
+
+.gracula-tone-categories::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.gracula-tone-categories::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.gracula-tone-category-simple {
+  background: transparent;
+  margin-bottom: 8px;
+}
+
+.gracula-tone-category-simple:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.gracula-tone-category-header-simple {
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #f8f9ff 0%, #efe9ff 100%);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  border-left: 4px solid #667eea;
+}
+
+.gracula-tone-category-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.01em;
+}
+
+.gracula-tone-category-count {
+  font-size: 11px;
+  color: #667eea;
+  background: white;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.gracula-tone-category-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  padding: 0;
+}
+
+/* Compact Tone Buttons */
+.gracula-tone-btn-compact {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px 10px;
+  background: #ffffff;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  font-size: 11px;
+  color: #1f2937;
+  font-weight: 600;
+  z-index: 1;
+  min-height: 85px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.gracula-tone-btn-compact:hover {
+  background: #f8f9ff;
+  border-color: #667eea;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.2);
+}
+
+.gracula-tone-btn-compact:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+}
+
+.gracula-tone-btn-compact.selected {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: #667eea;
+  color: white;
+  box-shadow: 0 6px 24px rgba(102, 126, 234, 0.4);
+  transform: scale(1.03);
+}
+
+.gracula-tone-btn-compact .gracula-tone-emoji {
+  font-size: 26px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.gracula-tone-btn-compact.selected .gracula-tone-emoji {
+  filter: drop-shadow(0 2px 8px rgba(255, 255, 255, 0.5));
+}
+
+.gracula-tone-btn-compact .gracula-tone-name {
+  text-align: center;
+  line-height: 1.3;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* Tone Button Hover Effects */
+.gracula-tone-btn-compact::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  padding: 2px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.gracula-tone-btn-compact:hover::before {
+  opacity: 0.6;
+}
+
+.gracula-tone-btn-compact.selected::before {
+  opacity: 0;
 }

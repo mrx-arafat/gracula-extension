@@ -1,5 +1,46 @@
 // Gracula Background Script - API Handler
 
+// ========================================
+// SERVICE WORKER KEEP-ALIVE MECHANISM
+// ========================================
+// Chrome terminates service workers after 5 minutes of inactivity
+// This mechanism keeps the service worker alive by sending periodic messages
+
+let keepAliveInterval = null;
+
+function startKeepAlive() {
+  if (keepAliveInterval) return; // Already running
+
+  console.log('🔄 [KEEP-ALIVE] Starting service worker keep-alive mechanism...');
+
+  // Send a keep-alive message every 4 minutes (240 seconds)
+  // This is less than Chrome's 5-minute timeout
+  keepAliveInterval = setInterval(() => {
+    console.log('💓 [KEEP-ALIVE] Sending keep-alive ping to all tabs...');
+
+    chrome.tabs.query({}, (tabs) => {
+      tabs.forEach((tab) => {
+        chrome.tabs.sendMessage(tab.id, {
+          action: 'keepAlive'
+        }).catch(() => {
+          // Ignore errors for tabs without content script
+        });
+      });
+    });
+  }, 240000); // 4 minutes
+}
+
+function stopKeepAlive() {
+  if (keepAliveInterval) {
+    clearInterval(keepAliveInterval);
+    keepAliveInterval = null;
+    console.log('⏹️ [KEEP-ALIVE] Stopped service worker keep-alive mechanism');
+  }
+}
+
+// Start keep-alive when extension loads
+startKeepAlive();
+
 // Hot Reload Support - Notify content scripts when extension updates
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'update' || details.reason === 'install') {
@@ -55,26 +96,54 @@ chrome.storage.sync.get(['apiConfig'], (result) => {
 
 // Listen for messages from content script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  // Handle keep-alive pings from content script
+  if (request.action === 'keepAlive') {
+    console.log('💓 [KEEP-ALIVE] Received keep-alive ping from tab:', sender.tab?.id);
+    sendResponse({ success: true, timestamp: Date.now() });
+    return true;
+  }
+
   if (request.action === 'generateReplies') {
+    console.log('🎯 [MESSAGE] Received generateReplies request from tab:', sender.tab?.id);
     handleGenerateReplies(request.tone, request.context, request.enhancedContext, request.responseMode)
-      .then(replies => sendResponse({ success: true, replies }))
-      .catch(error => sendResponse({ success: false, error: error.message }));
+      .then(replies => {
+        console.log('✅ [MESSAGE] Sending generateReplies response');
+        sendResponse({ success: true, replies });
+      })
+      .catch(error => {
+        console.error('❌ [MESSAGE] generateReplies error:', error.message);
+        sendResponse({ success: false, error: error.message });
+      });
     return true; // Keep channel open for async response
   }
 
   // NEW: Handle autocomplete suggestions
   if (request.action === 'generateAutocompletions') {
+    console.log('🎯 [MESSAGE] Received generateAutocompletions request from tab:', sender.tab?.id);
     handleGenerateAutocompletions(request.partialText, request.analysis, request.context, request.enhancedContext)
-      .then(suggestions => sendResponse({ success: true, suggestions }))
-      .catch(error => sendResponse({ success: false, error: error.message }));
+      .then(suggestions => {
+        console.log('✅ [MESSAGE] Sending generateAutocompletions response');
+        sendResponse({ success: true, suggestions });
+      })
+      .catch(error => {
+        console.error('❌ [MESSAGE] generateAutocompletions error:', error.message);
+        sendResponse({ success: false, error: error.message });
+      });
     return true; // Keep channel open for async response
   }
 
   // NEW: Handle audio transcription
   if (request.action === 'transcribeAudio') {
+    console.log('🎯 [MESSAGE] Received transcribeAudio request from tab:', sender.tab?.id);
     handleTranscribeAudio(request.provider, request.audioData, request.mimeType, request.language)
-      .then(transcript => sendResponse({ success: true, transcript }))
-      .catch(error => sendResponse({ success: false, error: error.message }));
+      .then(transcript => {
+        console.log('✅ [MESSAGE] Sending transcribeAudio response');
+        sendResponse({ success: true, transcript });
+      })
+      .catch(error => {
+        console.error('❌ [MESSAGE] transcribeAudio error:', error.message);
+        sendResponse({ success: false, error: error.message });
+      });
     return true; // Keep channel open for async response
   }
 

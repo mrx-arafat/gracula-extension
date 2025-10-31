@@ -15,13 +15,27 @@ window.Gracula.ReplyList = class {
    */
   render() {
     const html = `
-      <div class="gracula-replies-container" style="display: none;">
-        <h3>Generated Replies:</h3>
-        <div class="gracula-loading">
+      <div class="gracula-replies-container">
+        <div class="gracula-replies-header">
+          <h3 style="margin: 0 0 16px 0; font-size: 16px; font-weight: 600; color: #111827;">
+            💬 Generated Replies
+          </h3>
+        </div>
+        <div class="gracula-loading" style="display: none;">
           <div class="gracula-spinner"></div>
           <p>Generating replies...</p>
         </div>
-        <div class="gracula-replies-list"></div>
+        <div class="gracula-replies-list">
+          <div class="gracula-empty-state" style="text-align: center; padding: 60px 20px; color: #9ca3af;">
+            <div style="font-size: 48px; margin-bottom: 16px;">🎭</div>
+            <div style="font-size: 14px; font-weight: 500; color: #6b7280; margin-bottom: 8px;">
+              Choose a tone to generate replies
+            </div>
+            <div style="font-size: 12px; color: #9ca3af;">
+              Select a tone from the left sidebar to get started
+            </div>
+          </div>
+        </div>
       </div>
     `;
 
@@ -32,13 +46,21 @@ window.Gracula.ReplyList = class {
    * Show loading state
    */
   showLoading(container) {
-    const repliesContainer = container.querySelector('.gracula-replies-container');
+    console.log('🔄 [ReplyList] showLoading called');
     const loading = container.querySelector('.gracula-loading');
     const list = container.querySelector('.gracula-replies-list');
 
-    if (repliesContainer) repliesContainer.style.display = 'block';
-    if (loading) loading.style.display = 'block';
-    if (list) list.innerHTML = '';
+    if (loading) {
+      loading.style.display = 'block';
+      console.log('✅ [ReplyList] Loading state visible');
+    } else {
+      console.error('❌ [ReplyList] Loading element not found!');
+    }
+
+    if (list) {
+      list.innerHTML = '';
+      console.log('✅ [ReplyList] Reply list cleared');
+    }
   }
 
   /**
@@ -53,74 +75,83 @@ window.Gracula.ReplyList = class {
    * Display replies
    */
   displayReplies(replies, container) {
-    console.log(`📝 displayReplies called with ${replies?.length} replies`);
-    console.log('   Container:', container?.className);
+    console.log(`📝 [ReplyList] displayReplies called with ${replies?.length} replies`);
 
     if (!replies || replies.length === 0) {
-      console.error('❌ No replies to display!');
+      console.error('❌ [ReplyList] No replies to display!');
       this.showError('No replies generated. Please try again.', container);
       return;
     }
 
     this.replies = replies;
 
-    // Make sure replies container is visible FIRST
-    const repliesContainer = container.querySelector('.gracula-replies-container');
-    if (!repliesContainer) {
-      console.error('❌ Replies container not found in DOM!');
-      console.error('   Container HTML:', container?.innerHTML?.substring(0, 200));
-      return;
-    }
-
-    repliesContainer.style.display = 'block';
-    console.log('✅ Replies container made visible');
-
-    // Now hide the loading
+    // Hide loading
     this.hideLoading(container);
 
     const list = container.querySelector('.gracula-replies-list');
     if (!list) {
-      console.error('❌ Reply list element not found!');
+      console.error('❌ [ReplyList] Reply list element not found!');
       return;
     }
 
-    // Clear any existing listeners before rebuilding DOM
+    // Clear any existing content
     list.innerHTML = '';
 
-    // Build fresh DOM with unique IDs
+    // Build fresh DOM with reply cards
     const frag = document.createDocumentFragment();
     replies.forEach((reply, index) => {
       const card = document.createElement('div');
-      card.className = 'gracula-reply-card';
+      card.className = 'gracula-reply-card-enhanced';
       card.dataset.replyIndex = index;
+
+      // Add "Best Match" badge to first reply
+      if (index === 0) {
+        card.classList.add('best-match');
+        const badge = document.createElement('div');
+        badge.style.cssText = 'display: inline-block; background: #10b981; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-bottom: 8px;';
+        badge.textContent = '✨ Best Match';
+        card.appendChild(badge);
+      }
 
       const text = document.createElement('div');
       text.className = 'gracula-reply-text';
-      text.textContent = reply; // textContent avoids double-escaping
+      text.textContent = reply;
 
+      const meta = document.createElement('div');
+      meta.className = 'gracula-reply-card-meta';
+
+      // Quality stars
+      const quality = document.createElement('div');
+      quality.className = 'gracula-reply-quality';
+      const stars = index === 0 ? '⭐⭐⭐⭐⭐' : index === 1 ? '⭐⭐⭐⭐☆' : '⭐⭐⭐☆☆';
+      quality.textContent = stars;
+
+      // Action buttons
       const actions = document.createElement('div');
       actions.className = 'gracula-reply-actions';
 
       const insertBtn = document.createElement('button');
-      insertBtn.className = 'gracula-reply-btn gracula-insert-btn';
-      insertBtn.textContent = 'Insert';
+      insertBtn.className = 'gracula-reply-btn-enhanced gracula-reply-btn-insert';
+      insertBtn.textContent = '✓ Insert';
       insertBtn.dataset.reply = reply;
 
       const copyBtn = document.createElement('button');
-      copyBtn.className = 'gracula-reply-btn gracula-copy-btn';
-      copyBtn.textContent = 'Copy';
+      copyBtn.className = 'gracula-reply-btn-enhanced gracula-reply-btn-copy';
+      copyBtn.textContent = '📋 Copy';
       copyBtn.dataset.reply = reply;
 
       actions.appendChild(insertBtn);
       actions.appendChild(copyBtn);
+      meta.appendChild(quality);
+      meta.appendChild(actions);
+
       card.appendChild(text);
-      card.appendChild(actions);
+      card.appendChild(meta);
       frag.appendChild(card);
     });
 
     list.appendChild(frag);
-    console.log(`✅ ${replies.length} reply cards added to DOM`);
-    console.log('   Sample replies:', replies.slice(0, 2));
+    console.log(`✅ [ReplyList] ${replies.length} reply cards added to DOM`);
 
     this.attachListeners(container);
   }
@@ -129,28 +160,35 @@ window.Gracula.ReplyList = class {
    * Show error message
    */
   showError(message, container) {
-    // Make sure replies container is visible
-    const repliesContainer = container.querySelector('.gracula-replies-container');
-    if (repliesContainer) {
-      repliesContainer.style.display = 'block';
-    }
+    console.log('❌ [ReplyList] showError called:', message);
 
-    const loading = container.querySelector('.gracula-loading');
-    if (loading) {
-      loading.style.display = 'block';
-      loading.innerHTML = `
-        <p style="color: #ff4444; font-size: 16px; margin: 10px 0;">❌ Error Generating Replies</p>
-        <p style="color: #666; font-size: 14px;">${message}</p>
+    const list = container.querySelector('.gracula-replies-list');
+    if (list) {
+      list.innerHTML = `
+        <div style="text-align: center; padding: 60px 20px;">
+          <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+          <div style="font-size: 16px; font-weight: 600; color: #ef4444; margin-bottom: 8px;">
+            Error Generating Replies
+          </div>
+          <div style="font-size: 14px; color: #6b7280;">
+            ${message}
+          </div>
+        </div>
       `;
     }
+
+    this.hideLoading(container);
   }
 
   /**
    * Attach event listeners to reply buttons
    */
   attachListeners(container) {
-    const insertButtons = container.querySelectorAll('.gracula-insert-btn');
-    const copyButtons = container.querySelectorAll('.gracula-copy-btn');
+    // Support both old and new button classes
+    const insertButtons = container.querySelectorAll('.gracula-insert-btn, .gracula-reply-btn-insert');
+    const copyButtons = container.querySelectorAll('.gracula-copy-btn, .gracula-reply-btn-copy');
+
+    console.log(`🔗 [ReplyList] Attaching listeners to ${insertButtons.length} insert buttons and ${copyButtons.length} copy buttons`);
 
     insertButtons.forEach(btn => {
       // Use onclick to ensure only one handler
@@ -158,11 +196,12 @@ window.Gracula.ReplyList = class {
         e.preventDefault();
         e.stopPropagation();
         const reply = btn.dataset.reply;
-        window.Gracula.logger.info('Insert reply clicked');
+        console.log('✓ [ReplyList] Insert button clicked');
         this.onInsert(reply);
         // Disable button immediately to prevent double clicks
         btn.disabled = true;
         btn.style.opacity = '0.5';
+        btn.textContent = '✓ Inserted';
       };
     });
 
@@ -171,6 +210,7 @@ window.Gracula.ReplyList = class {
         e.preventDefault();
         e.stopPropagation();
         const reply = btn.dataset.reply;
+        console.log('📋 [ReplyList] Copy button clicked');
         this.copyToClipboard(reply, btn);
       });
     });

@@ -406,7 +406,7 @@ window.Gracula.GraculaApp = class {
   }
 
   /**
-   * Render response mode tabs
+   * Render response mode tabs (legacy format for compatibility)
    */
   renderModeTabs() {
     return `
@@ -431,10 +431,254 @@ window.Gracula.GraculaApp = class {
   }
 
   /**
-   * Attach mode tab listeners
+   * NEW: Render response mode as visual cards (new layout)
+   */
+  renderModeCards() {
+    const messageCount = Array.isArray(this.context) ? this.context.length : 0;
+    const userName = this.enhancedContext?.summary?.userName || 'User';
+    const friendMessageCount = Array.isArray(this.context) ? this.context.filter(msg =>
+      msg && typeof msg === 'string' && !msg.includes('You:') && !msg.includes(`${userName}:`)
+    ).length : 0;
+
+    return `
+      <div class="gracula-mode-cards">
+        <div class="gracula-mode-card ${this.selectedMode === 'reply_last' ? 'active' : ''}" data-mode="reply_last">
+          <div class="gracula-mode-card-header">
+            <span class="gracula-mode-card-icon">📝</span>
+            <h3 class="gracula-mode-card-title">Reply to Last Message</h3>
+          </div>
+          <p class="gracula-mode-card-description">
+            Reply to the absolute last message in the conversation, regardless of who sent it.
+          </p>
+          <div class="gracula-mode-card-meta">
+            <span class="gracula-mode-card-meta-icon">💬</span>
+            <span>${messageCount} messages in context</span>
+          </div>
+        </div>
+
+        <div class="gracula-mode-card ${this.selectedMode === 'reply_friend' ? 'active' : ''}" data-mode="reply_friend">
+          <div class="gracula-mode-card-header">
+            <span class="gracula-mode-card-icon">👥</span>
+            <h3 class="gracula-mode-card-title">Reply to Friend</h3>
+          </div>
+          <p class="gracula-mode-card-description">
+            Reply only to your friend's messages. Your own messages are filtered out automatically.
+          </p>
+          <div class="gracula-mode-card-meta">
+            <span class="gracula-mode-card-meta-icon">✨</span>
+            <span>Best for 1-on-1 chats</span>
+          </div>
+        </div>
+
+        <div class="gracula-mode-card ${this.selectedMode === 'new_conversation' ? 'active' : ''}" data-mode="new_conversation">
+          <div class="gracula-mode-card-header">
+            <span class="gracula-mode-card-icon">🎬</span>
+            <h3 class="gracula-mode-card-title">Start New Topic</h3>
+          </div>
+          <p class="gracula-mode-card-description">
+            Start a completely fresh conversation with a new topic. Context is used for reference only.
+          </p>
+          <div class="gracula-mode-card-meta">
+            <span class="gracula-mode-card-meta-icon">🔄</span>
+            <span>Change the subject</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * NEW: Render context insights panel (right sidebar)
+   */
+  renderContextInsights() {
+    // Safely access analysis and summary
+    const analysis = this.enhancedContext?.analysis || {};
+    const summary = this.enhancedContext?.summary || {};
+
+    // Extract topics
+    const topics = Array.isArray(analysis.topics) ? analysis.topics : [];
+    const topicsHTML = topics.length > 0 ? `
+      <div class="gracula-topic-pills">
+        ${topics.map(topic => `<span class="gracula-topic-pill">💡 ${topic}</span>`).join('')}
+      </div>
+    ` : '<div style="font-size: 12px; color: #9ca3af;">No topics detected</div>';
+
+    // Sentiment analysis data
+    const sentimentData = analysis.sentiment || 'neutral';
+    let sentiment = 'neutral';
+    let sentimentConfidence = '';
+    if (typeof sentimentData === 'string') {
+      sentiment = sentimentData.toLowerCase();
+    } else if (typeof sentimentData === 'object' && sentimentData !== null) {
+      sentiment = (sentimentData.tone || sentimentData.label || 'neutral').toLowerCase();
+      if (sentimentData.confidence) {
+        sentimentConfidence = sentimentData.confidence.toString();
+      }
+    }
+    const sentimentDisplay = sentiment.charAt(0).toUpperCase() + sentiment.slice(1);
+    const sentimentConfidenceLabel = sentimentConfidence
+      ? sentimentConfidence.charAt(0).toUpperCase() + sentimentConfidence.slice(1) + ' confidence'
+      : '';
+    const sentimentPositionMap = { positive: '78%', negative: '22%', inquisitive: '62%', neutral: '50%' };
+    const sentimentPosition = sentimentPositionMap[sentiment] || '50%';
+    const sentimentEmojiMap = { positive: '😊', negative: '😔', inquisitive: '🤔', neutral: '😐' };
+    const sentimentEmoji = sentimentEmojiMap[sentiment] || '😐';
+    const sentimentConfidenceBadge = sentimentConfidenceLabel
+      ? `<span class="gracula-insight-pill">${sentimentConfidenceLabel}</span>`
+      : '';
+
+    // Urgency data
+    const urgencyData = analysis.urgency || 'low';
+    let urgency = 'low';
+    let urgencyScore = null;
+    if (typeof urgencyData === 'string') {
+      urgency = urgencyData.toLowerCase();
+    } else if (typeof urgencyData === 'object' && urgencyData !== null) {
+      urgency = (urgencyData.level || 'low').toLowerCase();
+      if (typeof urgencyData.score === 'number') {
+        urgencyScore = urgencyData.score;
+      }
+    }
+    const urgencyLevel = urgency === 'high' ? 3 : urgency === 'medium' ? 2 : 1;
+    const urgencyDisplay = urgency.charAt(0).toUpperCase() + urgency.slice(1);
+
+    // Languages
+    const languageMix = analysis.languageMix || {};
+    const languages = Array.isArray(languageMix.languages) && languageMix.languages.length
+      ? languageMix.languages
+      : (Array.isArray(analysis.languages) && analysis.languages.length ? analysis.languages : ['English']);
+    const languageStyle = languageMix.style || null;
+    const languageStyleDisplay = languageStyle
+      ? (languageStyle === 'mixed' ? 'Mixed conversation' : languageStyle.charAt(0).toUpperCase() + languageStyle.slice(1))
+      : '';
+    const languageRelationship = analysis.topicAnalysis?.languageAnalysis?.relationshipType;
+    const languageDetails = [];
+    if (languageStyleDisplay) languageDetails.push(languageStyleDisplay);
+    if (languageRelationship && languageRelationship !== 'neutral') {
+      languageDetails.push(languageRelationship.replace(/_/g, ' '));
+    }
+    const languageMeta = languageDetails.length
+      ? `<div style="margin-top: 6px; font-size: 11px; color: #9ca3af;">${languageDetails.join(' • ')}</div>`
+      : '';
+
+    return `
+      <div class="gracula-context-insights">
+        <h3 style="margin: 0 0 16px 0; font-size: 15px; font-weight: 600; color: #111827;">
+          📊 Context Insights
+        </h3>
+
+        <!-- Topics -->
+        <div class="gracula-insight-card">
+          <div class="gracula-insight-header">
+            <span class="gracula-insight-icon">💬</span>
+            <span>Topics Discussed</span>
+          </div>
+          <div class="gracula-insight-content">
+            ${topicsHTML}
+          </div>
+        </div>
+
+        <!-- Sentiment -->
+        <div class="gracula-insight-card">
+          <div class="gracula-insight-header">
+            <span class="gracula-insight-icon">${sentimentEmoji}</span>
+            <span>Conversation Tone</span>
+          </div>
+          <div class="gracula-insight-content">
+            <div style="font-size: 12px; margin-bottom: 8px; color: #6b7280; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+              <span>${sentimentDisplay}</span>
+              ${sentimentConfidenceBadge}
+            </div>
+            <div class="gracula-sentiment-meter">
+              <div class="gracula-sentiment-bar">
+                <div class="gracula-sentiment-indicator" style="left: ${sentimentPosition};"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Urgency -->
+        <div class="gracula-insight-card">
+          <div class="gracula-insight-header">
+            <span class="gracula-insight-icon">⚡</span>
+            <span>Urgency Level</span>
+          </div>
+          <div class="gracula-insight-content">
+            <div class="gracula-urgency-level">
+              ${[1, 2, 3].map(level => `
+                <div class="gracula-urgency-dot ${level <= urgencyLevel ? 'active' : ''}"></div>
+              `).join('')}
+            </div>
+            <div style="font-size: 11px; margin-top: 6px; color: #6b7280;">
+              ${urgencyDisplay} priority${urgencyScore !== null ? ' • score ' + urgencyScore : ''}
+            </div>
+          </div>
+        </div>
+
+        <!-- Languages -->
+        <div class="gracula-insight-card">
+          <div class="gracula-insight-header">
+            <span class="gracula-insight-icon">🌐</span>
+            <span>Languages</span>
+          </div>
+          <div class="gracula-insight-content">
+            <div style="font-size: 12px; color: #6b7280;">
+              ${languages.join(', ')}
+            </div>
+            ${languageMeta}
+          </div>
+        </div>
+
+        <!-- Message Count -->
+        <div class="gracula-insight-card">
+          <div class="gracula-insight-header">
+            <span class="gracula-insight-icon">📊</span>
+            <span>Conversation Stats</span>
+          </div>
+          <div class="gracula-insight-content">
+            <div style="font-size: 12px; color: #6b7280;">
+              ${Array.isArray(this.context) ? this.context.length : 0} messages analyzed
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * NEW: Render bottom bar with voice + autocomplete
+   */
+  renderBottomBar() {
+    // Check if autocomplete is enabled
+    const autocompleteEnabled = true; // TODO: Get from settings
+
+    return `
+      <div class="gracula-bottom-bar-section">
+        <button class="gracula-voice-input-button" id="gracula-modal-voice-btn">
+          <span class="gracula-voice-icon">🎤</span>
+          <span>Voice Input</span>
+          <span style="font-size: 11px; opacity: 0.8;">(Ctrl+Shift+V)</span>
+        </button>
+      </div>
+      <div class="gracula-bottom-bar-section">
+        <div class="gracula-autocomplete-toggle ${autocompleteEnabled ? 'active' : ''}" id="gracula-autocomplete-toggle">
+          <span>🤖</span>
+          <span>Smart Autocomplete</span>
+          <span style="font-size: 11px; opacity: 0.7;">${autocompleteEnabled ? 'ON' : 'OFF'}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Attach mode tab listeners (supports both tabs and cards)
    */
   attachModeTabListeners(modalBody) {
+    // Support both tabs (legacy) and cards (new layout)
     const tabs = modalBody.querySelectorAll('.gracula-mode-tab');
+    const cards = modalBody.querySelectorAll('.gracula-mode-card');
+
+    // Attach listeners to tabs
     tabs.forEach(tab => {
       tab.addEventListener('click', () => {
         const mode = tab.dataset.mode;
@@ -445,6 +689,23 @@ window.Gracula.GraculaApp = class {
         tab.classList.add('active');
 
         console.log(`🎯 Mode changed to: ${mode}`);
+
+        // Update context viewer to show relevant context for this mode
+        this.updateContextViewerForMode();
+      });
+    });
+
+    // Attach listeners to cards (new layout)
+    cards.forEach(card => {
+      card.addEventListener('click', () => {
+        const mode = card.dataset.mode;
+        this.selectedMode = mode;
+
+        // Update UI
+        cards.forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+
+        console.log(`🎯 Mode changed to: ${mode} (card)`);
 
         // Update context viewer to show relevant context for this mode
         this.updateContextViewerForMode();
@@ -510,57 +771,126 @@ window.Gracula.GraculaApp = class {
    * Show modal with tone selector
    */
   showModal() {
+    console.log('🧛 [GRACULA] showModal() called');
+
     // Close old modal if it exists
     if (this.modal) {
       this.modal.close();
       this.modal = null;
     }
 
-    // Create widgets
-    this.toneSelector = new window.Gracula.ToneSelector({
-      onToneSelect: (tone) => this.handleToneSelection(tone)
-    });
+    try {
+      // Create widgets
+      console.log('🧛 [GRACULA] Creating widgets...');
+      this.toneSelector = new window.Gracula.ToneSelector({
+        onToneSelect: (tone) => this.handleToneSelection(tone)
+      });
 
-    this.contextViewer = new window.Gracula.ContextViewer({
-      context: this.context,
-      enhancedContext: this.enhancedContext,
-      showEnhanced: true,
-      onContextUpdate: (newContext) => {
-        this.context = newContext;
-        // window.Gracula.logger.info('Context manually updated');
-      }
-    });
+      this.contextViewer = new window.Gracula.ContextViewer({
+        context: this.context,
+        enhancedContext: this.enhancedContext,
+        showEnhanced: true,
+        onContextUpdate: (newContext) => {
+          this.context = newContext;
+          // window.Gracula.logger.info('Context manually updated');
+        }
+      });
 
-    this.replyList = new window.Gracula.ReplyList({
-      onInsert: (reply) => this.insertReply(reply),
-      onCopy: (reply) => { /* Reply copied */ }
-    });
+      this.replyList = new window.Gracula.ReplyList({
+        onInsert: (reply) => this.insertReply(reply),
+        onCopy: (reply) => { /* Reply copied */ }
+      });
 
-    // Build modal content
-    const content = `
-      ${this.contextViewer.render()}
-      ${this.renderModeTabs()}
-      ${this.toneSelector.render()}
-      ${this.replyList.render()}
-    `;
+      // Build modal content using new three-column layout
+      console.log('🧛 [GRACULA] Building modal content...');
+      const content = {
+        modeTabs: this.renderModeCards(), // Use visual cards instead of tabs
+        toneSelector: this.toneSelector.render(),
+        replyList: this.replyList.render(),
+        contextPanel: this.renderContextInsights()
+        // Removed bottomBar - voice is in action dock, autocomplete is automatic
+      };
 
-    // Create and show modal
-    this.modal = new window.Gracula.Modal({
-      onClose: () => { /* Modal closed */ }
-    });
+      console.log('🧛 [GRACULA] Content built:', {
+        modeTabs: content.modeTabs ? 'OK' : 'MISSING',
+        toneSelector: content.toneSelector ? 'OK' : 'MISSING',
+        replyList: content.replyList ? 'OK' : 'MISSING',
+        contextPanel: content.contextPanel ? 'OK' : 'MISSING'
+      });
 
-    this.modal.render(content);
+      // Create and show modal
+      console.log('🧛 [GRACULA] Creating modal...');
+      this.modal = new window.Gracula.Modal({
+        onClose: () => { /* Modal closed */ }
+      });
 
-    // Attach listeners
-    const modalBody = this.modal.getBody();
-    if (modalBody) {
-      this.attachModeTabListeners(modalBody);
-      this.toneSelector.attachListeners(modalBody);
-      this.contextViewer.attachListeners(modalBody);
-      this.updateContextViewerForMode(); // Update context based on selected mode
+      console.log('🧛 [GRACULA] Rendering modal...');
+      this.modal.render(content, { newLayout: true });
+
+      // CRITICAL FIX: Wait for DOM to be ready before attaching listeners
+      console.log('🧛 [GRACULA] Waiting for DOM...');
+
+      // Use setTimeout to ensure DOM is fully rendered
+      setTimeout(() => {
+        console.log('🧛 [GRACULA] Attaching listeners...');
+        const modalBody = this.modal.getBody();
+        if (modalBody) {
+          this.attachModeTabListeners(modalBody);
+          this.toneSelector.attachListeners(modalBody);
+          // NOTE: Don't attach contextViewer listeners in new layout (not rendered)
+          // this.contextViewer.attachListeners(modalBody);
+          // NOTE: Bottom bar removed - voice is in action dock, autocomplete is automatic
+          // NOTE: Don't update context viewer in new layout (not rendered)
+          // this.updateContextViewerForMode();
+          console.log('🧛 [GRACULA] Listeners attached successfully');
+        } else {
+          console.error('🧛 [GRACULA] Modal body not found!');
+        }
+      }, 100); // 100ms delay to ensure DOM is ready
+
+      console.log('🧛 [GRACULA] Modal opened successfully! ✅');
+    } catch (error) {
+      console.error('🧛 [GRACULA] Error opening modal:', error);
+      console.error('Stack trace:', error.stack);
+      // Show error notification to user
+      this.showNotification('❌ Failed to open Gracula modal. Check console for details.', 'error');
+    }
+  }
+
+  /**
+   * NEW: Attach bottom bar listeners for voice and autocomplete
+   */
+  attachBottomBarListeners(modalBody) {
+    // Voice input button
+    const voiceBtn = modalBody.querySelector('#gracula-modal-voice-btn');
+    if (voiceBtn && this.voiceInputManager) {
+      voiceBtn.addEventListener('click', () => {
+        console.log('🎤 Voice button clicked from modal');
+        // Trigger voice input
+        if (this.voiceInputManager.voiceButton) {
+          this.voiceInputManager.voiceButton.button.click();
+        }
+      });
     }
 
-    // window.Gracula.logger.success('Modal opened');
+    // Autocomplete toggle
+    const autocompleteToggle = modalBody.querySelector('#gracula-autocomplete-toggle');
+    if (autocompleteToggle && this.autocompleteManager) {
+      autocompleteToggle.addEventListener('click', () => {
+        console.log('🤖 Autocomplete toggle clicked');
+        // Toggle autocomplete
+        const isEnabled = this.autocompleteManager.isEnabled;
+        if (isEnabled) {
+          this.autocompleteManager.stop();
+          autocompleteToggle.classList.remove('active');
+          autocompleteToggle.querySelector('span:last-child').textContent = 'OFF';
+        } else {
+          this.autocompleteManager.start();
+          autocompleteToggle.classList.add('active');
+          autocompleteToggle.querySelector('span:last-child').textContent = 'ON';
+        }
+      });
+    }
   }
 
   /**
@@ -724,40 +1054,33 @@ window.Gracula.GraculaApp = class {
    * Show enhanced loading with status message
    */
   showEnhancedLoading(modalBody, statusMessage) {
-    console.log(`⏳ showEnhancedLoading: ${statusMessage}`);
-
-    // Show the replies container
-    const repliesContainer = modalBody.querySelector('.gracula-replies-container');
-    if (repliesContainer) {
-      repliesContainer.style.display = 'block';
-    }
+    console.log(`⏳ [GRACULA] showEnhancedLoading: ${statusMessage}`);
 
     const loadingContainer = modalBody.querySelector('.gracula-loading');
     if (!loadingContainer) {
-      console.error('❌ Loading container not found!');
+      console.error('❌ [GRACULA] Loading container not found!');
       return;
     }
 
     loadingContainer.style.display = 'block';
-    console.log('✅ Loading container made visible');
+    console.log('✅ [GRACULA] Loading state visible');
 
-    if (loadingContainer) {
-      const statusEl = loadingContainer.querySelector('.loading-status');
-      if (statusEl) {
-        statusEl.textContent = statusMessage;
-      } else {
-        // Add status message
-        const status = document.createElement('div');
-        status.className = 'loading-status';
-        status.style.cssText = `
-          margin-top: 8px;
-          font-size: 13px;
-          color: #666;
-          font-weight: 500;
-        `;
-        status.textContent = statusMessage;
-        loadingContainer.appendChild(status);
-      }
+    // Update or create status message
+    let statusEl = loadingContainer.querySelector('.loading-status');
+    if (statusEl) {
+      statusEl.textContent = statusMessage;
+    } else {
+      const status = document.createElement('div');
+      status.className = 'loading-status';
+      status.style.cssText = `
+        margin-top: 8px;
+        font-size: 13px;
+        color: #6b7280;
+        font-weight: 500;
+        text-align: center;
+      `;
+      status.textContent = statusMessage;
+      loadingContainer.appendChild(status);
     }
   }
 
@@ -1152,11 +1475,11 @@ window.Gracula.GraculaApp = class {
   }
 
   /**
-   * Generate replies using background script
+   * Generate replies using background script with retry logic
    */
-  async generateReplies(tone) {
+  async generateReplies(tone, retryCount = 0, maxRetries = 3) {
     return new Promise((resolve, reject) => {
-      console.log(`🎯 Generating replies with mode: ${this.selectedMode}`);
+      console.log(`🎯 Generating replies with mode: ${this.selectedMode} (attempt ${retryCount + 1}/${maxRetries + 1})`);
 
       chrome.runtime.sendMessage({
         action: 'generateReplies',
@@ -1166,8 +1489,28 @@ window.Gracula.GraculaApp = class {
         responseMode: this.selectedMode  // Pass selected mode (reply_last, reply_friend, new_conversation)
       }, (response) => {
         if (chrome.runtime.lastError) {
-          console.error('❌ Chrome runtime error:', chrome.runtime.lastError);
-          reject(new Error(chrome.runtime.lastError.message));
+          const errorMsg = chrome.runtime.lastError.message;
+          console.error('❌ Chrome runtime error:', errorMsg);
+
+          // Check if it's a context invalidation error
+          if (errorMsg.includes('context invalidated') || errorMsg.includes('Receiving end does not exist')) {
+            console.log(`⚠️ Service worker context lost, retrying... (${retryCount + 1}/${maxRetries})`);
+
+            if (retryCount < maxRetries) {
+              // Exponential backoff: 500ms, 1000ms, 2000ms
+              const delayMs = Math.pow(2, retryCount) * 500;
+              console.log(`⏳ Waiting ${delayMs}ms before retry...`);
+
+              setTimeout(() => {
+                this.generateReplies(tone, retryCount + 1, maxRetries)
+                  .then(resolve)
+                  .catch(reject);
+              }, delayMs);
+              return;
+            }
+          }
+
+          reject(new Error(errorMsg));
           return;
         }
 
@@ -1342,6 +1685,13 @@ window.Gracula.GraculaApp = class {
   setupHotReload() {
     // Listen for extension updates ONLY when explicitly triggered by background script
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+      // Handle keep-alive pings from background script
+      if (request.action === 'keepAlive') {
+        console.log('💓 [KEEP-ALIVE] Received keep-alive ping from background script');
+        sendResponse({ success: true, timestamp: Date.now() });
+        return true;
+      }
+
       if (request.action === 'hotReload') {
         console.log('🔥 Hot Reload: Extension updated, reinitializing Gracula...');
         this.cleanup();

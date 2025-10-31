@@ -13,7 +13,7 @@ window.Gracula.Modal = class {
   /**
    * Create and render the modal
    */
-  render(content) {
+  render(content, options = {}) {
     if (this.element) {
       this.element.remove();
     }
@@ -22,17 +22,58 @@ window.Gracula.Modal = class {
       id: 'gracula-modal'
     });
 
-    this.element.innerHTML = `
-      <div class="gracula-modal-content">
-        <div class="gracula-modal-header">
-          <h2>🧛 Gracula AI Reply</h2>
-          <button class="gracula-close-btn">&times;</button>
+    // Support new three-column layout or legacy single-column
+    const useNewLayout = options.newLayout !== false; // Default to new layout
+
+    if (useNewLayout && typeof content === 'object' && content !== null &&
+        'modeTabs' in content && 'toneSelector' in content && 'replyList' in content) {
+      // New three-column layout
+      this.element.innerHTML = `
+        <div class="gracula-modal-content gracula-modal-new-layout">
+          <div class="gracula-modal-header">
+            <h2>🧛 Gracula AI Reply</h2>
+            <button class="gracula-close-btn">&times;</button>
+          </div>
+          <div class="gracula-modal-body-wrapper">
+            <!-- Mode Selection (Top) -->
+            <div class="gracula-mode-section">
+              ${content.modeTabs || ''}
+            </div>
+
+            <!-- Three-column layout -->
+            <div class="gracula-three-column-layout">
+              <!-- Left Sidebar: Tone Selector -->
+              <aside class="gracula-left-sidebar">
+                ${content.toneSelector || ''}
+              </aside>
+
+              <!-- Center: Replies -->
+              <main class="gracula-center-content">
+                ${content.replyList || ''}
+              </main>
+
+              <!-- Right Sidebar: Context Insights -->
+              <aside class="gracula-right-sidebar">
+                ${content.contextPanel || ''}
+              </aside>
+            </div>
+          </div>
         </div>
-        <div class="gracula-modal-body">
-          ${content}
+      `;
+    } else {
+      // Legacy single-column layout (backwards compatible)
+      this.element.innerHTML = `
+        <div class="gracula-modal-content">
+          <div class="gracula-modal-header">
+            <h2>🧛 Gracula AI Reply</h2>
+            <button class="gracula-close-btn">&times;</button>
+          </div>
+          <div class="gracula-modal-body">
+            ${typeof content === 'string' ? content : content.legacy || ''}
+          </div>
         </div>
-      </div>
-    `;
+      `;
+    }
 
     document.body.appendChild(this.element);
     this.isOpen = true;
@@ -66,10 +107,22 @@ window.Gracula.Modal = class {
   }
 
   /**
-   * Get modal body element
+   * Get modal body element (supports both old and new layouts)
    */
   getBody() {
+    // Try new layout first
+    const newBody = this.element?.querySelector('.gracula-modal-body-wrapper');
+    if (newBody) return newBody;
+
+    // Fall back to legacy layout
     return this.element?.querySelector('.gracula-modal-body');
+  }
+
+  /**
+   * Get specific section from new layout
+   */
+  getSection(sectionClass) {
+    return this.element?.querySelector(`.${sectionClass}`);
   }
 
   /**
