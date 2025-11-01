@@ -27,8 +27,11 @@ window.Gracula.GraculaApp = class {
     this.autocompleteDropdown = null;
     this.autocompleteManager = null;
 
-    // NEW: Voice input component
+    // NEW: Voice input component (platform-specific - legacy)
     this.voiceInputManager = null;
+
+    // NEW: Global voice input manager (works with ANY input field)
+    this.globalVoiceInputManager = null;
 
     // NEW: Smart generation tracking
     this.isGenerating = false;
@@ -76,6 +79,10 @@ window.Gracula.GraculaApp = class {
         return;
       }
 
+      // Initialize global voice input FIRST (works with ANY input field on ANY page)
+      // This should work regardless of platform detection
+      this.initGlobalVoiceInput();
+
       // Detect platform
       // console.log('🧛 [GRACULA APP] Detecting platform...');
       this.platform = window.Gracula.detectPlatform();
@@ -83,6 +90,7 @@ window.Gracula.GraculaApp = class {
       if (!this.platform) {
         // window.Gracula.logger.warn('Platform not supported');
         // console.log('⚠️ [GRACULA APP] Current URL:', window.location.href);
+        // Global voice input is still active, just return for platform-specific features
         return;
       }
 
@@ -112,6 +120,29 @@ window.Gracula.GraculaApp = class {
     } catch (error) {
       // console.error('❌ [GRACULA APP] ERROR during init():', error);
       // console.error('❌ [GRACULA APP] Error stack:', error.stack);
+    }
+  }
+
+  /**
+   * Initialize global voice input (works with ANY input field)
+   */
+  async initGlobalVoiceInput() {
+    try {
+      // Check if GlobalVoiceInputManager class exists
+      if (!window.Gracula.GlobalVoiceInputManager) {
+        console.warn('🎤 GlobalVoiceInputManager class not found');
+        return;
+      }
+
+      // Create global voice input manager
+      this.globalVoiceInputManager = new window.Gracula.GlobalVoiceInputManager();
+
+      // Initialize it
+      await this.globalVoiceInputManager.init();
+
+      console.log('✅ [GRACULA APP] Global voice input initialized successfully');
+    } catch (error) {
+      console.error('❌ [GRACULA APP] Failed to initialize global voice input:', error);
     }
   }
 
@@ -1746,6 +1777,12 @@ window.Gracula.GraculaApp = class {
     if (this.voiceInputManager) {
       this.voiceInputManager.cleanup?.();
       this.voiceInputManager = null;
+    }
+
+    // Cleanup global voice input manager
+    if (this.globalVoiceInputManager) {
+      this.globalVoiceInputManager.destroy();
+      this.globalVoiceInputManager = null;
     }
 
     // Remove autocomplete dropdown

@@ -28,9 +28,10 @@ try {
     document.addEventListener('DOMContentLoaded', () => {
       // console.log('🧛 [GRACULA] DOMContentLoaded event fired');
       try {
-        const app = new window.Gracula.GraculaApp();
+        // Store app instance globally so it can be accessed by other components
+        window.Gracula.app = new window.Gracula.GraculaApp();
         // console.log('✅ [GRACULA] GraculaApp instance created');
-        app.init();
+        window.Gracula.app.init();
       } catch (error) {
         // console.error('❌ [GRACULA] ERROR creating/initializing app:', error);
         // console.error('❌ [GRACULA] Error stack:', error.stack);
@@ -38,9 +39,10 @@ try {
     });
   } else {
     // console.log('🧛 [GRACULA] Document already loaded, initializing immediately...');
-    const app = new window.Gracula.GraculaApp();
+    // Store app instance globally so it can be accessed by other components
+    window.Gracula.app = new window.Gracula.GraculaApp();
     // console.log('✅ [GRACULA] GraculaApp instance created');
-    app.init();
+    window.Gracula.app.init();
   }
 } catch (error) {
   // console.error('❌ [GRACULA] FATAL ERROR during initialization:', error);

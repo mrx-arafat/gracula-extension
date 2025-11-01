@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Tab+V Global Voice Input</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+    
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    
+    .header {
+      text-align: center;
+      color: white;
+      margin-bottom: 40px;
+    }
+    
+    .header h1 {
+      font-size: 48px;
+      margin-bottom: 10px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .header p {
+      font-size: 18px;
+      opacity: 0.9;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 30px;
+      margin-bottom: 20px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+    }
+    
+    .status-card {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      color: white;
+    }
+    
+    .status-card h2 {
+      margin-bottom: 20px;
+      font-size: 24px;
+    }
+    
+    .status-item {
+      display: flex;
+      align-items: center;
+      padding: 12px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 8px;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+    
+    .status-item:last-child {
+      margin-bottom: 0;
+    }
+    
+    .status-icon {
+      font-size: 24px;
+      margin-right: 12px;
+    }
+    
+    .status-label {
+      flex: 1;
+      font-weight: 500;
+    }
+    
+    .status-value {
+      font-weight: 600;
+      padding: 4px 12px;
+      background: rgba(255,255,255,0.3);
+      border-radius: 4px;
+    }
+    
+    .instructions {
+      margin-bottom: 30px;
+    }
+    
+    .instructions h2 {
+      color: #667eea;
+      margin-bottom: 15px;
+      font-size: 24px;
+    }
+    
+    .instructions ol {
+      padding-left: 20px;
+    }
+    
+    .instructions li {
+      margin: 10px 0;
+      line-height: 1.6;
+      color: #555;
+    }
+    
+    .instructions strong {
+      color: #667eea;
+    }
+    
+    .test-area {
+      margin-top: 30px;
+    }
+    
+    .test-area h3 {
+      color: #667eea;
+      margin-bottom: 15px;
+      font-size: 20px;
+    }
+    
+    input, textarea {
+      width: 100%;
+      padding: 15px;
+      border: 2px solid #e5e7eb;
+      border-radius: 12px;
+      font-size: 16px;
+      margin-bottom: 15px;
+      transition: all 0.3s;
+      font-family: inherit;
+    }
+    
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+    
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    
+    button {
+      flex: 1;
+      padding: 15px 30px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    button:hover {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+    }
+    
+    button:active {
+      transform: translateY(0);
+    }
+    
+    .console-log {
+      background: #1a1a1a;
+      color: #00ff00;
+      padding: 20px;
+      border-radius: 12px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      max-height: 300px;
+      overflow-y: auto;
+      margin-top: 20px;
+    }
+    
+    .console-log pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    
+    .alert {
+      padding: 15px 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .alert-error {
+      background: #fee;
+      border: 2px solid #fcc;
+      color: #c33;
+    }
+    
+    .alert-success {
+      background: #efe;
+      border: 2px solid #cfc;
+      color: #3c3;
+    }
+    
+    .alert-warning {
+      background: #ffc;
+      border: 2px solid #ff9;
+      color: #c93;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎤 Ctrl+Shift+V Voice Input Test</h1>
+      <p>Test the global voice input feature on any webpage</p>
+    </div>
+    
+    <div class="card status-card">
+      <h2>📊 Extension Status</h2>
+      <div id="status-container">
+        <div class="status-item">
+          <span class="status-icon">⏳</span>
+          <span class="status-label">Checking extension...</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="card">
+      <div class="instructions">
+        <h2>📋 How to Test</h2>
+        <ol>
+          <li><strong>Reload the extension:</strong> Go to <code>chrome://extensions/</code> and click the reload button on Gracula</li>
+          <li><strong>Refresh this page</strong> after reloading the extension</li>
+          <li><strong>Click in any input field below</strong></li>
+          <li><strong>Hold Ctrl+Shift and press V</strong> (keep all keys pressed)</li>
+          <li><strong>A large overlay will appear</strong> in the center showing "Listening..."</li>
+          <li><strong>Speak your message</strong> clearly</li>
+          <li><strong>Release the keys</strong> when done - you'll see "Processing..." then "✓ Pasted!"</li>
+          <li>Your speech will be transcribed and inserted into the input field</li>
+        </ol>
+      </div>
+      
+      <div class="test-area">
+        <h3>✏️ Test Input Fields</h3>
+        <input type="text" placeholder="Click here and press Ctrl+Shift+V to test...">
+        <textarea placeholder="Or try it in this textarea..."></textarea>
+      </div>
+      
+      <div class="button-group">
+        <button onclick="checkStatus()">🔄 Refresh Status</button>
+        <button onclick="clearLogs()">🗑️ Clear Logs</button>
+      </div>
+      
+      <div id="console-log" class="console-log" style="display: none;">
+        <pre id="console-content"></pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const logs = [];
+    
+    function addLog(message, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString();
+      logs.push(`[${timestamp}] ${message}`);
+      updateConsole();
+    }
+    
+    function updateConsole() {
+      const consoleLog = document.getElementById('console-log');
+      const consoleContent = document.getElementById('console-content');
+      
+      if (logs.length > 0) {
+        consoleLog.style.display = 'block';
+        consoleContent.textContent = logs.join('\n');
+        consoleLog.scrollTop = consoleLog.scrollHeight;
+      }
+    }
+    
+    function clearLogs() {
+      logs.length = 0;
+      document.getElementById('console-log').style.display = 'none';
+    }
+    
+    function checkStatus() {
+      const container = document.getElementById('status-container');
+      container.innerHTML = '';
+      
+      const checks = [
+        {
+          label: 'window.Gracula exists',
+          value: !!window.Gracula,
+          icon: '🌐'
+        },
+        {
+          label: 'GlobalVoiceInputManager class',
+          value: !!window.Gracula?.GlobalVoiceInputManager,
+          icon: '🎤'
+        },
+        {
+          label: 'TranscriptionManager class',
+          value: !!window.Gracula?.TranscriptionManager,
+          icon: '📝'
+        },
+        {
+          label: 'GraculaApp instance',
+          value: !!window.Gracula?.app,
+          icon: '🧛'
+        },
+        {
+          label: 'Global voice instance',
+          value: !!(window.Gracula?.app?.globalVoiceInputManager || window.Gracula?.globalVoiceInput),
+          icon: '✅'
+        }
+      ];
+      
+      checks.forEach(check => {
+        const item = document.createElement('div');
+        item.className = 'status-item';
+        item.innerHTML = `
+          <span class="status-icon">${check.icon}</span>
+          <span class="status-label">${check.label}</span>
+          <span class="status-value">${check.value ? '✅ YES' : '❌ NO'}</span>
+        `;
+        container.appendChild(item);
+        
+        addLog(`${check.label}: ${check.value ? 'YES' : 'NO'}`);
+      });
+      
+      // Log available Gracula keys
+      if (window.Gracula) {
+        addLog(`Available Gracula keys: ${Object.keys(window.Gracula).join(', ')}`);
+      }
+    }
+    
+    // Auto-check on load
+    window.addEventListener('load', () => {
+      setTimeout(checkStatus, 500);
+    });
+    
+    // Capture console logs
+    const originalLog = console.log;
+    console.log = function(...args) {
+      originalLog.apply(console, args);
+      const message = args.map(arg => 
+        typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+      ).join(' ');
+      
+      if (message.includes('GLOBAL VOICE') || message.includes('🎤')) {
+        addLog(message);
+      }
+    };
+  </script>
+</body>
+</html>
+
