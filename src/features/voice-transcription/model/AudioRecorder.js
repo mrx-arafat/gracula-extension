@@ -58,24 +58,29 @@ window.Gracula.AudioRecorder = class {
     }
 
     try {
-      console.log('🎤 AudioRecorder: Requesting microphone access...');
-      
-      // Request microphone access with premium settings for ElevenLabs
-      this.audioStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 48000, // High sample rate for better quality
-          channelCount: 1, // Mono audio (sufficient for speech)
-          latency: 0 // Minimize latency for real-time feedback
-        }
-      });
+      // Reuse existing stream if available, otherwise request new one
+      if (!this.audioStream || !this.audioStream.active) {
+        console.log('🎤 AudioRecorder: Requesting microphone access...');
 
-      console.log('✅ AudioRecorder: Microphone access granted');
+        // Request microphone access with premium settings for ElevenLabs
+        this.audioStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            sampleRate: 48000, // High sample rate for better quality
+            channelCount: 1, // Mono audio (sufficient for speech)
+            latency: 0 // Minimize latency for real-time feedback
+          }
+        });
 
-      // Create audio context for level monitoring
-      this.setupAudioAnalyzer();
+        console.log('✅ AudioRecorder: Microphone access granted');
+
+        // Create audio context for level monitoring
+        this.setupAudioAnalyzer();
+      } else {
+        console.log('✅ AudioRecorder: Reusing existing microphone stream (instant start!)');
+      }
 
       // Create media recorder
       this.mediaRecorder = new MediaRecorder(this.audioStream, {
@@ -131,7 +136,7 @@ window.Gracula.AudioRecorder = class {
   }
 
   /**
-   * Stop recording audio
+   * Stop recording audio (keeps stream alive for next recording)
    */
   stopRecording() {
     if (!this.isRecording || !this.mediaRecorder) {
@@ -139,9 +144,15 @@ window.Gracula.AudioRecorder = class {
       return;
     }
 
-    console.log('🎤 AudioRecorder: Stopping recording...');
+    console.log('🎤 AudioRecorder: Stopping recording (keeping stream alive)...');
     this.mediaRecorder.stop();
     this.isRecording = false;
+
+    // Stop animation frame but keep stream alive
+    if (this.animationFrame) {
+      cancelAnimationFrame(this.animationFrame);
+      this.animationFrame = null;
+    }
   }
 
   /**
@@ -190,23 +201,43 @@ window.Gracula.AudioRecorder = class {
   }
 
   /**
-   * Cleanup resources
+   * Cleanup resources (but keep stream alive for reuse)
+   * Call releaseStream() to fully release the microphone
    */
   cleanup() {
-    console.log('🎤 AudioRecorder: Cleaning up...');
-    
+    console.log('🎤 AudioRecorder: Cleaning up (keeping stream alive)...');
+
     // Stop animation frame
     if (this.animationFrame) {
       cancelAnimationFrame(this.animationFrame);
       this.animationFrame = null;
     }
-    
+
+    // Note: We keep audioStream, audioContext, and analyser alive for reuse
+    // This allows instant recording on next use without permission prompt
+
+    this.isRecording = false;
+  }
+
+  /**
+   * Release the microphone stream completely
+   * Call this when you're done with recording (e.g., page unload)
+   */
+  releaseStream() {
+    console.log('🎤 AudioRecorder: Releasing microphone stream...');
+
+    // Stop animation frame
+    if (this.animationFrame) {
+      cancelAnimationFrame(this.animationFrame);
+      this.animationFrame = null;
+    }
+
     // Close audio context
     if (this.audioContext) {
       this.audioContext.close();
       this.audioContext = null;
     }
-    
+
     // Stop all audio tracks
     if (this.audioStream) {
       this.audioStream.getTracks().forEach(track => {
@@ -215,7 +246,7 @@ window.Gracula.AudioRecorder = class {
       });
       this.audioStream = null;
     }
-    
+
     this.analyser = null;
     this.isRecording = false;
   }
