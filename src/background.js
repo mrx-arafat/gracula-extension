@@ -372,32 +372,99 @@ function buildPrompt(tone, context, enhancedContext, responseMode = 'reply') {
   }
   // Mode 2: reply_friend (default) - Show friend's messages only
   else if (responseMode === 'reply_friend' || !responseMode) {
-    // Get all friend messages (not user's messages) for better context
-    const friendMessages = [];
-    if (Array.isArray(context) && context.length > 0) {
-      // Look backwards through context to find friend's messages
-      for (let i = context.length - 1; i >= 0 && friendMessages.length < 3; i--) {
-        const msg = context[i];
-        // Skip messages that look like they're from the user
-        // User messages typically start with "You:" or contain the user's name
-        if (!msg.includes(`${userName}:`) && !msg.startsWith('You:')) {
-          friendMessages.unshift(msg); // Add to beginning to maintain order
+    // Friend-focused, date-aware selection (Today → recent)
+    const rawMessages = Array.isArray(enhancedContext?.messages) ? enhancedContext.messages : null;
+    const friendFocus = [];
+
+    if (rawMessages && rawMessages.length > 0) {
+      const now = new Date();
+      const todayStr = now.toDateString();
+      const todayFriends = [];
+      const otherFriends = [];
+
+      // Walk from newest → oldest to find friend's messages
+      for (let i = rawMessages.length - 1; i >= 0; i--) {
+        const msg = rawMessages[i];
+        if (!msg) continue;
+
+        const isFromUser = msg.isOutgoing === true ||
+          (typeof msg.speaker === 'string' && msg.speaker.toLowerCase() === 'you') ||
+          (userName && typeof msg.speaker === 'string' && msg.speaker === userName);
+        if (isFromUser) continue;
+
+        let ts = null;
+        if (msg.timestamp) {
+          const parsed = new Date(msg.timestamp);
+          if (!isNaN(parsed)) {
+            ts = parsed;
+          }
+        }
+
+        const isToday = ts ? ts.toDateString() === todayStr : false;
+        const normalized = {
+          speaker: msg.speaker || friendName || 'Friend',
+          text: msg.text || '',
+          timestamp: ts,
+          dateLabel: ts ? (isToday ? 'Today' : ts.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })) : 'Earlier',
+          timeLabel: ts ? ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
+        };
+
+        if (isToday) {
+          todayFriends.push(normalized);
+        } else {
+          otherFriends.push(normalized);
+        }
+
+        // We don't need to scan the whole history - 6 today + 3 older is enough
+        if (todayFriends.length >= 6 && otherFriends.length >= 3) {
+          break;
+        }
+      }
+
+      // Decide how many to show
+      let selectedNewestFirst = [];
+      if (todayFriends.length >= 4) {
+        // Busy day → keep it tight (last 2–3 messages only)
+        selectedNewestFirst = todayFriends.slice(0, 3);
+      } else {
+        // Not too busy → take up to 6 total (today first, then recent)
+        selectedNewestFirst = todayFriends.concat(otherFriends).slice(0, 6);
+      }
+
+      // Output in chronological order (oldest → newest)
+      const selectedChrono = selectedNewestFirst.slice().reverse();
+      selectedChrono.forEach((m) => friendFocus.push(m));
+    } else {
+      // Fallback to old string-based extraction if enhanced messages are missing
+      if (Array.isArray(context) && context.length > 0) {
+        for (let i = context.length - 1; i >= 0 && friendFocus.length < 3; i--) {
+          const msg = context[i];
+          if (!msg.includes(`${userName}:`) && !msg.startsWith('You:')) {
+            friendFocus.unshift({
+              speaker: friendName || 'Friend',
+              text: msg,
+              dateLabel: 'Earlier',
+              timeLabel: ''
+            });
+          }
         }
       }
     }
 
-    // Show friend's messages prominently
-    if (friendMessages.length > 0) {
-      prompt += '=== 🎯🎯🎯 CRITICAL: REPLY TO THESE MESSAGES FROM YOUR FRIEND ===\n';
-      friendMessages.forEach((msg, idx) => {
-        prompt += `${idx + 1}. >>> ${msg} <<<\n`;
+    // Show friend's messages prominently (today-first)
+    if (friendFocus.length > 0) {
+      prompt += '=== 🎯🎯🎯 CRITICAL: REPLY TO YOUR FRIEND (TODAY-FIRST) ===\n';
+      friendFocus.forEach((m, idx) => {
+        const datePart = m.dateLabel ? m.dateLabel : 'Earlier';
+        const timePart = m.timeLabel ? ` ${m.timeLabel}` : '';
+        const speaker = m.speaker || friendName || 'Friend';
+        const text = m.text || '';
+        prompt += `${idx + 1}. [${datePart}${timePart}] >>> ${speaker}: "${text}" <<<\n`;
       });
       prompt += '\n';
-      prompt += `⚠️⚠️⚠️ YOUR REPLY MUST RESPOND TO YOUR FRIEND'S MESSAGES ABOVE!\n`;
-      prompt += `⚠️  These are what your FRIEND said - reply to THEM, not to yourself!\n`;
-      prompt += `⚠️  DO NOT refer to your own previous messages.\n`;
+      prompt += '🧠 Reply to the LAST friend message above, but keep the previous friend messages from today in mind.\n';
       prompt += `⚠️  IGNORE any messages from "${userName}" or "You".\n`;
-      prompt += `⚠️  Focus ONLY on what your FRIEND said in their messages.\n\n`;
+      prompt += '⚠️  If the friend sent multiple short messages in a row, treat them as ONE turn.\n\n';
     } else if (lastFriendMessage && lastFriendSpeaker) {
       // Fallback to single friend message if extraction failed
       prompt += '=== 🎯🎯🎯 CRITICAL: REPLY TO THIS MESSAGE ===\n';
@@ -515,11 +582,13 @@ function buildPrompt(tone, context, enhancedContext, responseMode = 'reply') {
   }
 
   if (lastFriendMessage && lastFriendSpeaker) {
-    prompt += `1. ⚠️⚠️⚠️ REPLY TO ${lastFriendSpeaker}'s message: "${lastFriendMessage}"\n`;
-    prompt += `2. ⚠️  DO NOT refer to your own previous messages\n`;
-    prompt += `3. ⚠️  Focus ONLY on what your FRIEND just said\n`;
-    prompt += `4. Stay on topic: ${currentTopic}\n`;
-    prompt += `5. Use ${tone.name} tone\n`;
+    prompt += `1. ⚠️⚠️⚠️ Reply to ${lastFriendSpeaker}'s MOST RECENT message (the last one shown in the friend block above)\n`;
+    prompt += '2. Use the earlier friend messages from TODAY (shown above) to keep continuity and to understand what she is talking about\n';
+    prompt += '3. 🚫 Do NOT add extra small-talk, jokes, or reunion lines like "where were you hiding?" or "long time no see" UNLESS the friend actually said that\n';
+    prompt += '4. 🚫 Do NOT invent background or reasons for the 1-month mention; treat it as part of the request\n';
+    prompt += '5. If the friend is asking for help ("I need some help", "for 1 month"), your reply MUST stay on that request and ask clarifying/follow-up if needed\n';
+    prompt += `6. Stay on topic: ${currentTopic}\n`;
+    prompt += `7. Use ${tone.name} tone\n`;
   } else {
     prompt += `1. Reply directly to the message marked with ">>>" above\n`;
     prompt += `2. Stay on topic: ${currentTopic}\n`;
@@ -790,6 +859,10 @@ async function callOpenRouterAPI(prompt, options = {}) {
 
   console.log('🧛 Gracula: OpenRouter max_tokens set to', maxTokens);
 
+  const isFriendReply = !options.responseMode || options.responseMode === 'reply_friend' || options.responseMode === 'reply';
+  const temperature = isFriendReply ? 0.35 : 0.7;
+  const topP = isFriendReply ? 0.85 : 0.9;
+
   const response = await fetch(url, {
     method: 'POST',
     headers,
@@ -802,8 +875,10 @@ async function callOpenRouterAPI(prompt, options = {}) {
         }
       ],
       max_tokens: maxTokens,
-      temperature: 0.7,
-      top_p: 0.9
+      temperature,
+      top_p: topP,
+      presence_penalty: isFriendReply ? 0.0 : 0.3,
+      frequency_penalty: isFriendReply ? 0.0 : 0.3
     })
   });
 
