@@ -573,6 +573,218 @@ window.Gracula.OfflineSuggestions.DATABASE = {
       'Beats me',
       'Your guess is as good as mine'
     ]
+  },
+
+  // NEW: Extended conversation patterns
+  extended: {
+    'just': [
+      'Just checking in',
+      'Just wanted to say hi',
+      'Just finished',
+      'Just got home',
+      'Just a moment'
+    ],
+    'by the way': [
+      'By the way, how are you?',
+      'By the way, did you hear?',
+      'By the way, I meant to tell you',
+      'By the way, thanks for earlier',
+      'By the way, are you free?'
+    ],
+    'actually': [
+      'Actually, I was thinking',
+      'Actually, that reminds me',
+      'Actually, I need to tell you',
+      'Actually, never mind',
+      'Actually, you\'re right'
+    ],
+    'honestly': [
+      'Honestly, I\'m not sure',
+      'Honestly, that sounds great',
+      'Honestly, I don\'t know',
+      'Honestly, I\'m tired',
+      'Honestly, you\'re amazing'
+    ],
+    'anyway': [
+      'Anyway, how are you?',
+      'Anyway, talk to you later',
+      'Anyway, I should go',
+      'Anyway, that\'s all',
+      'Anyway, moving on'
+    ],
+    'speaking of': [
+      'Speaking of which',
+      'Speaking of that',
+      'Speaking of you',
+      'Speaking of work',
+      'Speaking of plans'
+    ],
+    'by chance': [
+      'By chance, are you free?',
+      'By chance, do you know?',
+      'By chance, have you seen?',
+      'By chance, did you hear?',
+      'By chance, are you around?'
+    ],
+    'on second thought': [
+      'On second thought, let\'s do it',
+      'On second thought, maybe not',
+      'On second thought, I\'ll pass',
+      'On second thought, sounds good',
+      'On second thought, I\'ll join'
+    ]
+  },
+
+  // NEW: Modern chat expressions
+  modern: {
+    'tbh': [
+      'To be honest, I\'m not sure',
+      'To be honest, that\'s great',
+      'To be honest, I agree',
+      'To be honest, I\'m tired',
+      'To be honest, sounds good'
+    ],
+    'btw': [
+      'By the way, how are you?',
+      'By the way, thanks!',
+      'By the way, are you free?',
+      'By the way, I forgot to mention',
+      'By the way, did you see?'
+    ],
+    'omg': [
+      'Oh my god, really?',
+      'Oh my god, that\'s amazing!',
+      'Oh my god, I can\'t believe it',
+      'Oh my god, are you serious?',
+      'Oh my god, that\'s crazy!'
+    ],
+    'nvm': [
+      'Never mind',
+      'Never mind, got it',
+      'Never mind, I figured it out',
+      'Never mind, all good',
+      'Never mind, forget it'
+    ],
+    'brb': [
+      'Be right back',
+      'Be right back, one sec',
+      'Be right back in a bit',
+      'Be right back, gotta go',
+      'Be right back soon'
+    ],
+    'gtg': [
+      'Got to go',
+      'Got to go, talk later',
+      'Got to go, see you',
+      'Got to go now',
+      'Got to go, bye!'
+    ],
+    'rn': [
+      'Right now',
+      'Not right now',
+      'Right now I\'m busy',
+      'Right now works',
+      'Right now is good'
+    ]
+  },
+
+  // NEW: Planning and scheduling
+  planning: {
+    'when do': [
+      'When do you want to meet?',
+      'When do you need it?',
+      'When do you leave?',
+      'When do you think?',
+      'When do you arrive?'
+    ],
+    'how about': [
+      'How about tomorrow?',
+      'How about this weekend?',
+      'How about 3pm?',
+      'How about we meet at',
+      'How about another time?'
+    ],
+    'would you like': [
+      'Would you like to join?',
+      'Would you like to meet up?',
+      'Would you like some help?',
+      'Would you like to come?',
+      'Would you like me to'
+    ],
+    'are you available': [
+      'Are you available tomorrow?',
+      'Are you available this week?',
+      'Are you available tonight?',
+      'Are you available for a call?',
+      'Are you available to meet?'
+    ],
+    'let\'s meet': [
+      'Let\'s meet up soon',
+      'Let\'s meet at the usual place',
+      'Let\'s meet tomorrow',
+      'Let\'s meet this weekend',
+      'Let\'s meet for lunch'
+    ],
+    'i\'m free': [
+      'I\'m free tomorrow',
+      'I\'m free tonight',
+      'I\'m free this weekend',
+      'I\'m free after 5',
+      'I\'m free whenever'
+    ]
+  },
+
+  // NEW: Reactions and responses
+  reactions: {
+    'wow': [
+      'Wow, that\'s amazing!',
+      'Wow, really?',
+      'Wow, I didn\'t know',
+      'Wow, that\'s crazy!',
+      'Wow, impressive!'
+    ],
+    'haha': [
+      'Haha, that\'s funny!',
+      'Haha, good one!',
+      'Haha, I know right?',
+      'Haha, classic!',
+      'Haha, love it!'
+    ],
+    'oh no': [
+      'Oh no, I\'m sorry',
+      'Oh no, that\'s terrible',
+      'Oh no, what happened?',
+      'Oh no, hope it gets better',
+      'Oh no, let me know if I can help'
+    ],
+    'oh yeah': [
+      'Oh yeah, I remember',
+      'Oh yeah, totally',
+      'Oh yeah, for sure',
+      'Oh yeah, that reminds me',
+      'Oh yeah, I forgot about that'
+    ],
+    'exactly': [
+      'Exactly what I was thinking',
+      'Exactly!',
+      'Exactly my point',
+      'Exactly right',
+      'Exactly, I agree'
+    ],
+    'true': [
+      'True that',
+      'True, you\'re right',
+      'True, I didn\'t think of that',
+      'True, good point',
+      'True, can\'t argue with that'
+    ],
+    'fair enough': [
+      'Fair enough',
+      'Fair enough, I understand',
+      'Fair enough, makes sense',
+      'Fair enough, I agree',
+      'Fair enough, can\'t complain'
+    ]
   }
 };
 

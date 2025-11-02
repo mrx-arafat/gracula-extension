@@ -12,9 +12,10 @@ window.Gracula.AutocompleteManager = class {
 
     // Settings
     this.minChars = options.minChars || 2; // Minimum characters to trigger (reduced for faster response)
-    this.debounceDelay = options.debounceDelay || 200; // SUPERFAST: reduced from 500ms to 200ms
+    this.debounceDelay = options.debounceDelay || 100; // ULTRA-FAST: reduced from 200ms to 100ms
     this.enabled = true;
     this.instantMode = options.instantMode !== false; // Enable instant predictions
+    this.maxSuggestions = 5; // Increased from 3 to 5
 
     // State
     this.debounceTimer = null;
@@ -23,11 +24,12 @@ window.Gracula.AutocompleteManager = class {
     this.abortController = null;
     this.isInserting = false; // Flag to prevent dual insertion
 
-    // NEW: Smart caching for instant responses
+    // NEW: Smart caching for instant responses (LRU cache)
     this.cache = new Map(); // Cache predictions by context + partial text
+    this.cacheMaxSize = 50; // LRU cache size
     this.contextCache = null; // Cache extracted context
     this.lastContextUpdate = 0;
-    this.contextCacheDuration = 5000; // Cache context for 5 seconds
+    this.contextCacheDuration = 10000; // Cache context for 10 seconds (increased from 5s)
 
     // NEW: Predictive pre-generation
     this.commonStarters = ['hi', 'hey', 'hello', 'yes', 'no', 'ok', 'okay', 'sure', 'thanks', 'thank'];
@@ -38,6 +40,10 @@ window.Gracula.AutocompleteManager = class {
     this.useAI = false; // Will be loaded from config
     this.initializeOfflineSuggestions();
     this.loadAIConfig();
+
+    // NEW: N-gram phrase predictor
+    this.phrasePredictor = null;
+    this.initializePhrasePredictor();
 
     // Bind event handlers
     this.handleInput = this.handleInput.bind(this);
@@ -51,9 +57,21 @@ window.Gracula.AutocompleteManager = class {
   initializeOfflineSuggestions() {
     if (window.Gracula.OfflineSuggestions && window.Gracula.OfflineSuggestions.PatternMatcher) {
       this.patternMatcher = new window.Gracula.OfflineSuggestions.PatternMatcher();
-      console.log('🧛 Autocomplete: Offline suggestion system initialized');
+      console.log('⚡ Autocomplete: Offline suggestion system initialized');
     } else {
-      console.warn('🧛 Autocomplete: Offline suggestion system not loaded');
+      console.warn('⚠️ Autocomplete: Offline suggestion system not loaded');
+    }
+  }
+
+  /**
+   * Initialize n-gram phrase predictor
+   */
+  initializePhrasePredictor() {
+    if (window.Gracula.PhrasePredictor) {
+      this.phrasePredictor = new window.Gracula.PhrasePredictor();
+      console.log('⚡ Autocomplete: Phrase predictor initialized');
+    } else {
+      console.warn('⚠️ Autocomplete: Phrase predictor not loaded');
     }
   }
 
@@ -250,10 +268,13 @@ window.Gracula.AutocompleteManager = class {
     try {
       // console.log('🧛 Autocomplete: Generating suggestions for:', partialText);
 
-      // NEW: Check cache first for instant response
+      // NEW: Check cache first for instant response (LRU cache)
       const cacheKey = this.getCacheKey(partialText);
       if (this.cache.has(cacheKey)) {
         const cachedSuggestions = this.cache.get(cacheKey);
+        // Move to end for LRU
+        this.cache.delete(cacheKey);
+        this.cache.set(cacheKey, cachedSuggestions);
         // console.log('⚡ Autocomplete: Using CACHED suggestions (INSTANT)');
         this.autocompleteDropdown?.show(cachedSuggestions, this.inputField);
         this.isGenerating = false;
@@ -268,30 +289,41 @@ window.Gracula.AutocompleteManager = class {
       // Analyze partial text with smart prediction
       const analysis = this.analyzePartialText(partialText);
 
-      // NEW: If AI is disabled, use offline suggestions only
-      if (!this.useAI && this.patternMatcher) {
-        console.log('🔵 Autocomplete: Using OFFLINE suggestions (AI disabled)');
-        const offlineSuggestions = this.patternMatcher.findSuggestions(partialText, simpleContext);
+      // NEW HYBRID MODE: Always show offline suggestions first (instant), then enhance with AI
+      if (!this.useAI) {
+        // Pure offline mode - use pattern matcher + n-gram predictor
+        const suggestions = this.generateHybridSuggestions(partialText, simpleContext, analysis);
 
-        if (offlineSuggestions && offlineSuggestions.length > 0) {
-          this.cache.set(cacheKey, offlineSuggestions);
-          this.autocompleteDropdown?.show(offlineSuggestions, this.inputField);
+        if (suggestions && suggestions.length > 0) {
+          this.addToCache(cacheKey, suggestions);
+          this.autocompleteDropdown?.show(suggestions, this.inputField);
         } else {
           this.autocompleteDropdown?.hide();
+        }
+
+        // Learn from user's typing
+        if (this.phrasePredictor) {
+          this.phrasePredictor.learn(partialText);
         }
 
         this.isGenerating = false;
         return;
       }
 
-      // AI is enabled - use instant predictions first, then fetch AI suggestions
-      const instantSuggestions = this.getInstantPredictions(partialText, analysis, enhancedContext);
-      if (instantSuggestions && instantSuggestions.length > 0) {
-        // console.log('⚡ Autocomplete: Using INSTANT predictions');
-        this.autocompleteDropdown?.show(instantSuggestions, this.inputField);
+      // AI is enabled - HYBRID MODE: show instant offline first, then enhance with AI
+      const hybridSuggestions = this.generateHybridSuggestions(partialText, simpleContext, analysis);
+      if (hybridSuggestions && hybridSuggestions.length > 0) {
+        // console.log('⚡ Autocomplete: Using HYBRID suggestions (instant)');
+        this.autocompleteDropdown?.show(hybridSuggestions, this.inputField);
 
-        // Still fetch AI suggestions in background and update
-        this.fetchAISuggestionsInBackground(partialText, analysis, simpleContext, enhancedContext);
+        // Fetch AI suggestions in background and merge/update
+        this.fetchAISuggestionsInBackground(partialText, analysis, simpleContext, enhancedContext, hybridSuggestions);
+
+        // Learn from user's typing
+        if (this.phrasePredictor) {
+          this.phrasePredictor.learn(partialText);
+        }
+
         this.isGenerating = false;
         return;
       }
@@ -304,10 +336,15 @@ window.Gracula.AutocompleteManager = class {
         enhancedContext
       });
 
-      // Cache the results for next time
+      // Cache the results for next time (LRU)
       if (suggestions && suggestions.length > 0) {
-        this.cache.set(cacheKey, suggestions);
+        this.addToCache(cacheKey, suggestions);
         this.autocompleteDropdown?.show(suggestions, this.inputField);
+
+        // Learn from AI suggestions too
+        if (this.phrasePredictor) {
+          suggestions.forEach(sugg => this.phrasePredictor.learn(sugg));
+        }
       } else {
         this.autocompleteDropdown?.hide();
       }
@@ -725,6 +762,114 @@ window.Gracula.AutocompleteManager = class {
   }
 
   /**
+   * Generate hybrid suggestions combining offline patterns + n-gram predictions
+   * Returns 5 diverse, high-quality suggestions
+   */
+  generateHybridSuggestions(partialText, context, analysis) {
+    const suggestions = [];
+    const suggestionSet = new Set();
+
+    // Helper to add unique suggestion with metadata
+    const addSuggestion = (text, source, confidence) => {
+      const key = text.toLowerCase().trim();
+      if (!suggestionSet.has(key)) {
+        suggestionSet.add(key);
+        suggestions.push({ text, source, confidence });
+      }
+    };
+
+    // 1. N-gram predictions (highest priority for continuations)
+    if (this.phrasePredictor) {
+      const ngramPredictions = this.phrasePredictor.predict(partialText, 5);
+      ngramPredictions.forEach(pred => {
+        const confidence = this.phrasePredictor.getConfidence(pred, partialText);
+        addSuggestion(pred, 'ngram', confidence);
+      });
+    }
+
+    // 2. Pattern matcher suggestions
+    if (this.patternMatcher) {
+      const patternSuggestions = this.patternMatcher.findSuggestions(partialText, context);
+      patternSuggestions.forEach(sugg => {
+        addSuggestion(sugg, 'pattern', 0.8);
+      });
+    }
+
+    // 3. Context-aware instant predictions
+    const instantPreds = this.getInstantPredictions(partialText, analysis, {});
+    if (instantPreds && instantPreds.length > 0) {
+      instantPreds.forEach(pred => {
+        addSuggestion(pred, 'instant', 0.75);
+      });
+    }
+
+    // Sort by confidence and ensure diversity
+    suggestions.sort((a, b) => b.confidence - a.confidence);
+    const diverse = this.ensureDiversity(suggestions);
+
+    // Return top 5 with just the text (backward compatible)
+    return diverse.slice(0, this.maxSuggestions).map(s => s.text);
+  }
+
+  /**
+   * Ensure diversity in suggestions (avoid too similar results)
+   */
+  ensureDiversity(suggestions) {
+    if (suggestions.length <= this.maxSuggestions) return suggestions;
+
+    const diverse = [suggestions[0]]; // Always keep the best
+    const minJaccardDistance = 0.4; // Require at least 40% difference
+
+    for (let i = 1; i < suggestions.length; i++) {
+      const candidate = suggestions[i];
+      let isDifferent = true;
+
+      // Check similarity with already selected suggestions
+      for (const selected of diverse) {
+        const similarity = this.calculateJaccardSimilarity(candidate.text, selected.text);
+        if (similarity > minJaccardDistance) {
+          isDifferent = false;
+          break;
+        }
+      }
+
+      if (isDifferent) {
+        diverse.push(candidate);
+      }
+
+      if (diverse.length >= this.maxSuggestions) break;
+    }
+
+    return diverse;
+  }
+
+  /**
+   * Calculate Jaccard similarity between two texts
+   */
+  calculateJaccardSimilarity(text1, text2) {
+    const words1 = new Set(text1.toLowerCase().split(/\s+/));
+    const words2 = new Set(text2.toLowerCase().split(/\s+/));
+
+    const intersection = new Set([...words1].filter(x => words2.has(x)));
+    const union = new Set([...words1, ...words2]);
+
+    return intersection.size / union.size;
+  }
+
+  /**
+   * Add suggestion to LRU cache
+   */
+  addToCache(key, suggestions) {
+    // Remove oldest if cache is full
+    if (this.cache.size >= this.cacheMaxSize) {
+      const firstKey = this.cache.keys().next().value;
+      this.cache.delete(firstKey);
+    }
+
+    this.cache.set(key, suggestions);
+  }
+
+  /**
    * Destroy autocomplete manager
    */
   destroy() {
@@ -734,6 +879,11 @@ window.Gracula.AutocompleteManager = class {
     this.contextExtractor = null;
     this.cache.clear();
     this.preGeneratedSuggestions.clear();
+
+    // Save phrase predictor data
+    if (this.phrasePredictor) {
+      this.phrasePredictor.save();
+    }
   }
 
   // ========================================
@@ -1237,32 +1387,77 @@ window.Gracula.AutocompleteManager = class {
   }
 
   /**
-   * Fetch AI suggestions in background and update dropdown
+   * Fetch AI suggestions in background and merge with offline suggestions
+   * ENHANCED: Merges AI with existing offline suggestions for best of both worlds
    */
-  async fetchAISuggestionsInBackground(partialText, analysis, context, enhancedContext) {
+  async fetchAISuggestionsInBackground(partialText, analysis, context, enhancedContext, existingOffline = []) {
     try {
-      const suggestions = await this.requestAutocompletions({
+      const aiSuggestions = await this.requestAutocompletions({
         partialText,
         analysis,
         context,
         enhancedContext
       });
 
-      if (suggestions && suggestions.length > 0) {
-        // Cache for next time
+      if (aiSuggestions && aiSuggestions.length > 0) {
+        // Merge AI with offline suggestions
+        const merged = this.mergeAIWithOffline(aiSuggestions, existingOffline);
+
+        // Cache for next time (LRU)
         const cacheKey = this.getCacheKey(partialText);
-        this.cache.set(cacheKey, suggestions);
+        this.addToCache(cacheKey, merged);
 
         // Update dropdown if still visible and text hasn't changed
         const currentText = this.getInputText();
         if (currentText === partialText && this.autocompleteDropdown?.isVisible) {
-          this.autocompleteDropdown.show(suggestions, this.inputField);
-          // console.log('⚡ Updated with AI suggestions');
+          this.autocompleteDropdown.show(merged, this.inputField);
+          // console.log('🤖 Updated with AI + offline merged suggestions');
+        }
+
+        // Learn from AI suggestions
+        if (this.phrasePredictor) {
+          aiSuggestions.forEach(sugg => this.phrasePredictor.learn(sugg));
         }
       }
     } catch (error) {
       // console.log('Background AI fetch failed:', error);
+      // Offline suggestions already shown, no problem
     }
+  }
+
+  /**
+   * Merge AI suggestions with offline suggestions intelligently
+   * Returns top 5 best suggestions from both sources
+   */
+  mergeAIWithOffline(aiSuggestions, offlineSuggestions) {
+    const combined = [];
+    const seen = new Set();
+
+    // Helper to add unique suggestions
+    const addUnique = (text, source, score) => {
+      const key = text.toLowerCase().trim();
+      if (!seen.has(key)) {
+        seen.add(key);
+        combined.push({ text, source, score });
+      }
+    };
+
+    // Add AI suggestions with high priority
+    aiSuggestions.forEach(sugg => {
+      addUnique(sugg, 'ai', 0.9);
+    });
+
+    // Add offline suggestions with medium priority
+    offlineSuggestions.forEach(sugg => {
+      addUnique(sugg, 'offline', 0.7);
+    });
+
+    // Sort by score and ensure diversity
+    combined.sort((a, b) => b.score - a.score);
+    const diverse = combined; // Already diverse from different sources
+
+    // Return top 5 text only
+    return diverse.slice(0, this.maxSuggestions).map(s => s.text);
   }
 
   /**

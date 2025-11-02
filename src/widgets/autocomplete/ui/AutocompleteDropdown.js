@@ -1,5 +1,5 @@
-// Autocomplete Dropdown Widget
-// Shows inline suggestions while user is typing
+// Autocomplete Dropdown Widget - REVAMPED
+// Modern glassmorphic design with 5 suggestions, cursor-following, and visual indicators
 
 window.Gracula = window.Gracula || {};
 
@@ -12,16 +12,21 @@ window.Gracula.AutocompleteDropdown = class {
     this.isVisible = false;
     this.container = null;
     this.inputField = null;
+    this.maxSuggestions = 5; // Increased from 3 to 5
+    this.cursorPosition = null;
   }
 
   /**
    * Show autocomplete dropdown with suggestions
    */
   show(suggestions, inputField) {
-    this.suggestions = suggestions;
+    this.suggestions = suggestions.slice(0, this.maxSuggestions); // Top 5
     this.selectedIndex = 0;
     this.isVisible = true;
     this.inputField = inputField;
+
+    // Store cursor position for better positioning
+    this.updateCursorPosition();
 
     // Create or update dropdown
     if (!this.container) {
@@ -29,8 +34,11 @@ window.Gracula.AutocompleteDropdown = class {
     }
 
     this.updateContent();
-    this.position();
+    this.positionNearCursor();
     this.container.style.display = 'block';
+
+    // Trigger entrance animation
+    this.animateEntrance();
   }
 
   /**
@@ -42,165 +50,418 @@ window.Gracula.AutocompleteDropdown = class {
     this.selectedIndex = 0;
 
     if (this.container) {
-      this.container.style.display = 'none';
+      // Smooth exit animation
+      this.container.style.animation = 'slideOut 0.1s ease-in';
+      setTimeout(() => {
+        this.container.style.display = 'none';
+        this.container.style.animation = '';
+      }, 100);
     }
   }
 
   /**
-   * Create dropdown DOM element
+   * Create dropdown DOM element with glassmorphic design
    */
   createDropdown() {
     this.container = document.createElement('div');
-    this.container.className = 'gracula-autocomplete-dropdown';
-    this.container.style.cssText = `
-      position: fixed;
-      z-index: 2147483647;
-      background: white;
-      border: 2px solid #667eea;
-      border-radius: 12px;
-      box-shadow: 0 8px 24px rgba(102, 126, 234, 0.25), 0 2px 8px rgba(0, 0, 0, 0.1);
-      max-width: 500px;
-      min-width: 350px;
-      max-height: 280px;
-      overflow-y: auto;
-      display: none;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      animation: slideIn 0.2s ease-out;
-    `;
+    this.container.className = 'gracula-autocomplete-dropdown-v2';
 
-    // Add slide-in animation
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes slideIn {
-        from {
-          opacity: 0;
-          transform: translateY(-10px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-      .gracula-autocomplete-dropdown::-webkit-scrollbar {
-        width: 8px;
-      }
-      .gracula-autocomplete-dropdown::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 8px;
-      }
-      .gracula-autocomplete-dropdown::-webkit-scrollbar-thumb {
-        background: #667eea;
-        border-radius: 8px;
-      }
-      .gracula-autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
-        background: #5568d3;
-      }
-    `;
-    document.head.appendChild(style);
+    // Inject modern glassmorphic styles
+    this.injectStyles();
 
     document.body.appendChild(this.container);
   }
 
   /**
-   * Update dropdown content with suggestions
+   * Inject modern styles
+   */
+  injectStyles() {
+    if (document.getElementById('gracula-autocomplete-v2-styles')) return;
+
+    const style = document.createElement('style');
+    style.id = 'gracula-autocomplete-v2-styles';
+    style.textContent = `
+      /* Container - Glassmorphic Design */
+      .gracula-autocomplete-dropdown-v2 {
+        position: fixed;
+        z-index: 2147483647;
+
+        /* Glassmorphism */
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+
+        /* Border with gradient */
+        border: 2px solid transparent;
+        background-clip: padding-box;
+        position: relative;
+
+        /* Rounded corners */
+        border-radius: 16px;
+
+        /* Shadows for depth */
+        box-shadow:
+          0 8px 32px rgba(102, 126, 234, 0.2),
+          0 4px 16px rgba(0, 0, 0, 0.1),
+          inset 0 1px 0 rgba(255, 255, 255, 0.8);
+
+        /* Sizing */
+        min-width: 380px;
+        max-width: 520px;
+        max-height: 400px;
+        overflow: hidden;
+
+        /* Typography */
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+
+        /* Hide by default */
+        display: none;
+      }
+
+      /* Gradient border effect */
+      .gracula-autocomplete-dropdown-v2::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        border-radius: 16px;
+        padding: 2px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        pointer-events: none;
+      }
+
+      /* Animations */
+      @keyframes slideInFade {
+        from {
+          opacity: 0;
+          transform: translateY(-8px) scale(0.97);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      @keyframes slideOut {
+        from {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+        to {
+          opacity: 0;
+          transform: translateY(-8px) scale(0.97);
+        }
+      }
+
+      /* Header */
+      .gracula-autocomplete-header-v2 {
+        padding: 12px 16px;
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
+        border-bottom: 1px solid rgba(102, 126, 234, 0.15);
+        backdrop-filter: blur(10px);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .gracula-autocomplete-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #667eea;
+        letter-spacing: -0.2px;
+      }
+
+      .gracula-autocomplete-title .icon {
+        font-size: 18px;
+        filter: drop-shadow(0 2px 4px rgba(102, 126, 234, 0.3));
+      }
+
+      .gracula-autocomplete-shortcuts {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .gracula-autocomplete-kbd {
+        padding: 3px 6px;
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid rgba(102, 126, 234, 0.2);
+        border-radius: 4px;
+        font-size: 9px;
+        font-weight: 600;
+        color: #667eea;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+      }
+
+      /* Suggestions Container */
+      .gracula-autocomplete-suggestions {
+        padding: 8px;
+        max-height: 300px;
+        overflow-y: auto;
+      }
+
+      /* Custom Scrollbar */
+      .gracula-autocomplete-suggestions::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .gracula-autocomplete-suggestions::-webkit-scrollbar-track {
+        background: rgba(102, 126, 234, 0.05);
+        border-radius: 3px;
+        margin: 4px;
+      }
+
+      .gracula-autocomplete-suggestions::-webkit-scrollbar-thumb {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 3px;
+      }
+
+      .gracula-autocomplete-suggestions::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(135deg, #5568d3 0%, #5f3a85 100%);
+      }
+
+      /* Suggestion Item */
+      .gracula-autocomplete-item-v2 {
+        padding: 12px 14px;
+        margin: 4px 0;
+        border-radius: 10px;
+        cursor: pointer;
+        font-size: 14px;
+        line-height: 1.5;
+        transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+        background: rgba(255, 255, 255, 0.5);
+        border: 1px solid transparent;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .gracula-autocomplete-item-v2:hover {
+        background: rgba(102, 126, 234, 0.08);
+        border-color: rgba(102, 126, 234, 0.2);
+        transform: translateX(2px);
+      }
+
+      .gracula-autocomplete-item-v2.selected {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-color: transparent;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.35);
+        transform: translateX(4px) scale(1.01);
+      }
+
+      /* Source indicator */
+      .gracula-autocomplete-source {
+        font-size: 16px;
+        flex-shrink: 0;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+        transition: transform 0.15s ease;
+      }
+
+      .gracula-autocomplete-item-v2:hover .gracula-autocomplete-source {
+        transform: scale(1.15);
+      }
+
+      .gracula-autocomplete-item-v2.selected .gracula-autocomplete-source {
+        filter: drop-shadow(0 2px 6px rgba(255, 255, 255, 0.5));
+      }
+
+      /* Suggestion text */
+      .gracula-autocomplete-text {
+        flex: 1;
+        color: #333;
+        font-weight: 500;
+        letter-spacing: -0.2px;
+      }
+
+      .gracula-autocomplete-item-v2.selected .gracula-autocomplete-text {
+        color: white;
+        font-weight: 600;
+      }
+
+      /* Number indicator */
+      .gracula-autocomplete-number {
+        font-size: 10px;
+        font-weight: 700;
+        color: rgba(102, 126, 234, 0.6);
+        background: rgba(102, 126, 234, 0.1);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: 'SF Mono', Monaco, monospace;
+      }
+
+      .gracula-autocomplete-item-v2.selected .gracula-autocomplete-number {
+        background: rgba(255, 255, 255, 0.25);
+        color: white;
+      }
+
+      /* Loading State */
+      .gracula-autocomplete-loading {
+        padding: 32px 16px;
+        text-align: center;
+        color: #667eea;
+      }
+
+      .gracula-autocomplete-loading-dots {
+        display: inline-flex;
+        gap: 6px;
+        margin-bottom: 12px;
+      }
+
+      .gracula-autocomplete-loading-dot {
+        width: 10px;
+        height: 10px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 50%;
+        animation: bounceDot 1.4s infinite ease-in-out both;
+      }
+
+      .gracula-autocomplete-loading-dot:nth-child(1) { animation-delay: -0.32s; }
+      .gracula-autocomplete-loading-dot:nth-child(2) { animation-delay: -0.16s; }
+      .gracula-autocomplete-loading-dot:nth-child(3) { animation-delay: 0s; }
+
+      @keyframes bounceDot {
+        0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
+        40% { transform: scale(1.0); opacity: 1; }
+      }
+
+      .gracula-autocomplete-loading-text {
+        font-size: 13px;
+        font-weight: 500;
+        color: #667eea;
+      }
+
+      /* Footer */
+      .gracula-autocomplete-footer-v2 {
+        padding: 10px 16px;
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+        border-top: 1px solid rgba(102, 126, 234, 0.15);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .gracula-autocomplete-count {
+        font-size: 11px;
+        font-weight: 600;
+        color: #667eea;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .gracula-autocomplete-hints {
+        display: flex;
+        gap: 8px;
+        font-size: 10px;
+        color: #999;
+      }
+
+      .gracula-autocomplete-hint {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      /* Entrance animation */
+      .gracula-autocomplete-dropdown-v2.animating {
+        animation: slideInFade 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      /* Shimmer effect on loading */
+      @keyframes shimmer {
+        0% { background-position: -200px 0; }
+        100% { background-position: 200px 0; }
+      }
+
+      .gracula-autocomplete-shimmer {
+        background: linear-gradient(90deg,
+          transparent 0%,
+          rgba(102, 126, 234, 0.1) 50%,
+          transparent 100%
+        );
+        background-size: 200px 100%;
+        animation: shimmer 1.5s infinite;
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  /**
+   * Update dropdown content with modern UI
    */
   updateContent() {
     if (!this.container) return;
 
     this.container.innerHTML = '';
 
+    // Loading state
     if (this.suggestions.length === 0) {
-      const emptyState = document.createElement('div');
-      emptyState.className = 'gracula-autocomplete-empty';
-      emptyState.innerHTML = `
-        <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
-          <div style="display: flex; gap: 4px;">
-            <div style="width: 8px; height: 8px; background: #667eea; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; animation-delay: -0.32s;"></div>
-            <div style="width: 8px; height: 8px; background: #667eea; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; animation-delay: -0.16s;"></div>
-            <div style="width: 8px; height: 8px; background: #667eea; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both;"></div>
-          </div>
-          <span style="color: #667eea; font-weight: 500; font-size: 13px;">Generating suggestions...</span>
+      const loadingState = document.createElement('div');
+      loadingState.className = 'gracula-autocomplete-loading';
+      loadingState.innerHTML = `
+        <div class="gracula-autocomplete-loading-dots">
+          <div class="gracula-autocomplete-loading-dot"></div>
+          <div class="gracula-autocomplete-loading-dot"></div>
+          <div class="gracula-autocomplete-loading-dot"></div>
         </div>
+        <div class="gracula-autocomplete-loading-text">Generating suggestions...</div>
       `;
-      emptyState.style.cssText = `
-        padding: 24px 16px;
-        color: #666;
-        font-size: 14px;
-        text-align: center;
-      `;
-
-      // Add bounce animation
-      const style = document.createElement('style');
-      style.textContent = `
-        @keyframes bounce {
-          0%, 80%, 100% {
-            transform: scale(0);
-          }
-          40% {
-            transform: scale(1);
-          }
-        }
-      `;
-      if (!document.getElementById('gracula-bounce-animation')) {
-        style.id = 'gracula-bounce-animation';
-        document.head.appendChild(style);
-      }
-
-      this.container.appendChild(emptyState);
+      this.container.appendChild(loadingState);
       return;
     }
 
     // Header
     const header = document.createElement('div');
-    header.className = 'gracula-autocomplete-header';
+    header.className = 'gracula-autocomplete-header-v2';
     header.innerHTML = `
-      <div style="display: flex; align-items: center; justify-content: space-between;">
-        <div style="display: flex; align-items: center; gap: 6px;">
-          <span style="font-size: 16px;">⚡</span>
-          <strong style="font-size: 13px; font-weight: 600;">Gracula <span style="color: #764ba2;">SUPERFAST</span></strong>
-        </div>
-        <div style="font-size: 10px; color: #667eea; opacity: 0.9; display: flex; gap: 4px; flex-wrap: wrap;">
-          <kbd style="padding: 2px 5px; background: white; border: 1px solid #ddd; border-radius: 3px; font-size: 9px;">Click</kbd>
-          <kbd style="padding: 2px 5px; background: white; border: 1px solid #ddd; border-radius: 3px; font-size: 9px;">Enter</kbd>
-          <kbd style="padding: 2px 5px; background: white; border: 1px solid #ddd; border-radius: 3px; font-size: 9px;">Tab</kbd>
-          <kbd style="padding: 2px 5px; background: white; border: 1px solid #ddd; border-radius: 3px; font-size: 9px;">↓↑</kbd>
-        </div>
+      <div class="gracula-autocomplete-title">
+        <span class="icon">⚡</span>
+        <span>Smart Suggestions</span>
       </div>
-    `;
-    header.style.cssText = `
-      padding: 10px 14px;
-      font-size: 12px;
-      color: #667eea;
-      border-bottom: 2px solid #e8ebfa;
-      background: linear-gradient(135deg, #f8f9ff 0%, #f0f2ff 100%);
-      border-radius: 10px 10px 0 0;
-      position: sticky;
-      top: 0;
-      z-index: 10;
+      <div class="gracula-autocomplete-shortcuts">
+        <kbd class="gracula-autocomplete-kbd">1-${this.suggestions.length}</kbd>
+        <kbd class="gracula-autocomplete-kbd">↓↑</kbd>
+        <kbd class="gracula-autocomplete-kbd">Enter</kbd>
+        <kbd class="gracula-autocomplete-kbd">Esc</kbd>
+      </div>
     `;
     this.container.appendChild(header);
 
-    // Suggestions
+    // Suggestions container
+    const suggestionsContainer = document.createElement('div');
+    suggestionsContainer.className = 'gracula-autocomplete-suggestions';
+
+    // Suggestion items
     this.suggestions.forEach((suggestion, index) => {
       const item = document.createElement('div');
-      item.className = 'gracula-autocomplete-item';
+      item.className = 'gracula-autocomplete-item-v2';
       item.dataset.index = index;
-      item.textContent = suggestion;
+
+      // Determine source icon
+      const sourceIcon = this.getSourceIcon(suggestion);
 
       const isSelected = index === this.selectedIndex;
-      item.style.cssText = `
-        padding: 12px 16px;
-        cursor: pointer;
-        font-size: 14px;
-        line-height: 1.6;
-        transition: all 0.15s ease;
-        background: ${isSelected ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'white'};
-        color: ${isSelected ? 'white' : '#333'};
-        border-left: 4px solid ${isSelected ? '#764ba2' : 'transparent'};
-        margin: 4px 6px;
-        border-radius: 6px;
-        box-shadow: ${isSelected ? '0 2px 8px rgba(102, 126, 234, 0.3)' : 'none'};
-        transform: ${isSelected ? 'translateX(2px)' : 'translateX(0)'};
+      if (isSelected) {
+        item.classList.add('selected');
+      }
+
+      item.innerHTML = `
+        <span class="gracula-autocomplete-source">${sourceIcon}</span>
+        <span class="gracula-autocomplete-text">${this.escapeHtml(suggestion)}</span>
+        <kbd class="gracula-autocomplete-number">${index + 1}</kbd>
       `;
 
       // Hover effect
@@ -209,7 +470,7 @@ window.Gracula.AutocompleteDropdown = class {
         this.updateContent();
       });
 
-      // Single click to select
+      // Click to select
       item.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -217,85 +478,153 @@ window.Gracula.AutocompleteDropdown = class {
         this.selectCurrent();
       });
 
-      // Double click to select (faster response)
-      item.addEventListener('dblclick', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.selectedIndex = index;
-        this.selectCurrent();
-      });
-
-      this.container.appendChild(item);
+      suggestionsContainer.appendChild(item);
     });
+
+    this.container.appendChild(suggestionsContainer);
 
     // Footer
     const footer = document.createElement('div');
-    footer.className = 'gracula-autocomplete-footer';
+    footer.className = 'gracula-autocomplete-footer-v2';
     footer.innerHTML = `
-      <div style="display: flex; align-items: center; justify-content: space-between;">
-        <span style="color: #667eea; font-weight: 500; font-size: 11px;">⚡ ${this.suggestions.length} instant suggestion${this.suggestions.length !== 1 ? 's' : ''}</span>
-        <span style="color: #999; font-size: 10px; display: flex; align-items: center; gap: 6px;">
-          <span><kbd style="padding: 2px 5px; background: white; border: 1px solid #ddd; border-radius: 3px; font-size: 9px;">Enter</kbd> select</span>
-          <span><kbd style="padding: 2px 5px; background: white; border: 1px solid #ddd; border-radius: 3px; font-size: 9px;">Esc</kbd> dismiss</span>
+      <div class="gracula-autocomplete-count">
+        <span>⚡</span>
+        <span>${this.suggestions.length} suggestion${this.suggestions.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="gracula-autocomplete-hints">
+        <span class="gracula-autocomplete-hint">
+          <kbd class="gracula-autocomplete-kbd">Enter</kbd> select
+        </span>
+        <span class="gracula-autocomplete-hint">
+          <kbd class="gracula-autocomplete-kbd">Esc</kbd> dismiss
         </span>
       </div>
-    `;
-    footer.style.cssText = `
-      padding: 8px 14px;
-      font-size: 11px;
-      color: #999;
-      border-top: 2px solid #e8ebfa;
-      background: linear-gradient(135deg, #f8f9ff 0%, #f0f2ff 100%);
-      border-radius: 0 0 10px 10px;
-      position: sticky;
-      bottom: 0;
-      z-index: 10;
     `;
     this.container.appendChild(footer);
   }
 
   /**
-   * Position dropdown near input field
+   * Get source icon based on suggestion origin
    */
-  position() {
+  getSourceIcon(suggestion) {
+    // Heuristic to determine source
+    const lowerSugg = suggestion.toLowerCase();
+
+    // AI suggestions tend to be longer and more contextual
+    if (suggestion.length > 50 || /\b(because|however|although|therefore)\b/i.test(suggestion)) {
+      return '🤖'; // AI
+    }
+
+    // Short common phrases are likely from patterns
+    if (suggestion.length < 15) {
+      return '⚡'; // Offline/Fast
+    }
+
+    // N-gram predictions are medium length
+    return '💡'; // Smart prediction
+  }
+
+  /**
+   * Escape HTML to prevent XSS
+   */
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  /**
+   * Position dropdown near cursor for better UX
+   */
+  positionNearCursor() {
     if (!this.container || !this.inputField) return;
 
     const inputRect = this.inputField.getBoundingClientRect();
-    const dropdownHeight = 280; // max-height
-    const spacing = 12; // space between input and dropdown
+    const dropdownHeight = Math.min(400, this.suggestions.length * 50 + 100);
+    const dropdownWidth = Math.max(380, Math.min(520, inputRect.width));
+    const spacing = 12;
 
-    // Calculate position
-    let top = inputRect.bottom + spacing;
-    let left = inputRect.left;
+    // Try to position near cursor if available
+    let top, left;
+
+    if (this.cursorPosition) {
+      // Position near cursor
+      top = this.cursorPosition.bottom + spacing;
+      left = this.cursorPosition.left;
+    } else {
+      // Fallback to input field position
+      top = inputRect.bottom + spacing;
+      left = inputRect.left;
+    }
+
+    // Viewport dimensions
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
 
     // Check if dropdown would go off-screen at bottom
-    const viewportHeight = window.innerHeight;
-    const spaceBelow = viewportHeight - inputRect.bottom;
-    const spaceAbove = inputRect.top;
-
-    // Position above input if not enough space below
-    if (spaceBelow < dropdownHeight + spacing && spaceAbove > spaceBelow) {
-      top = inputRect.top - dropdownHeight - spacing;
+    if (top + dropdownHeight > viewportHeight - 20) {
+      // Position above cursor/input
+      if (this.cursorPosition) {
+        top = this.cursorPosition.top - dropdownHeight - spacing;
+      } else {
+        top = inputRect.top - dropdownHeight - spacing;
+      }
     }
 
     // Check if dropdown would go off-screen on the right
-    const viewportWidth = window.innerWidth;
-    const dropdownWidth = Math.max(350, Math.min(500, inputRect.width));
-
-    if (left + dropdownWidth > viewportWidth) {
-      // Align to right edge of viewport with padding
-      left = viewportWidth - dropdownWidth - 10;
+    if (left + dropdownWidth > viewportWidth - 20) {
+      left = viewportWidth - dropdownWidth - 20;
     }
 
     // Ensure dropdown doesn't go off-screen on the left
-    if (left < 10) {
-      left = 10;
+    if (left < 20) {
+      left = 20;
     }
 
-    // Apply position using fixed positioning
+    // Ensure dropdown doesn't go off-screen at the top
+    if (top < 20) {
+      top = 20;
+    }
+
+    // Apply position
     this.container.style.top = `${top}px`;
     this.container.style.left = `${left}px`;
     this.container.style.width = `${dropdownWidth}px`;
+    this.container.style.maxHeight = `${dropdownHeight}px`;
+  }
+
+  /**
+   * Update cursor position for better positioning
+   */
+  updateCursorPosition() {
+    try {
+      const selection = window.getSelection();
+      if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        if (rect.height > 0) {
+          this.cursorPosition = {
+            top: rect.top,
+            bottom: rect.bottom,
+            left: rect.left,
+            right: rect.right
+          };
+        }
+      }
+    } catch (error) {
+      // Fallback to null
+      this.cursorPosition = null;
+    }
+  }
+
+  /**
+   * Animate entrance
+   */
+  animateEntrance() {
+    this.container.classList.add('animating');
+    setTimeout(() => {
+      this.container.classList.remove('animating');
+    }, 150);
   }
 
   /**
@@ -309,6 +638,7 @@ window.Gracula.AutocompleteDropdown = class {
       : this.suggestions.length - 1;
 
     this.updateContent();
+    this.scrollToSelected();
   }
 
   /**
@@ -322,6 +652,20 @@ window.Gracula.AutocompleteDropdown = class {
       : 0;
 
     this.updateContent();
+    this.scrollToSelected();
+  }
+
+  /**
+   * Scroll to selected item
+   */
+  scrollToSelected() {
+    const suggestionsContainer = this.container?.querySelector('.gracula-autocomplete-suggestions');
+    if (!suggestionsContainer) return;
+
+    const selectedItem = suggestionsContainer.querySelector('.gracula-autocomplete-item-v2.selected');
+    if (selectedItem) {
+      selectedItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
   }
 
   /**
@@ -332,37 +676,40 @@ window.Gracula.AutocompleteDropdown = class {
 
     const selectedSuggestion = this.suggestions[this.selectedIndex];
     console.log('🎯 AutocompleteDropdown: selectCurrent called with:', selectedSuggestion);
-    console.log('🎯 AutocompleteDropdown: onSelect callback exists?', typeof this.onSelect);
 
     // Call the onSelect callback (this should trigger insertSuggestion)
     this.onSelect(selectedSuggestion);
-
-    // Note: Don't hide here - let insertSuggestion handle hiding to avoid race conditions
-    // this.hide();
   }
 
   /**
-   * Handle keyboard events
-   * FIXED: Ctrl+Tab inserts suggestion (Tab alone is used by WhatsApp)
-   * Arrow keys only navigate
+   * Handle keyboard events - ENHANCED with number key selection
    */
   handleKeydown(event) {
     console.log('🔍 [DROPDOWN] handleKeydown called:', {
       key: event.key,
       ctrlKey: event.ctrlKey,
-      shiftKey: event.shiftKey,
-      altKey: event.altKey,
       isVisible: this.isVisible,
-      selectedIndex: this.selectedIndex,
-      suggestionsCount: this.suggestions.length
+      selectedIndex: this.selectedIndex
     });
 
     if (!this.isVisible) {
-      console.log('⚠️ [DROPDOWN] Dropdown not visible, ignoring key');
       return false;
     }
 
-    // Ctrl+Tab to insert suggestion (Tab alone is used by WhatsApp)
+    // Number keys 1-5 for instant selection
+    if (event.key >= '1' && event.key <= '5') {
+      const index = parseInt(event.key) - 1;
+      if (index < this.suggestions.length) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        this.selectedIndex = index;
+        this.selectCurrent();
+        return true;
+      }
+    }
+
+    // Ctrl+Tab to insert suggestion
     if (event.key === 'Tab' && event.ctrlKey) {
       event.preventDefault();
       event.stopPropagation();
@@ -374,7 +721,6 @@ window.Gracula.AutocompleteDropdown = class {
 
     switch (event.key) {
       case 'Enter':
-        // Enter inserts the selected suggestion
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
@@ -383,7 +729,6 @@ window.Gracula.AutocompleteDropdown = class {
         return true;
 
       case 'ArrowDown':
-        // Arrow down navigates to next suggestion
         event.preventDefault();
         event.stopPropagation();
         console.log('✅ [DROPDOWN] ArrowDown pressed - navigating down');
@@ -391,7 +736,6 @@ window.Gracula.AutocompleteDropdown = class {
         return true;
 
       case 'ArrowUp':
-        // Arrow up navigates to previous suggestion
         event.preventDefault();
         event.stopPropagation();
         console.log('✅ [DROPDOWN] ArrowUp pressed - navigating up');
@@ -399,7 +743,6 @@ window.Gracula.AutocompleteDropdown = class {
         return true;
 
       case 'Escape':
-        // Escape dismisses the dropdown
         event.preventDefault();
         event.stopPropagation();
         console.log('✅ [DROPDOWN] Escape pressed - dismissing dropdown');
@@ -408,8 +751,8 @@ window.Gracula.AutocompleteDropdown = class {
         return true;
 
       case 'Tab':
-        // Tab alone should NOT be handled - let WhatsApp use it
-        console.log('⚠️ [DROPDOWN] Tab pressed without Ctrl - letting WhatsApp handle it');
+        // Tab alone should NOT be handled
+        console.log('⚠️ [DROPDOWN] Tab pressed without Ctrl - letting app handle it');
         return false;
 
       default:
