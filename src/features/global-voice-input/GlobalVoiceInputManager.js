@@ -25,6 +25,10 @@ window.Gracula.GlobalVoiceInputManager = class {
     // Bind methods
     this.handleKeydown = this.handleKeydown.bind(this);
     this.handleKeyup = this.handleKeyup.bind(this);
+    this.handleConfigUpdate = this.handleConfigUpdate.bind(this);
+
+    // Listen for config updates from settings
+    chrome.runtime.onMessage.addListener(this.handleConfigUpdate);
 
     console.log('🎤 [GLOBAL VOICE] GlobalVoiceInputManager: Initialized');
   }
@@ -85,6 +89,55 @@ window.Gracula.GlobalVoiceInputManager = class {
         resolve();
       });
     });
+  }
+
+  /**
+   * Handle config update message from background
+   */
+  handleConfigUpdate(message, sender, sendResponse) {
+    if (message.action === 'configUpdated' && message.config) {
+      console.log('🎤 [GLOBAL VOICE] Config update received, reloading...');
+      this.updateConfig(message.config);
+    }
+  }
+
+  /**
+   * Update configuration directly (called from parent component or config update)
+   */
+  async updateConfig(newConfig) {
+    console.log('🎤 [GLOBAL VOICE] Updating config...');
+
+    const wasEnabled = this.config?.voiceInputEnabled !== false;
+    this.config = newConfig;
+
+    // Ensure boolean
+    if (typeof this.config.voiceInputEnabled === 'string') {
+      this.config.voiceInputEnabled = this.config.voiceInputEnabled.toLowerCase() !== 'false';
+    }
+
+    const isEnabled = this.config?.voiceInputEnabled !== false;
+
+    // If enabled state changed, reinitialize
+    if (wasEnabled !== isEnabled) {
+      if (isEnabled) {
+        console.log('🎤 [GLOBAL VOICE] Voice input enabled, reinitializing...');
+        this.attachKeyboardListeners();
+        this.createMinimalIndicator();
+      } else {
+        console.log('🎤 [GLOBAL VOICE] Voice input disabled');
+        // Stop any active recording
+        if (this.isActive) {
+          this.stopListening();
+        }
+      }
+    }
+
+    // Update voice input manager if it exists
+    if (this.voiceInputManager && this.voiceInputManager.updateConfig) {
+      this.voiceInputManager.updateConfig(newConfig);
+    }
+
+    console.log('✅ [GLOBAL VOICE] Config updated successfully');
   }
 
   /**

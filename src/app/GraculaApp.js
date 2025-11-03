@@ -1736,11 +1736,37 @@ window.Gracula.GraculaApp = class {
         console.log('⚙️ Config Updated: Settings changed, applying in real-time...');
         console.log('   New config:', request.config);
 
-        // Show notification
-        this.showNotification('✅ Settings updated successfully! No reload needed.', 'success');
+        // Propagate config updates to all components
+        if (request.config) {
+          // Update autocomplete manager (AI toggle, etc.)
+          if (this.autocompleteManager && this.autocompleteManager.setupConfigListener) {
+            // AutocompleteManager already has its own listener, but we can force update if needed
+            console.log('   ✓ Autocomplete manager has its own config listener');
+          }
 
-        // If modal is open, you could update UI here if needed
-        // For now, the API calls will automatically use the new config
+          // Update voice input manager (voice provider, language, etc.)
+          if (this.voiceInputManager && this.voiceInputManager.updateConfig) {
+            this.voiceInputManager.updateConfig(request.config);
+            console.log('   ✓ Voice input manager updated');
+          }
+
+          // Update global voice input manager
+          if (this.globalVoiceInputManager && this.globalVoiceInputManager.updateConfig) {
+            this.globalVoiceInputManager.updateConfig(request.config);
+            console.log('   ✓ Global voice input manager updated');
+          }
+
+          // Update transcription manager if it exists as a separate component
+          if (this.transcriptionManager && this.transcriptionManager.updateConfig) {
+            this.transcriptionManager.updateConfig(request.config);
+            console.log('   ✓ Transcription manager updated');
+          }
+        }
+
+        // Show notification
+        this.showNotification('✅ Settings updated! Changes applied instantly.', 'success');
+
+        console.log('✅ All components updated with new config');
       }
     });
   }

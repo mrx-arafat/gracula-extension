@@ -474,6 +474,15 @@ window.Gracula.VoiceInputManager = class {
   }
 
   /**
+   * Update configuration directly (called from parent component)
+   */
+  updateConfig(newConfig) {
+    console.log('🎤 VoiceInputManager: Updating config directly...');
+    this.config = newConfig;
+    this.reloadConfig();
+  }
+
+  /**
    * Reload configuration and recreate components
    */
   async reloadConfig() {

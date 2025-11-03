@@ -32,9 +32,14 @@ window.Gracula.TranscriptionManager = class {
     this.sessionCounter = 0;
     this.currentSessionId = 0;
 
+    // Bind methods
+    this.handleConfigUpdate = this.handleConfigUpdate.bind(this);
 
     // Load API configuration
     this.loadConfig();
+
+    // Listen for config updates from settings
+    chrome.runtime.onMessage.addListener(this.handleConfigUpdate);
 
     console.log('🎤 TranscriptionManager: Initialized with provider:', this.provider);
   }
@@ -48,6 +53,40 @@ window.Gracula.TranscriptionManager = class {
         this.apiConfig = response.config;
         console.log('✅ TranscriptionManager: Config loaded');
       }
+    });
+  }
+
+  /**
+   * Handle config update message from background
+   */
+  handleConfigUpdate(message, sender, sendResponse) {
+    if (message.action === 'configUpdated' && message.config) {
+      console.log('🎤 TranscriptionManager: Config update received');
+      this.updateConfig(message.config);
+    }
+  }
+
+  /**
+   * Update configuration directly (called from parent component or config update)
+   */
+  updateConfig(newConfig) {
+    console.log('🎤 TranscriptionManager: Updating config...');
+
+    // Update API config
+    this.apiConfig = newConfig;
+
+    // Update provider and language if they're part of the config
+    if (newConfig.voiceProvider) {
+      this.provider = newConfig.voiceProvider;
+    }
+
+    if (newConfig.voiceLanguage) {
+      this.language = newConfig.voiceLanguage;
+    }
+
+    console.log('✅ TranscriptionManager: Config updated', {
+      provider: this.provider,
+      language: this.language
     });
   }
 

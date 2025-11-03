@@ -45,6 +45,9 @@ window.Gracula.AutocompleteManager = class {
     this.phrasePredictor = null;
     this.initializePhrasePredictor();
 
+    // Listen for config updates from settings
+    this.setupConfigListener();
+
     // Bind event handlers
     this.handleInput = this.handleInput.bind(this);
     this.handleKeydown = this.handleKeydown.bind(this);
@@ -97,6 +100,31 @@ window.Gracula.AutocompleteManager = class {
       console.warn('🧛 Autocomplete: Failed to load AI config, using offline mode:', error.message);
       this.useAI = false;
     }
+  }
+
+  /**
+   * Setup listener for real-time config updates
+   */
+  setupConfigListener() {
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+      if (request.action === 'configUpdated' && request.config) {
+        const oldValue = this.useAI;
+        this.useAI = request.config.useAIForAutosuggestions || false;
+
+        if (oldValue !== this.useAI) {
+          console.log('🧛 Autocomplete: AI mode updated to:', this.useAI ? 'ENABLED' : 'DISABLED (Offline)');
+
+          // Clear cache when AI mode changes
+          this.cache.clear();
+          this.preGeneratedSuggestions.clear();
+
+          // Pre-generate common suggestions if AI was enabled
+          if (this.useAI && this.inputField) {
+            this.preGenerateCommonSuggestions();
+          }
+        }
+      }
+    });
   }
 
   /**
