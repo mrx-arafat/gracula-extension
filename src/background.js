@@ -745,7 +745,7 @@ Format: Provide exactly 3 reply options, numbered 1., 2., and 3.`
   console.log('🧛 Gracula: OpenAI response:', generatedText);
 
   // Extract individual replies
-  const replies = parseReplies(generatedText);
+  const replies = parseReplies(generatedText, options);
 
   return replies;
 }
@@ -817,7 +817,7 @@ async function callHuggingFaceAPI(prompt, options = {}) {
   }
 
   // Extract individual replies
-  const replies = parseReplies(generatedText);
+  const replies = parseReplies(generatedText, options);
 
   return replies;
 }
@@ -921,7 +921,7 @@ async function callOpenRouterAPI(prompt, options = {}) {
   }
 
   // Extract individual replies
-  const replies = parseReplies(generatedText);
+  const replies = parseReplies(generatedText, options);
 
   return replies;
 }
@@ -1023,36 +1023,50 @@ ${prompt}`
   console.log('🧛 Gracula: Google AI response:', generatedText);
 
   // Extract individual replies
-  const replies = parseReplies(generatedText);
+  const replies = parseReplies(generatedText, options);
 
   return replies;
 }
 
-function parseReplies(text) {
+function parseReplies(text, options = {}) {
+  // Determine how many replies to extract (default 3 for normal, 6 for autocomplete)
+  const maxReplies = options.isAutocomplete ? 6 : 3;
+
   // Try to extract numbered replies
   const lines = text.split('\n').filter(line => line.trim());
   const replies = [];
 
   for (const line of lines) {
-    // Match patterns like "1.", "1)", "Reply 1:", etc.
+    // Match patterns like "1.", "1)", "Reply 1:", etc. at START
     const match = line.match(/^(?:\d+[\.\):]?\s*|Reply\s*\d+:\s*)(.*)/i);
-    if (match && match[1].trim()) {
-      replies.push(match[1].trim());
-    } else if (line.trim() && !line.match(/^(Replies?|Options?|Suggestions?):/i)) {
-      // Add non-empty lines that aren't headers
-      replies.push(line.trim());
+    let cleanedText = match && match[1] ? match[1].trim() : line.trim();
+
+    // Remove list numbering at END (like "text 3", "text 5.") but keep meaningful numbers (like "10 years")
+    // Only remove single digit 1-9 at very end with optional punctuation
+    cleanedText = cleanedText.replace(/\s+[1-9][\.\)]?$/, '');
+
+    // Skip headers and empty lines
+    if (!cleanedText || cleanedText.match(/^(Replies?|Options?|Suggestions?|Completions?):/i)) {
+      continue;
     }
 
-    if (replies.length >= 3) break;
+    replies.push(cleanedText);
+
+    if (replies.length >= maxReplies) break;
   }
 
-  // If we didn't get 3 replies, split by sentences
-  if (replies.length < 3) {
+  // If we didn't get enough replies, split by sentences
+  if (replies.length < maxReplies) {
     const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 10);
-    return sentences.slice(0, 3).map(s => s.trim() + '.');
+    return sentences.slice(0, maxReplies).map(s => {
+      let cleaned = s.trim();
+      // Remove list numbering (single digit 1-9) but keep meaningful numbers
+      cleaned = cleaned.replace(/\s+[1-9][\.\)]?$/, '');
+      return cleaned + '.';
+    });
   }
 
-  return replies.slice(0, 3);
+  return replies.slice(0, maxReplies);
 }
 
 function generateMockReplies(prompt, options = {}) {
@@ -1541,41 +1555,43 @@ function buildAutocompletePrompt(partialText, analysis, context, enhancedContext
   // Instructions
   prompt += '=== 🎯 YOUR TASK ===\n';
   prompt += `Complete: "${partialText}..."\n\n`;
-  prompt += '📋 CRITICAL RULES:\n';
-  prompt += `1. ⚠️  REPLY ONLY TO THE LAST MESSAGE (marked with >>>)\n`;
-  prompt += `2. Continue naturally from: "${partialText}"\n`;
-  prompt += `3. DIRECTLY address what was said in the last message\n`;
-  prompt += `4. Match the conversation style and emotional tone\n`;
-  prompt += `5. ⚠️  KEEP IT SUPER SHORT - Maximum 5-8 words TOTAL\n`;
-  prompt += `6. ⚠️  NO unnecessary explanations - DIRECT ANSWERS ONLY\n`;
-  prompt += `7. Start each completion with: "${partialText}"\n`;
+  prompt += '📋 RULES:\n';
+  prompt += `1. REPLY TO THE LAST MESSAGE (marked with >>>)\n`;
+  prompt += `2. Continue from: "${partialText}"\n`;
+  prompt += `3. Keep it SHORT: 3-10 words TOTAL\n`;
+  prompt += `4. BE DIRECT: Answer what was asked, don't add extra info\n`;
+  prompt += `5. 🚫 NO FOLLOW-UP QUESTIONS unless absolutely necessary to clarify\n`;
+  prompt += `6. 🚫 NO "let me know", "tell me", "what do you think" - just ANSWER\n`;
+  prompt += `7. Match conversation style naturally\n\n`;
 
-  // Length guidance - STRICT LIMITS
-  prompt += `8. ⚠️  STRICT: 3-8 words per completion (including "${partialText}")\n`;
-  prompt += `9. For yes/no questions: Answer in 2-4 words max\n`;
-  prompt += `10. Examples of GOOD short answers:\n`;
-  prompt += `    - "No, it's not."\n`;
-  prompt += `    - "Yes, it is."\n`;
-  prompt += `    - "Not sure yet."\n`;
-  prompt += `    - "Tomorrow works."\n`;
-  prompt += `11. Examples of BAD long answers (DON'T DO THIS):\n`;
-  prompt += `    - "No, it's not some kind of n8n automation thing"\n`;
-  prompt += `    - "Yes, it is n8n automation that I've been working on"\n`;
+  prompt += 'GOOD examples (direct, practical):\n';
+  prompt += `  Question: "Can you help with the project?"\n`;
+  prompt += `  ✅ "Yes, I can help"\n`;
+  prompt += `  ✅ "Sure, when do you need it?"\n`;
+  prompt += `  ✅ "Sorry, I'm busy today"\n`;
+  prompt += `  ❌ "Yes! What kind of help do you need exactly?" (unnecessary question)\n`;
+  prompt += `  ❌ "Sure, let me know what you're thinking" (vague)\n\n`;
+
+  prompt += `  Statement: "The results are outstanding!"\n`;
+  prompt += `  ✅ "That's awesome!"\n`;
+  prompt += `  ✅ "Great work!"\n`;
+  prompt += `  ✅ "Congrats!"\n`;
+  prompt += `  ❌ "That's great! What were the results?" (unnecessary question)\n\n`;
 
   // Language hints
   if (enhancedContext?.metrics?.languageHints?.length > 0) {
-    prompt += `12. Languages: ${enhancedContext.metrics.languageHints.join(', ')}\n`;
+    prompt += `Languages: ${enhancedContext.metrics.languageHints.join(', ')}\n\n`;
   }
 
-  prompt += '\n';
-  prompt += '=== 🎯 OUTPUT FORMAT ===\n';
-  prompt += 'Generate 3 SUPER SHORT completions that REPLY TO THE LAST MESSAGE.\n';
-  prompt += 'Format: Numbered 1., 2., and 3., each on a new line.\n';
-  prompt += `IMPORTANT:\n`;
+  prompt += '=== OUTPUT ===\n';
+  prompt += 'Generate 6 different, diverse completions.\n';
+  prompt += 'Format: Numbered 1-6, each on a new line.\n';
   prompt += `- Start each with: "${partialText}"\n`;
-  prompt += `- Keep TOTAL length under 8 words\n`;
-  prompt += `- NO explanations, NO extra details\n`;
-  prompt += `- DIRECT answers only\n\n`;
+  prompt += `- Keep TOTAL under 10 words\n`;
+  prompt += `- Make each suggestion DIFFERENT from the others\n`;
+  prompt += `- NO numbers in the actual text (only for list formatting)\n`;
+  prompt += `- NO unnecessary questions\n`;
+  prompt += `- Be helpful and direct\n\n`;
   prompt += 'Completions:\n';
 
   return prompt;

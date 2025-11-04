@@ -15,7 +15,11 @@ window.Gracula.AutocompleteManager = class {
     this.debounceDelay = options.debounceDelay || 100; // ULTRA-FAST: reduced from 200ms to 100ms
     this.enabled = true;
     this.instantMode = options.instantMode !== false; // Enable instant predictions
-    this.maxSuggestions = 5; // Increased from 3 to 5
+    this.maxSuggestions = 6; // Increased from 3 to 6
+
+    // NEW: Control-key trigger mode
+    this.controlKeyPressed = false; // Track Control key state
+    this.manualTriggerMode = true; // Enable manual-only triggering (Control key)
 
     // State
     this.debounceTimer = null;
@@ -51,6 +55,7 @@ window.Gracula.AutocompleteManager = class {
     // Bind event handlers
     this.handleInput = this.handleInput.bind(this);
     this.handleKeydown = this.handleKeydown.bind(this);
+    this.handleKeyup = this.handleKeyup.bind(this);
     this.handleClickOutside = this.handleClickOutside.bind(this);
   }
 
@@ -140,6 +145,7 @@ window.Gracula.AutocompleteManager = class {
     this.inputField.addEventListener('input', this.handleInput);
     // CRITICAL: Use capture:true to intercept Enter BEFORE WhatsApp
     this.inputField.addEventListener('keydown', this.handleKeydown, true);
+    this.inputField.addEventListener('keyup', this.handleKeyup, true);
     document.addEventListener('click', this.handleClickOutside);
 
     // NEW: Pre-generate suggestions for common starters (only if AI is enabled)
@@ -161,6 +167,7 @@ window.Gracula.AutocompleteManager = class {
       this.inputField.removeEventListener('input', this.handleInput);
       // Remove with capture:true since we added with it
       this.inputField.removeEventListener('keydown', this.handleKeydown, true);
+      this.inputField.removeEventListener('keyup', this.handleKeyup, true);
     }
     document.removeEventListener('click', this.handleClickOutside);
 
@@ -181,6 +188,12 @@ window.Gracula.AutocompleteManager = class {
     // Skip if we're in the middle of inserting a suggestion
     if (this.isInserting) {
       console.log('⚠️ [INPUT] SKIPPING handleInput - insertion in progress');
+      return;
+    }
+
+    // NEW: Skip automatic triggering if in manual mode and Control key not pressed
+    if (this.manualTriggerMode && !this.controlKeyPressed) {
+      console.log('⚠️ [INPUT] SKIPPING handleInput - manual mode, Control key not pressed');
       return;
     }
 
@@ -226,6 +239,44 @@ window.Gracula.AutocompleteManager = class {
       dropdownVisible: this.autocompleteDropdown?.isVisible
     });
 
+    // NEW: Handle Control key press/release for toggle
+    if (event.key === 'Control') {
+      console.log('🔑 [MANAGER] Control key detected, dropdown visible:', this.autocompleteDropdown?.isVisible);
+
+      if (this.autocompleteDropdown?.isVisible) {
+        // Control pressed again while visible → hide (like Escape)
+        console.log('✅ [MANAGER] Control pressed - HIDING dropdown');
+        this.autocompleteDropdown.hide();
+        this.controlKeyPressed = false;
+      } else {
+        // Control pressed while hidden → show INSTANTLY
+        console.log('✅ [MANAGER] Control pressed - SHOWING autocomplete INSTANTLY');
+        this.controlKeyPressed = true;
+
+        // Clear any pending debounce for instant response
+        this.clearDebounce();
+
+        // Get current text and generate suggestions (AI or offline)
+        const currentText = this.getInputText();
+
+        if (currentText && currentText.trim().length >= this.minChars) {
+          // If there's enough text, generate AI suggestions (wait for AI, don't show offline first)
+          console.log('📝 [MANAGER] Generating AI suggestions for:', currentText);
+          this.generateSuggestions(currentText, true); // forceAI = true for manual trigger
+        } else {
+          // If not enough text, show common starters
+          console.log('📝 [MANAGER] Showing common starters');
+          this.triggerInstantSuggestions();
+        }
+      }
+
+      // Stop the event completely
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      return;
+    }
+
     // If dropdown is visible, let it handle all keyboard events
     if (this.autocompleteDropdown?.isVisible) {
       console.log('✅ [MANAGER] Dropdown is visible, delegating to dropdown');
@@ -244,16 +295,17 @@ window.Gracula.AutocompleteManager = class {
       return;
     }
 
-    // Ctrl+Space to trigger instant autocomplete (when dropdown is NOT visible)
-    if (event.ctrlKey && event.code === 'Space') {
-      event.preventDefault();
-      event.stopPropagation();
-      console.log('✅ [MANAGER] Ctrl+Space pressed - triggering instant suggestions');
-      this.triggerInstantSuggestions();
-      return;
-    }
-
     console.log('⚠️ [MANAGER] No action taken for this key');
+  }
+
+  /**
+   * Handle keyup events - reset Control key state
+   */
+  handleKeyup(event) {
+    if (event.key === 'Control') {
+      this.controlKeyPressed = false;
+      console.log('🔍 [MANAGER] Control key released - state reset');
+    }
   }
 
   /**
@@ -283,8 +335,10 @@ window.Gracula.AutocompleteManager = class {
 
   /**
    * Generate autocomplete suggestions (SUPERFAST with caching)
+   * @param {string} partialText - The text to generate suggestions for
+   * @param {boolean} forceAI - If true, wait for AI suggestions instead of showing offline first (for manual Control key trigger)
    */
-  async generateSuggestions(partialText) {
+  async generateSuggestions(partialText, forceAI = false) {
     if (this.isGenerating) {
       // Cancel previous request
       this.abortController?.abort();
@@ -338,7 +392,44 @@ window.Gracula.AutocompleteManager = class {
         return;
       }
 
-      // AI is enabled - HYBRID MODE: show instant offline first, then enhance with AI
+      // AI is enabled - Check if we should wait for AI (Control key) or show hybrid first (automatic)
+      if (forceAI) {
+        // FORCE AI MODE: Wait for AI suggestions (used when Control key is pressed)
+        console.log('🤖 [AI] Waiting for AI suggestions (manual trigger)...');
+        this.autocompleteDropdown?.show([], this.inputField); // Show loading state
+
+        const suggestions = await this.requestAutocompletions({
+          partialText,
+          analysis,
+          context: simpleContext,
+          enhancedContext
+        });
+
+        if (suggestions && suggestions.length > 0) {
+          this.addToCache(cacheKey, suggestions);
+          this.autocompleteDropdown?.show(suggestions, this.inputField);
+          console.log('✅ [AI] AI suggestions received:', suggestions);
+
+          // Learn from AI suggestions
+          if (this.phrasePredictor) {
+            suggestions.forEach(sugg => this.phrasePredictor.learn(sugg));
+          }
+        } else {
+          console.log('⚠️ [AI] No AI suggestions, falling back to offline');
+          // Fallback to offline if AI fails
+          const hybridSuggestions = this.generateHybridSuggestions(partialText, simpleContext, analysis);
+          if (hybridSuggestions && hybridSuggestions.length > 0) {
+            this.autocompleteDropdown?.show(hybridSuggestions, this.inputField);
+          } else {
+            this.autocompleteDropdown?.hide();
+          }
+        }
+
+        this.isGenerating = false;
+        return;
+      }
+
+      // HYBRID MODE: show instant offline first, then enhance with AI (automatic typing)
       const hybridSuggestions = this.generateHybridSuggestions(partialText, simpleContext, analysis);
       if (hybridSuggestions && hybridSuggestions.length > 0) {
         // console.log('⚡ Autocomplete: Using HYBRID suggestions (instant)');
