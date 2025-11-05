@@ -1161,6 +1161,43 @@
   height: 44px !important;
 }
 
+/* Grammar Fix Button */
+.gracula-grammar-button {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border: none;
+  border-radius: 50%;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
+  transition: all 0.3s ease;
+  color: white;
+  font-size: 24px;
+  z-index: 2147483645;
+}
+
+.gracula-grammar-button:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 24px rgba(16, 185, 129, 0.5);
+}
+
+.gracula-grammar-button:active {
+  transform: scale(0.95);
+}
+
+.gracula-grammar-button.gracula-compact {
+  width: 44px !important;
+  height: 44px !important;
+}
+
+.gracula-grammar-button svg {
+  width: 20px;
+  height: 20px;
+}
+
 
 /* ========================================
    NEW THREE-COLUMN LAYOUT

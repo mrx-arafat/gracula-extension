@@ -286,6 +286,9 @@ window.Gracula.GraculaApp = class {
     // NEW: Attach voice input to input field
     this.attachVoiceInput(inputField);
 
+    // NEW: Attach grammar fix to input field
+    this.attachGrammarFix(inputField);
+
     // window.Gracula.logger.success('Floating button attached');
   }
 
@@ -384,6 +387,41 @@ window.Gracula.GraculaApp = class {
     this.voiceInputManager.start();
 
     console.log('✅ [GRACULA APP] Voice input attached to input field');
+  }
+
+  /**
+   * NEW: Attach grammar fix to input field
+   */
+  attachGrammarFix(inputField) {
+    // Remove existing grammar fix
+    if (this.grammarFixManager) {
+      this.grammarFixManager.destroy();
+    }
+
+    // Check if grammar fix class exists
+    if (!window.Gracula.GrammarFixManager) {
+      console.warn('📝 Grammar Fix: Class not loaded yet');
+      return;
+    }
+
+    // Create grammar fix manager
+    this.grammarFixManager = new window.Gracula.GrammarFixManager({
+      inputField: inputField,
+      container: this.ensureActionDock(),
+      onFix: (message) => {
+        console.log('📝 Grammar Fix: Success:', message);
+        this.showNotification(message, 'success');
+      },
+      onError: (error) => {
+        console.error('📝 Grammar Fix: Error:', error);
+        this.showNotification(error, 'error');
+      }
+    });
+
+    // Start grammar fix
+    this.grammarFixManager.start();
+
+    console.log('✅ [GRACULA APP] Grammar fix attached to input field');
   }
 
   /**
