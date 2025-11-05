@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grammar Checker Test Page</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #667eea;
+            margin-top: 0;
+        }
+        .test-area {
+            margin: 20px 0;
+        }
+        textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            font-family: inherit;
+            resize: vertical;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .instructions {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .instructions h3 {
+            margin-top: 0;
+            color: #1976d2;
+        }
+        .instructions ol {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .instructions li {
+            margin: 8px 0;
+        }
+        .examples {
+            background: #fff3e0;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .examples h3 {
+            margin-top: 0;
+            color: #f57c00;
+        }
+        .example-text {
+            background: white;
+            padding: 10px;
+            border-left: 3px solid #f57c00;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            background: #f0f0f0;
+        }
+        .status.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .status.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+        kbd {
+            background: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✍️ Grammar Checker Test Page</h1>
+
+        <div class="instructions">
+            <h3>📝 How to Test:</h3>
+            <ol>
+                <li>Make sure the <strong>Gracula extension</strong> is installed and loaded</li>
+                <li>Type or paste text with errors in the textarea below</li>
+                <li>Press <kbd>Ctrl</kbd>+<kbd>G</kbd> (or <kbd>Cmd</kbd>+<kbd>G</kbd> on Mac)</li>
+                <li>The grammar checker modal should appear with corrections</li>
+            </ol>
+        </div>
+
+        <div class="examples">
+            <h3>🧪 Test Examples:</h3>
+            <p>Try these texts with obvious errors:</p>
+            <div class="example-text">i loves her</div>
+            <div class="example-text">he dont know nothing</div>
+            <div class="example-text">I goes to school everyday</div>
+            <div class="example-text">She have three dogs and two cat</div>
+        </div>
+
+        <div class="test-area">
+            <h3>Type your text here:</h3>
+            <textarea
+                id="test-textarea"
+                placeholder="Type some text with grammar errors, then press Ctrl+G to check..."
+            >i loves her</textarea>
+        </div>
+
+        <div class="status" id="status">
+            <strong>Status:</strong> Ready to test. Press Ctrl+G when focused on the textarea above.
+        </div>
+
+        <div class="instructions">
+            <h3>🔍 Debugging:</h3>
+            <ol>
+                <li>Press <kbd>F12</kbd> to open Developer Tools</li>
+                <li>Go to <strong>Console</strong> tab</li>
+                <li>Look for messages starting with <code>✍️</code>, <code>📝</code>, etc.</li>
+                <li>Also check <strong>Service Worker console</strong>:
+                    <ul>
+                        <li>Go to <code>chrome://extensions/</code></li>
+                        <li>Find "Gracula" extension</li>
+                        <li>Click "service worker" link</li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+
+        <div class="instructions">
+            <h3>⚙️ Configuration:</h3>
+            <p>Make sure you have configured an API key:</p>
+            <ol>
+                <li>Click the <strong>Gracula extension icon</strong> in Chrome toolbar</li>
+                <li>Go to <strong>Settings</strong></li>
+                <li>Add your API key (OpenAI, Google AI, or OpenRouter)</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // Add event listener for textarea focus
+        const textarea = document.getElementById('test-textarea');
+        const status = document.getElementById('status');
+
+        textarea.addEventListener('focus', () => {
+            status.className = 'status success';
+            status.innerHTML = '<strong>✅ Ready:</strong> Press Ctrl+G to check grammar';
+        });
+
+        // Monitor for grammar checker events
+        let grammarCheckAttempted = false;
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'g') {
+                grammarCheckAttempted = true;
+                status.className = 'status';
+                status.innerHTML = '<strong>🔄 Checking:</strong> Grammar checker triggered, waiting for modal...';
+
+                // After 3 seconds, check if it worked
+                setTimeout(() => {
+                    if (grammarCheckAttempted) {
+                        status.className = 'status error';
+                        status.innerHTML = '<strong>⚠️ Issue:</strong> No modal appeared. Check console (F12) for errors.';
+                    }
+                }, 3000);
+            }
+        });
+
+        // Log that the page is ready
+        console.log('✅ Grammar Checker Test Page Loaded');
+        console.log('📝 Instructions:');
+        console.log('   1. Click in the textarea');
+        console.log('   2. Press Ctrl+G (or Cmd+G)');
+        console.log('   3. Check if modal appears');
+        console.log('');
+        console.log('🔍 To run comprehensive test, paste test-grammar.js into console');
+    </script>
+</body>
+</html>

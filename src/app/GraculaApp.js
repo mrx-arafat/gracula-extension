@@ -33,6 +33,11 @@ window.Gracula.GraculaApp = class {
     // NEW: Global voice input manager (works with ANY input field)
     this.globalVoiceInputManager = null;
 
+    // NEW: Grammar checker
+    this.grammarChecker = null;
+    this.grammarCheckerWidget = null;
+    this.grammarButton = null;
+
     // NEW: Smart generation tracking
     this.isGenerating = false;
     this.generationMonitor = null;
@@ -47,6 +52,9 @@ window.Gracula.GraculaApp = class {
 
     // Hot reload support
     this.setupHotReload();
+
+    // Setup keyboard shortcuts
+    this.setupKeyboardShortcuts();
   }
 
   /**
@@ -286,8 +294,8 @@ window.Gracula.GraculaApp = class {
     // NEW: Attach voice input to input field
     this.attachVoiceInput(inputField);
 
-    // NEW: Attach grammar fix to input field
-    this.attachGrammarFix(inputField);
+    // NEW: Attach grammar checker button
+    this.attachGrammarChecker(inputField);
 
     // window.Gracula.logger.success('Floating button attached');
   }
@@ -390,38 +398,308 @@ window.Gracula.GraculaApp = class {
   }
 
   /**
-   * NEW: Attach grammar fix to input field
+   * NEW: Attach grammar checker button to action dock
    */
-  attachGrammarFix(inputField) {
-    // Remove existing grammar fix
-    if (this.grammarFixManager) {
-      this.grammarFixManager.destroy();
+  attachGrammarChecker(inputField) {
+    if (!inputField) return;
+
+    console.log('📝 [GRACULA APP] Attaching grammar checker button...');
+
+    // Initialize grammar checker if needed
+    if (!this.grammarChecker) {
+      this.grammarChecker = new GrammarChecker();
     }
 
-    // Check if grammar fix class exists
-    if (!window.Gracula.GrammarFixManager) {
-      console.warn('📝 Grammar Fix: Class not loaded yet');
+    // Remove existing grammar button
+    if (this.grammarButton) {
+      this.grammarButton.remove();
+      this.grammarButton = null;
+    }
+
+    // Create grammar check button
+    const dock = this.ensureActionDock();
+    const grammarBtn = document.createElement('button');
+    grammarBtn.id = 'gracula-grammar-check-btn';
+    grammarBtn.className = 'gracula-action-btn';
+    grammarBtn.innerHTML = '✍️';
+    grammarBtn.title = 'Check Grammar & Spelling (Ctrl+G)';
+
+    // Additional inline styles for visual consistency
+    grammarBtn.style.cssText = `
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border: none;
+      color: white;
+      font-size: 22px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+
+    // Hover effects
+    grammarBtn.addEventListener('mouseenter', () => {
+      grammarBtn.style.transform = 'scale(1.1)';
+    });
+
+    grammarBtn.addEventListener('mouseleave', () => {
+      grammarBtn.style.transform = 'scale(1)';
+    });
+
+    // Click handler
+    grammarBtn.addEventListener('click', () => {
+      console.log('✍️ Grammar check button clicked');
+      this.handleGrammarCheck(inputField);
+    });
+
+    dock.appendChild(grammarBtn);
+    this.grammarButton = grammarBtn;
+
+    console.log('✅ [GRACULA APP] Grammar checker button attached');
+
+    // Show one-time notification about keyboard shortcut
+    const hasSeenGrammarTip = localStorage.getItem('gracula_grammar_tip_seen');
+    if (!hasSeenGrammarTip) {
+      setTimeout(() => {
+        this.showNotification('💡 Tip: Press Ctrl+G to quickly check grammar!', 'info');
+        localStorage.setItem('gracula_grammar_tip_seen', 'true');
+      }, 2000);
+    }
+  }
+
+  /**
+   * NEW: Handle grammar checking
+   */
+  async handleGrammarCheck(inputField) {
+    console.log('✍️ [GRACULA APP] Starting grammar check...');
+
+    if (!inputField) {
+      this.showNotification('No input field found', 'error');
       return;
     }
 
-    // Create grammar fix manager
-    this.grammarFixManager = new window.Gracula.GrammarFixManager({
-      inputField: inputField,
-      container: this.ensureActionDock(),
-      onFix: (message) => {
-        console.log('📝 Grammar Fix: Success:', message);
-        this.showNotification(message, 'success');
-      },
-      onError: (error) => {
-        console.error('📝 Grammar Fix: Error:', error);
-        this.showNotification(error, 'error');
+    if (!this.grammarChecker) {
+      this.grammarChecker = new GrammarChecker();
+    }
+
+    // Extract text from input field
+    const text = this.grammarChecker.extractTextFromElement(inputField);
+    console.log('📝 Text to analyze:', text);
+
+    if (!text || text.trim().length === 0) {
+      this.showNotification('No text to analyze. Please write something first!', 'info');
+      return;
+    }
+
+    // Open modal with loading state
+    this.showGrammarModal(null, true);
+
+    try {
+      console.log('🔄 Sending text to analyzer...');
+
+      // Analyze text
+      const result = await this.grammarChecker.analyzeText(text);
+
+      console.log('📊 Analysis result:', result);
+
+      if (result.success) {
+        console.log('✅ Analysis successful, showing results');
+        console.log('   Corrections:', result.corrections);
+        console.log('   Corrected text:', result.correctedText);
+        console.log('   Provider:', result.provider);
+
+        // Show results in modal
+        this.showGrammarModal(result, false);
+      } else {
+        console.error('❌ Analysis failed:', result.error);
+
+        // Close loading modal and show error
+        if (this.modal) {
+          this.modal.close();
+        }
+
+        // Show error with retry button
+        this.showGrammarErrorModal(result.error || 'Failed to analyze text. Please check your API key in settings.');
+      }
+    } catch (error) {
+      console.error('❌ Grammar check error:', error);
+      console.error('Error stack:', error.stack);
+
+      // Close loading modal and show error
+      if (this.modal) {
+        this.modal.close();
+      }
+
+      // Show error with retry button
+      this.showGrammarErrorModal(error.message);
+    }
+  }
+
+  /**
+   * NEW: Show grammar error modal with retry
+   */
+  showGrammarErrorModal(errorMessage) {
+    console.log('❌ [GRACULA APP] Showing grammar error modal');
+
+    // Close old modal if it exists
+    if (this.modal) {
+      this.modal.close();
+      this.modal = null;
+    }
+
+    // Create modal
+    this.modal = new window.Gracula.Modal({
+      onClose: () => {
+        this.modal = null;
       }
     });
 
-    // Start grammar fix
-    this.grammarFixManager.start();
+    // Create modal body content
+    const modalBody = document.createElement('div');
+    modalBody.className = 'gracula-modal-body';
+    modalBody.style.minHeight = '300px';
+    modalBody.style.display = 'flex';
+    modalBody.style.flexDirection = 'column';
 
-    console.log('✅ [GRACULA APP] Grammar fix attached to input field');
+    // Show error with retry button
+    GrammarCheckerWidget.showError(
+      errorMessage,
+      modalBody,
+      () => {
+        this.modal.close();
+        this.handleGrammarCheck(this.currentInputField);
+      }
+    );
+
+    // Show modal
+    this.modal.render({ custom: modalBody }, { newLayout: false });
+  }
+
+  /**
+   * NEW: Show grammar checker modal
+   */
+  showGrammarModal(analysisResult, isLoading = false) {
+    console.log('📝 [GRACULA APP] Showing grammar modal...');
+    console.log('   Is loading:', isLoading);
+    console.log('   Analysis result:', analysisResult);
+
+    // Close old modal if it exists
+    if (this.modal) {
+      this.modal.close();
+      this.modal = null;
+    }
+
+    // Create modal
+    this.modal = new window.Gracula.Modal({
+      onClose: () => {
+        this.modal = null;
+      }
+    });
+
+    // Create modal body content
+    const modalBody = document.createElement('div');
+    modalBody.className = 'gracula-modal-body';
+    modalBody.style.minHeight = '300px';
+    modalBody.style.display = 'flex';
+    modalBody.style.flexDirection = 'column';
+
+    if (isLoading) {
+      // Show loading state
+      GrammarCheckerWidget.showLoading(modalBody);
+    } else if (analysisResult) {
+      // Validate analysis result
+      if (!analysisResult.corrections) {
+        console.error('❌ Invalid analysis result - missing corrections array');
+        GrammarCheckerWidget.showError(
+          'Invalid response from AI. Please try again.',
+          modalBody,
+          () => {
+            this.modal.close();
+            this.handleGrammarCheck(this.currentInputField);
+          }
+        );
+      } else {
+        // Initialize widget if needed
+        if (!this.grammarCheckerWidget) {
+          this.grammarCheckerWidget = new GrammarCheckerWidget();
+        }
+
+        console.log('✅ Rendering grammar widget with result');
+
+        // Render grammar results
+        this.grammarCheckerWidget.render(
+          analysisResult,
+          modalBody,
+          (correction, index) => this.applyCorrection(correction, index, analysisResult),
+          (corrections) => this.applyAllCorrections(corrections, analysisResult)
+        );
+      }
+    } else {
+      console.error('❌ No analysis result provided');
+      GrammarCheckerWidget.showError(
+        'Failed to analyze text. Please try again.',
+        modalBody,
+        () => {
+          this.modal.close();
+          this.handleGrammarCheck(this.currentInputField);
+        }
+      );
+    }
+
+    // Show modal with grammar content
+    console.log('📦 Rendering modal with body');
+    this.modal.render({ custom: modalBody }, { newLayout: false });
+    console.log('✅ Modal rendered');
+  }
+
+  /**
+   * NEW: Apply a single correction
+   */
+  applyCorrection(correction, index, analysisResult) {
+    if (!this.currentInputField) {
+      console.error('No input field found');
+      return;
+    }
+
+    // Apply correction to the current text
+    const currentText = this.grammarChecker.extractTextFromElement(this.currentInputField);
+    const correctedText = this.grammarChecker.applyCorrection(currentText, correction);
+
+    // Insert corrected text
+    this.insertReply(correctedText);
+
+    // Show success notification
+    this.showNotification('Correction applied!', 'success');
+  }
+
+  /**
+   * NEW: Apply all corrections
+   */
+  applyAllCorrections(corrections, analysisResult) {
+    if (!this.currentInputField) {
+      console.error('No input field found');
+      return;
+    }
+
+    if (!corrections || corrections.length === 0) {
+      this.showNotification('No corrections to apply', 'info');
+      return;
+    }
+
+    // Apply all corrections
+    const currentText = this.grammarChecker.extractTextFromElement(this.currentInputField);
+    const correctedText = this.grammarChecker.applyAllCorrections(currentText, corrections);
+
+    // Insert corrected text
+    this.insertReply(correctedText);
+
+    // Close modal
+    if (this.modal) {
+      this.modal.close();
+    }
+
+    // Show success notification
+    this.showNotification(`Applied ${corrections.length} correction${corrections.length === 1 ? '' : 's'}!`, 'success');
   }
 
   /**
@@ -1751,6 +2029,37 @@ window.Gracula.GraculaApp = class {
   /**
    * Setup hot reload listener for development
    */
+  setupKeyboardShortcuts() {
+    // Listen for Ctrl+G (or Cmd+G on Mac) to trigger grammar check
+    document.addEventListener('keydown', (event) => {
+      // Check for Ctrl+G (Windows/Linux) or Cmd+G (Mac)
+      if ((event.ctrlKey || event.metaKey) && event.key === 'g') {
+        event.preventDefault(); // Prevent browser's find next
+
+        console.log('⌨️ Grammar shortcut triggered (Ctrl/Cmd+G)');
+
+        // Get the currently focused input field
+        const activeElement = document.activeElement;
+
+        if (this.currentInputField && document.contains(this.currentInputField)) {
+          // Use the tracked input field
+          this.handleGrammarCheck(this.currentInputField);
+        } else if (activeElement && (
+          activeElement.contentEditable === 'true' ||
+          activeElement.tagName === 'TEXTAREA' ||
+          activeElement.tagName === 'INPUT'
+        )) {
+          // Use the currently focused element
+          this.handleGrammarCheck(activeElement);
+        } else {
+          this.showNotification('Please click on a text field first', 'info');
+        }
+      }
+    });
+
+    console.log('⌨️ Keyboard shortcuts initialized (Ctrl+G for grammar check)');
+  }
+
   setupHotReload() {
     // Listen for extension updates ONLY when explicitly triggered by background script
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {

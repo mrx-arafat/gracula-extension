@@ -147,6 +147,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true; // Keep channel open for async response
   }
 
+  // NEW: Handle grammar analysis
+  if (request.action === 'analyzeGrammar') {
+    console.log('🎯 [MESSAGE] Received analyzeGrammar request from tab:', sender.tab?.id);
+    handleAnalyzeGrammar(request.text, request.options)
+      .then(result => {
+        console.log('✅ [MESSAGE] Sending analyzeGrammar response');
+        sendResponse({ success: true, ...result });
+      })
+      .catch(error => {
+        console.error('❌ [MESSAGE] analyzeGrammar error:', error.message);
+        sendResponse({ success: false, error: error.message });
+      });
+    return true; // Keep channel open for async response
+  }
+
   if (request.action === 'updateApiConfig') {
     apiConfig = { ...apiConfig, ...request.config };
     chrome.storage.sync.set({ apiConfig }, () => {
@@ -661,6 +676,82 @@ async function callAIAPI(prompt, options = {}) {
   }
 }
 
+async function callAIAnalysisAPI(prompt, options = {}) {
+  // Check which provider to use
+  try {
+    console.log('🧛 Gracula: callAIAnalysisAPI called with provider:', apiConfig.provider);
+
+    if (apiConfig.provider === 'openai') {
+      console.log('🧛 Gracula: Using OpenAI API for analysis');
+      const response = await callOpenAIAnalysisAPI(prompt, options);
+      console.log('🧛 Gracula: OpenAI analysis returned:', response);
+      return response;
+    } else if (apiConfig.provider === 'openrouter') {
+      console.log('🧛 Gracula: Using OpenRouter API for analysis');
+      const response = await callOpenRouterAnalysisAPI(prompt, options);
+      console.log('🧛 Gracula: OpenRouter analysis returned:', response);
+      return response;
+    } else if (apiConfig.provider === 'google') {
+      console.log('🧛 Gracula: Using Google AI Studio API for analysis');
+      const response = await callGoogleAIAnalysisAPI(prompt, options);
+      console.log('🧛 Gracula: Google analysis returned:', response);
+      return response;
+    } else {
+      console.log('🧛 Gracula: Using Hugging Face API for analysis');
+      const response = await callHuggingFaceAnalysisAPI(prompt, options);
+      console.log('🧛 Gracula: Hugging Face analysis returned:', response);
+      return response;
+    }
+  } catch (error) {
+    console.error(`🧛 Gracula: ${apiConfig.provider} analysis API error:`, error);
+    throw error;
+  }
+}
+
+async function callOpenAIAnalysisAPI(prompt, options = {}) {
+  if (!apiConfig.apiKey) {
+    throw new Error('OpenAI API key is required. Please add it in the extension settings.');
+  }
+
+  const url = apiConfig.openaiEndpoint;
+
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${apiConfig.apiKey}`
+  };
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      model: apiConfig.model || 'gpt-3.5-turbo',
+      messages: [
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      temperature: options.temperature || 0.3,
+      max_tokens: options.maxTokens || 2000,
+      n: 1
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenAI API Error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+
+  // Extract the generated text
+  if (data.choices && data.choices[0]?.message?.content) {
+    return data.choices[0].message.content;
+  } else {
+    throw new Error('Unexpected OpenAI API response format');
+  }
+}
+
 async function callOpenAIAPI(prompt, options = {}) {
   if (!apiConfig.apiKey) {
     throw new Error('OpenAI API key is required. Please add it in the extension settings.');
@@ -822,6 +913,49 @@ async function callHuggingFaceAPI(prompt, options = {}) {
   return replies;
 }
 
+async function callHuggingFaceAnalysisAPI(prompt, options = {}) {
+  if (!apiConfig.apiKey) {
+    throw new Error('Hugging Face API key is required. Please add it in the extension settings.');
+  }
+
+  const model = apiConfig.huggingfaceModel || 'mistralai/Mistral-7B-Instruct-v0.2';
+  const url = `https://api-inference.huggingface.co/models/${model}`;
+
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${apiConfig.apiKey}`
+  };
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      inputs: prompt,
+      parameters: {
+        max_new_tokens: options.maxTokens || 2000,
+        temperature: options.temperature || 0.3,
+        return_full_text: false
+      }
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Hugging Face API Error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+
+  // Parse Hugging Face response
+  const generatedText = data[0]?.generated_text || '';
+
+  if (!generatedText) {
+    throw new Error('No response from Hugging Face API');
+  }
+
+  return generatedText;
+}
+
 async function callOpenRouterAPI(prompt, options = {}) {
   if (!apiConfig.apiKey) {
     throw new Error('OpenRouter API key is required. Please add it in the extension settings.');
@@ -926,6 +1060,53 @@ async function callOpenRouterAPI(prompt, options = {}) {
   return replies;
 }
 
+async function callOpenRouterAnalysisAPI(prompt, options = {}) {
+  if (!apiConfig.apiKey) {
+    throw new Error('OpenRouter API key is required. Please add it in the extension settings.');
+  }
+
+  const url = apiConfig.openrouterEndpoint;
+
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${apiConfig.apiKey}`,
+    'HTTP-Referer': 'https://github.com/mrx-arafat/gracula-extension',
+    'X-Title': 'Gracula Extension'
+  };
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      model: apiConfig.openrouterModel,
+      messages: [
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      max_tokens: options.maxTokens || 2000,
+      temperature: options.temperature || 0.3
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenRouter API Error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+
+  // Parse OpenRouter response (same format as OpenAI)
+  const generatedText = data.choices?.[0]?.message?.content || '';
+
+  if (!generatedText) {
+    throw new Error('No response from OpenRouter API');
+  }
+
+  return generatedText;
+}
+
 async function callGoogleAIAPI(prompt, options = {}) {
   if (!apiConfig.apiKey) {
     throw new Error('Google AI Studio API key is required. Please add it in the extension settings.');
@@ -1026,6 +1207,51 @@ ${prompt}`
   const replies = parseReplies(generatedText, options);
 
   return replies;
+}
+
+async function callGoogleAIAnalysisAPI(prompt, options = {}) {
+  if (!apiConfig.apiKey) {
+    throw new Error('Google AI Studio API key is required. Please add it in the extension settings.');
+  }
+
+  const model = apiConfig.googleModel || 'gemini-2.0-flash-exp';
+  const url = `${apiConfig.googleEndpoint}${model}:generateContent?key=${apiConfig.apiKey}`;
+
+  const headers = {
+    'Content-Type': 'application/json'
+  };
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      contents: [{
+        parts: [{
+          text: prompt
+        }]
+      }],
+      generationConfig: {
+        temperature: options.temperature || 0.3,
+        maxOutputTokens: options.maxTokens || 2000
+      }
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Google AI API Error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+
+  // Parse Google AI response
+  const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+  if (!generatedText) {
+    throw new Error('No response from Google AI API');
+  }
+
+  return generatedText;
 }
 
 function parseReplies(text, options = {}) {
@@ -1857,6 +2083,464 @@ async function blobToBase64(blob) {
     reader.onerror = reject;
     reader.readAsDataURL(blob);
   });
+}
+
+// ========================================
+// GRAMMAR ANALYSIS HANDLER
+// ========================================
+
+async function handleAnalyzeGrammar(text, options = {}) {
+  console.log('✍️ Gracula Background: Analyzing grammar for text length:', text?.length);
+  console.log('   Text:', text);
+  console.log('   Options:', options);
+  console.log('   Provider:', apiConfig.provider);
+  console.log('   Has API Key:', !!apiConfig.apiKey);
+
+  if (!text || text.trim().length === 0) {
+    throw new Error('No text provided for grammar analysis');
+  }
+
+  // Check if API key is configured
+  if (!apiConfig.apiKey) {
+    console.error('❌ No API key configured');
+    throw new Error('API key not configured. Please add your API key in extension settings.');
+  }
+
+  console.log('✅ API key found, proceeding with analysis');
+
+  // Build specialized prompt for grammar checking
+  const grammarPrompt = buildGrammarAnalysisPrompt(text, options);
+  console.log('📝 Grammar prompt built, length:', grammarPrompt.length);
+
+  try {
+    // Call AI API with the grammar analysis prompt
+    console.log('🔄 Calling AI API for grammar analysis...');
+    console.log('   Using provider:', apiConfig.provider);
+    console.log('   Using model:', apiConfig.model || apiConfig.googleModel || apiConfig.openrouterModel);
+
+    const response = await callAIAnalysisAPI(grammarPrompt, {
+      temperature: 0.3, // Lower temperature for more consistent corrections
+      maxTokens: 2000
+    });
+
+    console.log('📥 AI API response received:', response);
+
+    // Parse the AI response to extract corrections
+    let corrections = parseGrammarResponse(response, text);
+    console.log('✅ Parsed corrections:', corrections);
+
+    // FALLBACK: If AI found no corrections but there are obvious errors, use basic rules
+    if (corrections.length === 0) {
+      console.log('⚠️ AI found no corrections, trying basic grammar rules...');
+      const basicCorrections = applyBasicGrammarRules(text);
+      if (basicCorrections.length > 0) {
+        console.log('✅ Basic rules found corrections:', basicCorrections);
+        corrections = basicCorrections;
+      } else {
+        console.log('ℹ️ No corrections found by AI or basic rules');
+      }
+    }
+
+    const result = {
+      originalText: text,
+      corrections: corrections,
+      correctedText: applyCorrectionsToParsedResponse(text, corrections),
+      summary: generateCorrectionSummary(corrections),
+      provider: apiConfig.provider,
+      model: apiConfig.model || apiConfig.googleModel || apiConfig.openrouterModel,
+      usedFallback: corrections.length > 0 && parseGrammarResponse(response, text).length === 0
+    };
+
+    console.log('📊 Final result:', result);
+
+    return result;
+  } catch (error) {
+    console.error('❌ Gracula Background: Grammar analysis error:', error);
+    console.error('   Error details:', error.message, error.stack);
+
+    // Provide more specific error messages
+    if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+      throw new Error('Invalid API key. Please check your API key in extension settings.');
+    } else if (error.message.includes('429') || error.message.includes('quota')) {
+      throw new Error('API quota exceeded. Please check your API credits or try again later.');
+    } else if (error.message.includes('network') || error.message.includes('fetch')) {
+      throw new Error('Network error. Please check your internet connection.');
+    }
+
+    throw error;
+  }
+}
+
+function buildGrammarAnalysisPrompt(text, options) {
+  const checks = [];
+  if (options.checkGrammar !== false) checks.push('grammar');
+  if (options.checkSpelling !== false) checks.push('spelling');
+  if (options.checkStyle !== false) checks.push('style');
+  if (options.checkPunctuation !== false) checks.push('punctuation');
+
+  const checksText = checks.join(', ');
+  const language = options.language || 'en-US';
+
+  return `You are a professional grammar checker. Analyze this text for ALL ${checksText} errors.
+
+TEXT TO CHECK: "${text}"
+
+CRITICAL RULES - Check EVERY word:
+1. Subject-verb agreement:
+   - "he/she/it" + verb must end in 's' (he likes, she runs, it works)
+   - "I/you/we/they" + base verb (I like, you run, they work)
+   - Examples: "he like" → "he likes", "she go" → "she goes"
+
+2. Capitalization:
+   - "i" alone must be "I"
+   - First word of sentence must be capitalized
+
+3. Spelling:
+   - Check every word for spelling errors
+   - Common mistakes: "friens" → "friends", "recieve" → "receive"
+
+4. Punctuation:
+   - Sentences must end with . ! or ?
+   - Proper comma usage
+
+EXAMPLES:
+
+Input: "he like friens"
+Output:
+{
+  "corrections": [
+    {
+      "type": "grammar",
+      "offset": 3,
+      "length": 4,
+      "original": "like",
+      "replacement": "likes",
+      "explanation": "Subject-verb agreement: 'he' requires 'likes' not 'like'"
+    },
+    {
+      "type": "spelling",
+      "offset": 8,
+      "length": 6,
+      "original": "friens",
+      "replacement": "friends",
+      "explanation": "Spelling error: 'friens' should be 'friends'"
+    }
+  ]
+}
+
+Input: "i loves her"
+Output:
+{
+  "corrections": [
+    {
+      "type": "grammar",
+      "offset": 0,
+      "length": 1,
+      "original": "i",
+      "replacement": "I",
+      "explanation": "First person pronoun must be capitalized"
+    },
+    {
+      "type": "grammar",
+      "offset": 2,
+      "length": 5,
+      "original": "loves",
+      "replacement": "love",
+      "explanation": "Subject-verb agreement: 'I' requires 'love' not 'loves'"
+    }
+  ]
+}
+
+Now analyze the text above. Return ONLY a JSON object with this structure:
+{
+  "corrections": [...]
+}
+
+Each correction must have:
+- "offset": character position (0-based, count from start of text)
+- "length": number of characters to replace
+- "original": the incorrect text
+- "replacement": the corrected text
+- "explanation": brief reason for the correction
+- "type": "grammar", "spelling", "style", or "punctuation"
+
+If no errors found, return {"corrections": []}
+
+Return ONLY valid JSON. No markdown, no code blocks, no extra text.`;
+}
+
+function parseGrammarResponse(response, originalText) {
+  console.log('🔍 Parsing grammar response...');
+  console.log('   Response type:', typeof response);
+  console.log('   Response length:', response?.length || 'N/A');
+  console.log('   Response preview:', typeof response === 'string' ? response.substring(0, 200) + (response.length > 200 ? '...' : '') : JSON.stringify(response).substring(0, 200) + '...');
+
+  try {
+    // The response might be a string or already parsed
+    let responseText = '';
+
+    if (typeof response === 'string') {
+      responseText = response;
+    } else if (Array.isArray(response) && response.length > 0) {
+      // Handle old format where response is an array
+      responseText = response[0];
+    } else if (response && typeof response === 'object') {
+      // Handle object responses
+      responseText = response.text || response.message || response.content || JSON.stringify(response);
+    } else {
+      console.error('❌ Unexpected response format:', response);
+      console.error('   Response keys:', response ? Object.keys(response) : 'N/A');
+      return [];
+    }
+
+    console.log('📄 Raw response text:', responseText);
+
+    // Clean the response - remove markdown code blocks if present
+    responseText = responseText.trim();
+    responseText = responseText.replace(/```json\s*/gi, '');
+    responseText = responseText.replace(/```\s*/g, '');
+    responseText = responseText.replace(/```\w*\s*/g, ''); // Remove any code block markers
+    responseText = responseText.trim();
+
+    console.log('🧹 Cleaned response:', responseText);
+
+    // Try to find JSON object in the response - be more flexible
+    const jsonPatterns = [
+      /\{[\s\S]*\}/,  // Full object
+      /\[[\s\S]*\]/,  // Array
+      /"corrections"\s*:\s*\[[\s\S]*\]/  // Just the corrections array
+    ];
+
+    let jsonMatch = null;
+    for (const pattern of jsonPatterns) {
+      jsonMatch = responseText.match(pattern);
+      if (jsonMatch) {
+        console.log('📋 Found JSON with pattern:', pattern);
+        break;
+      }
+    }
+
+    if (!jsonMatch) {
+      console.error('❌ No JSON found in response');
+      console.error('   Full response:', responseText);
+      // If no JSON but also no obvious errors, maybe the text is perfect
+      return [];
+    }
+
+    console.log('📋 JSON match:', jsonMatch[0]);
+
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch (parseError) {
+      console.error('❌ JSON parse error:', parseError.message);
+      console.error('   Trying to fix common JSON issues...');
+
+      // Try to fix common issues
+      let fixedJson = jsonMatch[0];
+      fixedJson = fixedJson.replace(/,\s*}/g, '}'); // Remove trailing commas
+      fixedJson = fixedJson.replace(/,\s*]/g, ']'); // Remove trailing commas in arrays
+
+      try {
+        parsed = JSON.parse(fixedJson);
+        console.log('✅ Fixed JSON parse successful');
+      } catch (secondError) {
+        console.error('❌ Fixed JSON still invalid:', secondError.message);
+        return [];
+      }
+    }
+
+    console.log('✅ Parsed JSON:', parsed);
+
+    if (!parsed.corrections) {
+      console.warn('⚠️ No corrections field in response:', parsed);
+      return [];
+    }
+
+    if (!Array.isArray(parsed.corrections)) {
+      console.error('❌ Corrections is not an array:', parsed.corrections);
+      return [];
+    }
+
+    console.log(`📊 Found ${parsed.corrections.length} corrections`);
+
+    // Validate and sanitize corrections
+    const validCorrections = parsed.corrections.filter(correction => {
+      const isValid = correction &&
+             typeof correction.offset === 'number' &&
+             typeof correction.length === 'number' &&
+             typeof correction.replacement === 'string' &&
+             typeof correction.type === 'string' &&
+             correction.offset >= 0 &&
+             correction.length > 0 &&
+             correction.offset + correction.length <= originalText.length;
+
+      if (!isValid) {
+        console.warn('⚠️ Invalid correction filtered out:', correction);
+      }
+
+      return isValid;
+    });
+
+    console.log(`✅ Returning ${validCorrections.length} valid corrections`);
+
+    return validCorrections;
+  } catch (error) {
+    console.error('❌ Error parsing grammar response:', error);
+    console.error('   Error message:', error.message);
+    console.error('   Error stack:', error.stack);
+    console.error('   Response was:', response);
+    return [];
+  }
+}
+
+function applyCorrectionsToParsedResponse(originalText, corrections) {
+  if (!corrections || corrections.length === 0) {
+    return originalText;
+  }
+
+  // Sort corrections by offset in reverse order to avoid offset shifts
+  const sortedCorrections = [...corrections].sort((a, b) => b.offset - a.offset);
+
+  let correctedText = originalText;
+  for (const correction of sortedCorrections) {
+    const before = correctedText.substring(0, correction.offset);
+    const after = correctedText.substring(correction.offset + correction.length);
+    correctedText = before + correction.replacement + after;
+  }
+
+  return correctedText;
+}
+
+function generateCorrectionSummary(corrections) {
+  if (!corrections || corrections.length === 0) {
+    return 'No issues found. Text looks great!';
+  }
+
+  const counts = {
+    grammar: 0,
+    spelling: 0,
+    style: 0,
+    punctuation: 0
+  };
+
+  corrections.forEach(c => {
+    if (counts[c.type] !== undefined) {
+      counts[c.type]++;
+    }
+  });
+
+  const parts = [];
+  if (counts.grammar > 0) parts.push(`${counts.grammar} grammar`);
+  if (counts.spelling > 0) parts.push(`${counts.spelling} spelling`);
+  if (counts.style > 0) parts.push(`${counts.style} style`);
+  if (counts.punctuation > 0) parts.push(`${counts.punctuation} punctuation`);
+
+  return `Found ${corrections.length} issue${corrections.length === 1 ? '' : 's'}: ${parts.join(', ')}`;
+}
+
+// Fallback grammar checker (basic rules-based)
+// Fallback grammar checker (basic rules-based)
+function applyBasicGrammarRules(text) {
+  const corrections = [];
+  let offset = 0;
+
+  // Rule 1: Lowercase "i" should be "I" (when used as first person pronoun)
+  const iRegex = /\bi\b/g;
+  let match;
+  while ((match = iRegex.exec(text)) !== null) {
+    // Check if it's at the start of sentence or after punctuation
+    const beforeChar = match.index > 0 ? text[match.index - 1] : '';
+    if (match.index === 0 || /[.!?]\s/.test(beforeChar + text[match.index])) {
+      corrections.push({
+        type: 'grammar',
+        offset: match.index,
+        length: 1,
+        original: 'i',
+        replacement: 'I',
+        explanation: 'First person pronoun must be capitalized'
+      });
+    }
+  }
+
+  // Rule 2: "I loves/hates/goes/does/has" should be "I love/hate/go/do/have"
+  const iVerbRegex = /\bI\s+(loves|hates|goes|does|has)\b/gi;
+  while ((match = iVerbRegex.exec(text)) !== null) {
+    const verb = match[1];
+    let correctedVerb;
+    switch (verb.toLowerCase()) {
+      case 'loves': correctedVerb = 'love'; break;
+      case 'hates': correctedVerb = 'hate'; break;
+      case 'goes': correctedVerb = 'go'; break;
+      case 'does': correctedVerb = 'do'; break;
+      case 'has': correctedVerb = 'have'; break;
+      default: correctedVerb = verb;
+    }
+    corrections.push({
+      type: 'grammar',
+      offset: match.index + 2, // Skip "I "
+      length: verb.length,
+      original: verb,
+      replacement: correctedVerb,
+      explanation: 'Subject-verb agreement with "I"'
+    });
+  }
+
+  // Rule 3: Common spelling errors
+  const spellingRules = {
+    'recieve': 'receive',
+    'occured': 'occurred',
+    'untill': 'until',
+    'thier': 'their',
+    'freind': 'friend',
+    'seperate': 'separate',
+    'definately': 'definitely',
+    'begining': 'beginning',
+    'commited': 'committed'
+  };
+
+  for (const [wrong, correct] of Object.entries(spellingRules)) {
+    const regex = new RegExp(`\\b${wrong}\\b`, 'gi');
+    while ((match = regex.exec(text)) !== null) {
+      corrections.push({
+        type: 'spelling',
+        offset: match.index,
+        length: wrong.length,
+        original: match[0],
+        replacement: correct,
+        explanation: `Common spelling error: "${wrong}" should be "${correct}"`
+      });
+    }
+  }
+
+  // Rule 4: Double spaces
+  const doubleSpaceRegex = /\s{2,}/g;
+  while ((match = doubleSpaceRegex.exec(text)) !== null) {
+    corrections.push({
+      type: 'style',
+      offset: match.index,
+      length: match[0].length,
+      original: match[0],
+      replacement: ' ',
+      explanation: 'Multiple spaces should be a single space'
+    });
+  }
+
+  // Rule 5: Missing space after punctuation
+  const punctuationRegex = /([.!?])([A-Z])/g;
+  while ((match = punctuationRegex.exec(text)) !== null) {
+    corrections.push({
+      type: 'punctuation',
+      offset: match.index + 1,
+      length: 0,
+      original: '',
+      replacement: ' ',
+      explanation: 'Add space after punctuation before capital letter'
+    });
+  }
+
+  console.log('🔧 Basic grammar rules applied:', corrections.length, 'corrections');
+  return corrections;
 }
 
 console.log('🧛 Gracula Background Script: Loaded');

@@ -83,6 +83,8 @@
         "features/voice-transcription/index.js",
         "features/global-voice-input/GlobalVoiceInputManager.js",
         "features/global-voice-input/index.js",
+        "features/grammar/model/GrammarChecker.js",
+        "widgets/grammar-checker/ui/GrammarCheckerWidget.js",
         "widgets/voice-input/ui/VoiceButton.js",
         "widgets/voice-input/ui/RecordingIndicator.js",
         "widgets/voice-input/model/VoiceInputManager.js",
