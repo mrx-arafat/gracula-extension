@@ -430,21 +430,15 @@ function buildPrompt(tone, context, enhancedContext, responseMode = 'reply') {
           otherFriends.push(normalized);
         }
 
-        // We don't need to scan the whole history - 6 today + 3 older is enough
-        if (todayFriends.length >= 6 && otherFriends.length >= 3) {
+        // We only need the last 3 friend messages for focused replies
+        if (todayFriends.length + otherFriends.length >= 3) {
           break;
         }
       }
 
-      // Decide how many to show
-      let selectedNewestFirst = [];
-      if (todayFriends.length >= 4) {
-        // Busy day → keep it tight (last 2–3 messages only)
-        selectedNewestFirst = todayFriends.slice(0, 3);
-      } else {
-        // Not too busy → take up to 6 total (today first, then recent)
-        selectedNewestFirst = todayFriends.concat(otherFriends).slice(0, 6);
-      }
+      // Always show last 2-3 friend messages for focused, meaningful replies
+      const allFriendMessages = todayFriends.concat(otherFriends);
+      const selectedNewestFirst = allFriendMessages.slice(0, 3);
 
       // Output in chronological order (oldest → newest)
       const selectedChrono = selectedNewestFirst.slice().reverse();
@@ -466,18 +460,26 @@ function buildPrompt(tone, context, enhancedContext, responseMode = 'reply') {
       }
     }
 
-    // Show friend's messages prominently (today-first)
+    // Show friend's messages prominently (last 2-3 only for focus)
     if (friendFocus.length > 0) {
-      prompt += '=== 🎯🎯🎯 CRITICAL: REPLY TO YOUR FRIEND (TODAY-FIRST) ===\n';
+      prompt += '=== 🎯🎯🎯 CRITICAL: REPLY TO YOUR FRIEND ===\n';
+      prompt += 'Recent friend messages (focus on the LAST one):\n\n';
       friendFocus.forEach((m, idx) => {
         const datePart = m.dateLabel ? m.dateLabel : 'Earlier';
         const timePart = m.timeLabel ? ` ${m.timeLabel}` : '';
         const speaker = m.speaker || friendName || 'Friend';
         const text = m.text || '';
-        prompt += `${idx + 1}. [${datePart}${timePart}] >>> ${speaker}: "${text}" <<<\n`;
+        const isLastMessage = (idx === friendFocus.length - 1);
+
+        if (isLastMessage) {
+          prompt += `${idx + 1}. [${datePart}${timePart}] >>> ${speaker}: "${text}" <<<\n`;
+          prompt += '   ⚠️⚠️⚠️ REPLY TO THIS MESSAGE ⬆️⬆️⬆️\n';
+        } else {
+          prompt += `${idx + 1}. [${datePart}${timePart}] ${speaker}: "${text}"\n`;
+        }
       });
       prompt += '\n';
-      prompt += '🧠 Reply to the LAST friend message above, but keep the previous friend messages from today in mind.\n';
+      prompt += '🧠 Focus primarily on responding to the LAST message above.\n';
       prompt += `⚠️  IGNORE any messages from "${userName}" or "You".\n`;
       prompt += '⚠️  If the friend sent multiple short messages in a row, treat them as ONE turn.\n\n';
     } else if (lastFriendMessage && lastFriendSpeaker) {
