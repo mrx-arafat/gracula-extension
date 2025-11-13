@@ -83,8 +83,6 @@
         "features/voice-transcription/index.js",
         "features/global-voice-input/GlobalVoiceInputManager.js",
         "features/global-voice-input/index.js",
-        "features/grammar/model/GrammarChecker.js",
-        "widgets/grammar-checker/ui/GrammarCheckerWidget.js",
         "widgets/voice-input/ui/VoiceButton.js",
         "widgets/voice-input/ui/RecordingIndicator.js",
         "widgets/voice-input/model/VoiceInputManager.js",
@@ -102,9 +100,6 @@
         "widgets/autocomplete/ui/AutocompleteDropdown.js",
         "widgets/autocomplete/model/AutocompleteManager.js",
         "widgets/autocomplete/index.js",
-        "widgets/grammar-fix/ui/GrammarButton.js",
-        "widgets/grammar-fix/model/GrammarFixManager.js",
-        "widgets/grammar-fix/index.js",
         "app/GraculaApp.js",
         "app/index.js"
       ],
@@ -140,9 +135,7 @@
         "features/voice-transcription/model/TranscriptionManager.js",
         "features/voice-transcription/index.js",
         "features/global-voice-input/GlobalVoiceInputManager.js",
-        "features/global-voice-input/index.js",
-        "features/global-grammar-fix/GlobalGrammarFixManager.js",
-        "features/global-grammar-fix/index.js"
+        "features/global-voice-input/index.js"
       ],
       "run_at": "document_idle",
       "all_frames": false
