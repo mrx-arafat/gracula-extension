@@ -26,7 +26,7 @@ build/
 .env
 .env.local
 .env.*.local
-
+.claude/
 # Test coverage
 coverage/
 .nyc_output/
