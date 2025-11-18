@@ -595,11 +595,25 @@ window.Gracula.GraculaApp = class {
       ? `<div style="margin-top: 6px; font-size: 11px; color: #9ca3af;">${languageDetails.join(' • ')}</div>`
       : '';
 
-    return `
-      <div class="gracula-context-insights">
-        <h3 style="margin: 0 0 16px 0; font-size: 15px; font-weight: 600; color: #111827;">
-          📊 Context Insights
-        </h3>
+	    // All-context panel (shows all extracted messages, editable)
+	    const allContextPanelHTML = this.contextViewer
+	      ? this.contextViewer.render()
+	      : '<div class="gracula-context-section"><div class="gracula-context-display"><div class="gracula-context-preview"><em>No context available yet.</em></div></div></div>';
+
+	    return `
+	      <div class="gracula-context-insights">
+	        <div class="gracula-context-insights-header-row">
+	          <h3 style="margin: 0; font-size: 15px; font-weight: 600; color: #111827;">
+	            📊 Context Insights
+	          </h3>
+	          <button type="button" class="gracula-all-context-toggle-btn" title="View & edit all messages used as context">
+	            📝 All context
+	          </button>
+	        </div>
+
+	        <div class="gracula-all-context-panel" style="display: none;">
+	          ${allContextPanelHTML}
+	        </div>
 
         <!-- Topics -->
         <div class="gracula-insight-card">
@@ -871,12 +885,24 @@ window.Gracula.GraculaApp = class {
         if (modalBody) {
           this.attachModeTabListeners(modalBody);
           this.toneSelector.attachListeners(modalBody);
-          // NOTE: Don't attach contextViewer listeners in new layout (not rendered)
-          // this.contextViewer.attachListeners(modalBody);
-          // NOTE: Bottom bar removed - voice is in action dock, autocomplete is automatic
-          // NOTE: Don't update context viewer in new layout (not rendered)
-          // this.updateContextViewerForMode();
-          console.log('🧛 [GRACULA] Listeners attached successfully');
+	    	    // Attach context viewer listeners for the "All context" panel in the right sidebar
+	    	    if (this.contextViewer) {
+	    	      this.contextViewer.attachListeners(modalBody);
+	    	    }
+
+	    	    // Attach toggle logic for All Context button
+	    	    const allContextToggleBtn = modalBody.querySelector('.gracula-all-context-toggle-btn');
+	    	    const allContextPanel = modalBody.querySelector('.gracula-all-context-panel');
+	    	    if (allContextToggleBtn && allContextPanel) {
+	    	      allContextToggleBtn.addEventListener('click', () => {
+	    	        const isHidden = allContextPanel.style.display === 'none' || !allContextPanel.style.display;
+	    	        allContextPanel.style.display = isHidden ? 'block' : 'none';
+	    	        allContextToggleBtn.classList.toggle('active', isHidden);
+	    	      });
+	    	    }
+
+	    	    // NOTE: Bottom bar removed - voice is in action dock, autocomplete is automatic
+	    	    console.log('🧛 [GRACULA] Listeners attached successfully');
         } else {
           console.error('🧛 [GRACULA] Modal body not found!');
         }
