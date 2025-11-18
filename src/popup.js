@@ -83,7 +83,7 @@ function loadSettings() {
       document.getElementById('apiKey').value = config.apiKey || '';
       document.getElementById('openaiModel').value = config.model || 'gpt-4o';  // Default to latest GPT-4o
       document.getElementById('googleModel').value = config.googleModel || 'gemini-2.0-flash-exp';
-      document.getElementById('openrouterModel').value = config.openrouterModel || 'anthropic/claude-3.5-sonnet';  // Default to Claude 3.5
+	      document.getElementById('openrouterModel').value = config.openrouterModel || 'z-ai/glm-4.6';  // Default to GLM 4.6 on OpenRouter
       document.getElementById('huggingfaceModel').value = config.huggingfaceModel || 'mistralai/Mistral-7B-Instruct-v0.2';
 
       // Load AI toggle state (default: false/disabled)

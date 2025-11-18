@@ -61,29 +61,30 @@ chrome.runtime.onInstalled.addListener((details) => {
 
 // Default API configuration
 let apiConfig = {
-  provider: 'openai', // 'openai', 'huggingface', 'openrouter', or 'google'
-  apiKey: '', // Users can add their own key in settings
-  model: 'gpt-3.5-turbo', // OpenAI model
-  openaiEndpoint: 'https://api.openai.com/v1/chat/completions',
-  huggingfaceEndpoint: 'https://api-inference.huggingface.co/models/',
-  huggingfaceModel: 'mistralai/Mistral-7B-Instruct-v0.2',
-  openrouterEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
-  openrouterModel: 'google/gemini-2.0-flash-exp:free',
-  googleEndpoint: 'https://generativelanguage.googleapis.com/v1beta/models/',
-  googleModel: 'gemini-2.0-flash-exp',
-  // Voice transcription configuration
-  voiceProvider: 'webspeech', // 'webspeech', 'elevenlabs', 'openai', 'google', 'deepgram'
-  voiceLanguage: 'en', // Language code for voice recognition
-  elevenlabsApiKey: 'sk_17f927bfb2297bf127c442949b9b16ab964c7b916c6cd56a',
-  elevenlabsEndpoint: 'https://api.elevenlabs.io/v1/speech-to-text',
-  googleApiKey: '', // Google Cloud Speech-to-Text API key
-  deepgramApiKey: '', // Deepgram API key
-  // AI toggle for autosuggestions (disabled by default)
-  useAIForAutosuggestions: false,
-  // Voice input toggle (enabled by default for quick access)
-  voiceInputEnabled: true,
-  // Voice input keyboard shortcut
-  voiceShortcut: 'Ctrl+Shift+V'
+	// Default to OpenRouter + GLM 4.6 as requested
+	provider: 'openrouter', // 'openai', 'huggingface', 'openrouter', or 'google'
+	apiKey: '', // Users can add their own key in settings
+	model: 'gpt-3.5-turbo', // OpenAI model (used only when provider === 'openai')
+	openaiEndpoint: 'https://api.openai.com/v1/chat/completions',
+	huggingfaceEndpoint: 'https://api-inference.huggingface.co/models/',
+	huggingfaceModel: 'mistralai/Mistral-7B-Instruct-v0.2',
+	openrouterEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
+	openrouterModel: 'z-ai/glm-4.6',
+	googleEndpoint: 'https://generativelanguage.googleapis.com/v1beta/models/',
+	googleModel: 'gemini-2.0-flash-exp',
+	// Voice transcription configuration
+	voiceProvider: 'webspeech', // 'webspeech', 'elevenlabs', 'openai', 'google', 'deepgram'
+	voiceLanguage: 'en', // Language code for voice recognition
+	elevenlabsApiKey: 'sk_17f927bfb2297bf127c442949b9b16ab964c7b916c6cd56a',
+	elevenlabsEndpoint: 'https://api.elevenlabs.io/v1/speech-to-text',
+	googleApiKey: '', // Google Cloud Speech-to-Text API key
+	deepgramApiKey: '', // Deepgram API key
+	// AI toggle for autosuggestions (disabled by default)
+	useAIForAutosuggestions: false,
+	// Voice input toggle (enabled by default for quick access)
+	voiceInputEnabled: true,
+	// Voice input keyboard shortcut
+	voiceShortcut: 'Ctrl+Shift+V'
 };
 
 // Load saved API config
@@ -235,17 +236,28 @@ function buildPrompt(tone, context, enhancedContext, responseMode = 'reply') {
   // PHASE 1 IMPROVEMENT: ADAPTIVE HIERARCHICAL CONTEXT
   // ========================================
 
-  // Extract current topic (most important context)
-  const currentTopic = summary.topics || 'general conversation';
+	  // Extract current topic (most important context)
+	  // Prefer semantic summary from TopicAnalyzer instead of raw keyword list.
+	  let currentTopic = (analysis && analysis.topicAnalysis && analysis.topicAnalysis.summary)
+	    ? analysis.topicAnalysis.summary
+	    : null;
+
+	  if (!currentTopic || currentTopic === 'None') {
+	    currentTopic = 'general conversation';
+	  }
 
   // Get last message details for reply marker
   const lastMessage = dualAnalysis?.replyMode?.respondingTo ||
                      (Array.isArray(context) && context.length > 0 ? context[context.length - 1] : null);
   const lastSpeaker = dualAnalysis?.replyMode?.speaker || summary.lastSpeaker || 'Friend';
 
-  // CRITICAL: Get the FRIEND's last message (not the user's message)
-  const lastFriendMessage = summary.lastFriendMessage || '';
-  const lastFriendSpeaker = summary.lastFriendSpeaker || '';
+	  // CRITICAL: Get the FRIEND's last message (not the user's message)
+	  const lastFriendMessage = summary.lastFriendMessage || '';
+	  const lastFriendSpeaker = summary.lastFriendSpeaker || '';
+
+	  // Detect simple "thank you" style messages from the friend
+	  const friendThanksPattern = /(thank you|thanks|thank u|thanku|thx|thnx|tysm|ty|dhonnobad|dhonnobaad|dhonnobaat|dhanyabad|shukriya)/i;
+	  const friendJustSaidThanks = !!(lastFriendMessage && friendThanksPattern.test(lastFriendMessage));
 
   // Get absolute last message (any sender) for reply_last mode
   const absoluteLastMessage = Array.isArray(context) && context.length > 0 ? context[context.length - 1] : '';
@@ -327,8 +339,10 @@ function buildPrompt(tone, context, enhancedContext, responseMode = 'reply') {
     prompt += `✅ You are ${userName} writing TO ${friendName}\n\n`;
   }
 
-  // Add CURRENT TOPIC at the very top (critical for context)
-  prompt += `=== 📌 CURRENT TOPIC: ${currentTopic} ===\n\n`;
+	  // Add CURRENT TOPIC at the very top (critical for context)
+	  if (currentTopic) {
+	    prompt += `=== 📌 CURRENT TOPIC: ${currentTopic} ===\n\n`;
+	  }
 
   // PHASE 2: Show topic changes if detected
   if (topicChanges && topicChanges.length > 0) {
@@ -577,27 +591,45 @@ function buildPrompt(tone, context, enhancedContext, responseMode = 'reply') {
   prompt += '=== 🎯 YOUR TASK ===\n';
   prompt += `${tone.prompt}\n\n`;
 
-  // Add specific instructions
-  prompt += '📋 CRITICAL INSTRUCTIONS:\n';
+	  // Add specific instructions
+	  prompt += '📋 CRITICAL INSTRUCTIONS:\n';
 
   // Add identity reminder if we have a real user name
   if (userName && userName !== 'You') {
     prompt += `0. 🚫 NEVER use "${userName}" in your reply - that's YOUR name, not who you're talking to!\n`;
   }
 
-  if (lastFriendMessage && lastFriendSpeaker) {
-    prompt += `1. ⚠️⚠️⚠️ Reply to ${lastFriendSpeaker}'s MOST RECENT message (the last one shown in the friend block above)\n`;
-    prompt += '2. Use the earlier friend messages from TODAY (shown above) to keep continuity and to understand what she is talking about\n';
-    prompt += '3. 🚫 Do NOT add extra small-talk, jokes, or reunion lines like "where were you hiding?" or "long time no see" UNLESS the friend actually said that\n';
-    prompt += '4. 🚫 Do NOT invent background or reasons for the 1-month mention; treat it as part of the request\n';
-    prompt += '5. If the friend is asking for help ("I need some help", "for 1 month"), your reply MUST stay on that request and ask clarifying/follow-up if needed\n';
-    prompt += `6. Stay on topic: ${currentTopic}\n`;
-    prompt += `7. Use ${tone.name} tone\n`;
-  } else {
-    prompt += `1. Reply directly to the message marked with ">>>" above\n`;
-    prompt += `2. Stay on topic: ${currentTopic}\n`;
-    prompt += `3. Use ${tone.name} tone\n`;
-  }
+	  if (lastFriendMessage && lastFriendSpeaker) {
+	    if (friendJustSaidThanks) {
+	      // Special handling: friend just said some form of "thank you" (e.g., "Dhonnobaad")
+	      prompt += `1. The friend just thanked you (e.g., "${lastFriendMessage}").\n`;
+	      prompt += '2. Your reply MUST be a very short acknowledgement such as "You\'re welcome", "Shagotom", or "My pleasure" in natural Bangla/English mix.\n';
+	      prompt += '3. 🚫 Do NOT repeat the topic keywords or date words (like "today") unless they naturally belong in a short welcome.\n';
+	      prompt += '4. 🚫 Do NOT introduce new topics, questions, or requests. Just acknowledge politely.\n';
+	      prompt += `5. Keep it extremely brief (1 short sentence) and use ${tone.name} tone.\n`;
+	    } else {
+	      // General case
+	      prompt += `1. ⚠️⚠️⚠️ Reply to ${lastFriendSpeaker}'s MOST RECENT message (the last one shown in the friend block above)\n`;
+	      prompt += '2. Use the earlier friend messages from TODAY (shown above) to keep continuity and to understand what they are talking about.\n';
+	      prompt += '3. 🚫 Do NOT add extra small-talk, jokes, or reunion lines like "where were you hiding?" or "long time no see" UNLESS the friend actually said that.\n';
+	      prompt += '4. 🚫 Do NOT invent background or reasons for any time gaps; treat them exactly as mentioned.\n';
+	      prompt += '5. If the friend is asking for help or making a request, your reply MUST stay on that request and ask clarifying/follow-up if needed.\n';
+	      if (currentTopic) {
+	        prompt += `6. Stay loosely on topic: ${currentTopic} (this is for context only, do NOT copy these words verbatim).\n`;
+	        prompt += `7. Use ${tone.name} tone.\n`;
+	      } else {
+	        prompt += `6. Use ${tone.name} tone.\n`;
+	      }
+	    }
+	  } else {
+	    prompt += '1. Reply directly to the message marked with ">>>" above.\n';
+	    if (currentTopic) {
+	      prompt += `2. Stay loosely on topic: ${currentTopic} (context only, do NOT copy these words).\n`;
+	      prompt += `3. Use ${tone.name} tone.\n`;
+	    } else {
+	      prompt += `2. Use ${tone.name} tone.\n`;
+	    }
+	  }
 
   // Length guidance (keep it simple)
   const recommended = metrics?.recommendedReplyLength;
@@ -655,13 +687,36 @@ async function callAIAPI(prompt, options = {}) {
       return replies;
     }
   } catch (error) {
-    console.error(`🧛 Gracula: ${apiConfig.provider} API error:`, error);
+	    console.error(`🧛 Gracula: ${apiConfig.provider} API error:`, error);
 
-    // Fallback to mock responses for demo
-    console.log('🧛 Gracula: Using fallback mock responses');
-    const mockReplies = generateMockReplies(prompt, options);
-    console.log('🧛 Gracula: Mock replies generated:', mockReplies);
-    return mockReplies;
+	    const isAutocomplete = !!options.isAutocomplete;
+	    const message = String(error && error.message ? error.message : error || '');
+	    const lowerMessage = message.toLowerCase();
+	    const isMissingKey = message.includes('API key is required');
+	    const isAuthOrQuotaError =
+	      lowerMessage.includes('invalid api key') ||
+	      lowerMessage.includes('unauthorized') ||
+	      lowerMessage.includes('rate limit') ||
+	      lowerMessage.includes('quota');
+
+	    // For reply generation with real providers (OpenRouter/OpenAI/Google),
+	    // NEVER silently fall back to mock replies. Surface the error so the UI
+	    // can show a clear message and the user can fix their API config.
+	    if (!isAutocomplete &&
+	        (apiConfig.provider === 'openai' ||
+	         apiConfig.provider === 'openrouter' ||
+	         apiConfig.provider === 'google' ||
+	         isMissingKey ||
+	         isAuthOrQuotaError)) {
+	      throw error;
+	    }
+
+	    // For autocomplete or non-primary providers (e.g. Hugging Face demo),
+	    // fall back to local mock replies so the UI still feels responsive.
+	    console.log('🧛 Gracula: Using fallback mock responses');
+	    const mockReplies = generateMockReplies(prompt, options);
+	    console.log('🧛 Gracula: Mock replies generated:', mockReplies);
+	    return mockReplies;
   }
 }
 
@@ -1386,27 +1441,33 @@ function generateContextualReplies(tone, context) {
   };
 
   // Analyze last message for better context
-  const analyzeMessage = (msg) => {
-    if (!msg) return {
-      isQuestion: false,
-      isNegative: false,
-      isRequest: false,
-      isMoney: false,
-      isConfirmation: false,
-      topic: null
-    };
-    const msgLower = msg.toLowerCase();
-    return {
-      isQuestion: /\?|ki|keno|kobe|kothay|how|what|when|where/.test(msgLower),
-      isNegative: /nai|na|not|no|can't|couldn't|won't/.test(msgLower),
-      isPositive: /yes|hoo|thik|okay|good|great|nice|received|got it/.test(msgLower),
-      hasUrgency: /asap|jaldi|taratari|now|urgent/.test(msgLower),
-      isRequest: /check|kor|dekh|pathao|send|bhej|please/.test(msgLower),
-      isMoney: /taka|money|pathaise|sent|paisa|tk|bdt|dollar|payment/.test(msgLower),
-      isConfirmation: /received|got it|done|okay|ok|thik|ache/.test(msgLower),
-      isGreeting: /hi|hello|hey|salam|assalam|kemon|how are you/.test(msgLower)
-    };
-  };
+	  const analyzeMessage = (msg) => {
+	    if (!msg) return {
+	      isQuestion: false,
+	      isNegative: false,
+	      isRequest: false,
+	      isMoney: false,
+	      isConfirmation: false,
+	      isGreeting: false,
+	      isPositive: false,
+	      hasUrgency: false,
+	      isThanks: false,
+	      topic: null
+	    };
+	    const msgLower = msg.toLowerCase();
+	    const thanksPattern = /(thank you|thanks|thank u|thanku|thx|thnx|tysm|ty|dhonnobad|dhonnobaad|dhonnobaat|dhanyabad|shukriya)/i;
+	    return {
+	      isQuestion: /\?|ki|keno|kobe|kothay|how|what|when|where/.test(msgLower),
+	      isNegative: /nai|na|not|no|can't|couldn't|won't/.test(msgLower),
+	      isPositive: /yes|hoo|thik|okay|good|great|nice|received|got it/.test(msgLower),
+	      hasUrgency: /asap|jaldi|taratari|now|urgent/.test(msgLower),
+	      isRequest: /check|kor|dekh|pathao|send|bhej|please/.test(msgLower),
+	      isMoney: /taka|money|pathaise|sent|paisa|tk|bdt|dollar|payment/.test(msgLower),
+	      isConfirmation: /received|got it|done|okay|ok|thik|ache/.test(msgLower),
+	      isGreeting: /hi|hello|hey|salam|assalam|kemon|how are you/.test(msgLower),
+	      isThanks: thanksPattern.test(msgLower)
+	    };
+	  };
 
   // CRITICAL: Always analyze the FRIEND's message, not the user's message
   // The user wants to reply to what their FRIEND said
@@ -1431,9 +1492,9 @@ function generateContextualReplies(tone, context) {
   console.log('🧛 Gracula: Generating replies for tone:', tone);
 
   switch (tone) {
-    case 'default':
-      // Handle money-related messages
-      if (lastMessageAnalysis.isMoney && lastMessageAnalysis.isRequest) {
+	    case 'default':
+	      // Handle money-related messages
+	      if (lastMessageAnalysis.isMoney && lastMessageAnalysis.isRequest) {
         replies = [
           applyStyle("Checking now, give me a sec"),
           applyStyle("Let me check the payment"),
@@ -1468,6 +1529,13 @@ function generateContextualReplies(tone, context) {
           applyStyle("Hey! What's up?"),
           applyStyle("Hi! Kemon acho?"),
           applyStyle("Hello! How's it going?")
+	        ];
+	      } else if (lastMessageAnalysis.isThanks) {
+	        // Friend said "thanks" / "dhonnobaad" -> we should ACKNOWLEDGE
+	        replies = [
+	          applyStyle("You're welcome"),
+	          applyStyle("Shagotom, anytime"),
+	          applyStyle("My pleasure")
         ];
       } else if (hasTopic) {
         replies = [
@@ -1620,21 +1688,29 @@ function generateContextualReplies(tone, context) {
       ];
       break;
 
-    case 'short':
-      if (hasTopic) {
-        replies = [
-          applyStyle(`Ok ${topicKeywords[0]}`),
-          applyStyle("Got it"),
-          applyStyle("Sure")
-        ];
-      } else {
-        replies = [
-          applyStyle("Ok"),
-          applyStyle("Got it"),
-          applyStyle("Sure")
-        ];
-      }
-      break;
+	    case 'short':
+	      if (lastMessageAnalysis.isThanks) {
+	        // Short, clean acknowledgements for "thanks" style messages
+	        replies = [
+	          applyStyle("You're welcome"),
+	          applyStyle("Shagotom"),
+	          applyStyle("My pleasure")
+	        ];
+	      } else if (hasTopic) {
+	        // Keep it neutral; don't echo raw topic tokens like "today" / "dawat"
+	        replies = [
+	          applyStyle("Ok"),
+	          applyStyle("Got it"),
+	          applyStyle("Sure")
+	        ];
+	      } else {
+	        replies = [
+	          applyStyle("Ok"),
+	          applyStyle("Got it"),
+	          applyStyle("Sure")
+	        ];
+	      }
+	      break;
 
     default:
       replies = [
@@ -1731,13 +1807,13 @@ function buildAutocompletePrompt(partialText, analysis, context, enhancedContext
       prompt += `⚡ URGENCY: This is urgent!\n`;
     }
 
-    if (lastMsgAnalysis.topics) {
-      const topicsArray = Array.isArray(lastMsgAnalysis.topics) ? lastMsgAnalysis.topics : [lastMsgAnalysis.topics];
-      if (topicsArray.length > 0) {
-        prompt += `📌 TOPICS: ${topicsArray.join(', ')}\n`;
-        prompt += `→ Address these topics in your reply\n`;
-      }
-    }
+	    if (lastMsgAnalysis.topics) {
+	      const topicsArray = Array.isArray(lastMsgAnalysis.topics) ? lastMsgAnalysis.topics : [lastMsgAnalysis.topics];
+	      if (topicsArray.length > 0) {
+	        prompt += `📌 TOPICS (for your understanding): ${topicsArray.join(', ')}\n`;
+	        prompt += '→ These are hints only; use them naturally if they fit, but do NOT just list or repeat the keywords.\n';
+	      }
+	    }
 
     prompt += '\n';
   } else if (lastMessage) {

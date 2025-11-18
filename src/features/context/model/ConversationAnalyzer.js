@@ -515,28 +515,81 @@ window.Gracula.ConversationAnalyzer = class {
    * Extract main topics from conversation
    */
   extractTopics() {
-    // Simple keyword extraction
-    const wordFrequency = new Map();
-    const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them', 'my', 'your', 'his', 'her', 'its', 'our', 'their']);
+	    // Focus topic extraction on the most recent exchange so we don't
+	    // over-emphasize old messages like "next thursday" or "ajke".
+	    const wordFrequency = new Map();
+	    const stopWords = new Set([
+	      'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+	      'of', 'with', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+	      'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+	      'should', 'may', 'might', 'can', 'i', 'you', 'he', 'she', 'it', 'we',
+	      'they', 'me', 'him', 'her', 'us', 'them', 'my', 'your', 'his', 'her',
+	      'its', 'our', 'their'
+	    ]);
 
-    this.messages.forEach(msg => {
-      const words = msg.text.toLowerCase().split(/\s+/);
-      words.forEach(word => {
-        // Clean word
-        word = word.replace(/[^a-z0-9]/g, '');
-        if (word.length > 3 && !stopWords.has(word)) {
-          wordFrequency.set(word, (wordFrequency.get(word) || 0) + 1);
-        }
-      });
-    });
+	    if (!Array.isArray(this.messages) || this.messages.length === 0) {
+	      return [];
+	    }
 
-    // Get top 3 topics
-    const topics = Array.from(wordFrequency.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([word]) => word);
+	    // Build a small window ending at the last *friend* message so
+	    // topics stay focused on the current exchange instead of old plans.
+	    const RECENT_TOPIC_WINDOW = 10; // ~5–10 messages around last reply
+	    let messagesForTopics = [];
+	    const userLabel = this.detectedUserName || 'You';
+	    const lastFriendMessageObj = this.getLastMessageNotFrom(userLabel);
+	    const lastFriendText = lastFriendMessageObj && lastFriendMessageObj.text
+	      ? lastFriendMessageObj.text.toLowerCase()
+	      : null;
 
-    return topics;
+	    if (lastFriendMessageObj) {
+	      const lastIndex = this.messages.lastIndexOf(lastFriendMessageObj);
+	      if (lastIndex >= 0) {
+	        const startIndex = Math.max(0, lastIndex - (RECENT_TOPIC_WINDOW - 1));
+	        messagesForTopics = this.messages.slice(startIndex, lastIndex + 1);
+	      }
+	    }
+
+	    // Fallback: if we couldn't locate the last friend message for some
+	    // reason, just take the tail of the conversation.
+	    if (!messagesForTopics.length) {
+	      messagesForTopics = this.messages.length > RECENT_TOPIC_WINDOW
+	        ? this.messages.slice(-RECENT_TOPIC_WINDOW)
+	        : this.messages.slice();
+	    }
+
+	    const boostWord = (rawWord) => {
+	      const clean = (rawWord || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+	      if (clean.length > 3 && !stopWords.has(clean)) {
+	        wordFrequency.set(clean, (wordFrequency.get(clean) || 0) + 3);
+	      }
+	    };
+
+	    if (lastFriendText) {
+	      lastFriendText.split(/\s+/).forEach(boostWord);
+	    }
+
+	    messagesForTopics.forEach(msg => {
+	      if (!msg || !msg.text) return;
+	      const words = msg.text.toLowerCase().split(/\s+/);
+	      words.forEach(rawWord => {
+	        const cleanWord = rawWord.replace(/[^a-z0-9]/g, '');
+	        if (cleanWord.length > 3 && !stopWords.has(cleanWord)) {
+	          wordFrequency.set(cleanWord, (wordFrequency.get(cleanWord) || 0) + 1);
+	        }
+	      });
+	    });
+
+	    if (wordFrequency.size === 0) {
+	      return [];
+	    }
+
+	    // Get top 3 topics
+	    const topics = Array.from(wordFrequency.entries())
+	      .sort((a, b) => b[1] - a[1])
+	      .slice(0, 3)
+	      .map(([word]) => word);
+
+	    return topics;
   }
 
   /**

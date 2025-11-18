@@ -5,19 +5,20 @@ window.Gracula = window.Gracula || {};
 window.Gracula.Config = window.Gracula.Config || {};
 
 window.Gracula.Config.API_CONFIG = {
-  provider: 'openai', // 'openai', 'openrouter', 'huggingface', or 'google'
-  openai: {
-    model: 'gpt-3.5-turbo', // or 'gpt-4', 'gpt-4-turbo-preview'
-    endpoint: 'https://api.openai.com/v1/chat/completions',
-    maxTokens: 200,
-    temperature: 0.7
-  },
-  openrouter: {
-    model: 'google/gemini-2.0-flash-exp:free',
-    endpoint: 'https://openrouter.ai/api/v1/chat/completions',
-    maxTokens: 300,
-    temperature: 0.7
-  },
+	// Default to OpenRouter + GLM 4.6 for both replies and analysis
+	provider: 'openrouter', // 'openai', 'openrouter', 'huggingface', or 'google'
+	openai: {
+	  model: 'gpt-3.5-turbo', // or 'gpt-4', 'gpt-4-turbo-preview'
+	  endpoint: 'https://api.openai.com/v1/chat/completions',
+	  maxTokens: 200,
+	  temperature: 0.7
+	},
+	openrouter: {
+	  model: 'z-ai/glm-4.6',
+	  endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+	  maxTokens: 300,
+	  temperature: 0.7
+	},
   huggingface: {
     model: 'mistralai/Mistral-7B-Instruct-v0.2',
     endpoint: 'https://api-inference.huggingface.co/models/',
