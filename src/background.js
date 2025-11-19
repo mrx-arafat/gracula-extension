@@ -368,6 +368,79 @@ function buildPrompt(tone, context, enhancedContext, responseMode = 'reply') {
     prompt += `💭 Emotional tone: ${emotion} (${intensity} intensity)\n\n`;
   }
 
+	  // Conversation tone / sentiment with user-adjustable confidence + strength slider (1–10)
+	  if (analysis?.sentiment) {
+	    let sentimentTone = null;
+	    let sentimentConfidence = null;
+	    let sentimentStrength = null; // 1–10, acts like a “volume” for tone usage
+	    const s = analysis.sentiment;
+
+	    if (typeof s === 'string') {
+	      sentimentTone = s.toLowerCase();
+	    } else if (s && typeof s === 'object') {
+	      sentimentTone = (s.tone || s.label || '').toLowerCase();
+	      if (s.confidence) {
+	        sentimentConfidence = String(s.confidence).toLowerCase();
+	      }
+	      if (typeof s.confidenceScore === 'number') {
+	        // Clamp to [1, 10] just in case
+	        const raw = Math.round(s.confidenceScore);
+	        sentimentStrength = Math.min(10, Math.max(1, raw));
+	      }
+	    }
+
+	    if (sentimentTone) {
+	      const normalizedConfidence = ['low', 'medium', 'high'].includes(sentimentConfidence)
+	        ? sentimentConfidence
+	        : 'medium';
+
+	      // If no explicit numeric strength provided, derive from textual confidence
+	      if (sentimentStrength == null) {
+	        if (normalizedConfidence === 'low') sentimentStrength = 3;
+	        else if (normalizedConfidence === 'high') sentimentStrength = 9;
+	        else sentimentStrength = 6;
+	      }
+
+	      prompt += '=== 💬 CONVERSATION TONE (USER-ADJUSTABLE) ===\n';
+	      prompt += `Detected overall tone: ${sentimentTone} (${normalizedConfidence} confidence).\n`;
+	      prompt += `Tone strength slider (1–10): currently ${sentimentStrength}/10.\n`;
+
+	      // Fine‑tuned behaviour based on strength and tone
+	      const isNegativeTone = sentimentTone === 'negative' || sentimentTone === 'angry';
+	      const isPositiveTone = sentimentTone === 'positive' || sentimentTone === 'happy';
+	      const isInquisitiveTone = sentimentTone === 'inquisitive' || sentimentTone === 'curious';
+
+	      // 1–3: almost neutral, mainly literal
+	      if (sentimentStrength <= 3) {
+	        prompt +=
+	          '→ Tone strength is low (1–3): keep the reply mostly neutral and very clear. Focus on the exact content of the last message and avoid over‑mirroring the overall conversation mood.\n\n';
+	      }
+	      // 4–7: balanced
+	      else if (sentimentStrength <= 7) {
+	        prompt +=
+	          '→ Tone strength is medium (4–7): balance between matching the conversation tone and answering the last message correctly. Let tone influence wording, but never at the cost of clarity or correctness.\n\n';
+	      }
+	      // 8–10: strong tone, but with safeguards by tone type
+	      else {
+	        if (isNegativeTone) {
+	          // High negative tone → respond with empathy, not aggression
+	          prompt +=
+	            '→ Tone strength is very high (8–10) and tone is negative: respond with calm, empathy and professionalism. Acknowledge the frustration, but DO NOT be aggressive, rude or insulting. De‑escalate while still answering the last message.\n\n';
+	        } else if (isPositiveTone) {
+	          prompt +=
+	            '→ Tone strength is very high (8–10) and tone is positive: you can be extra warm, friendly and expressive in a natural way, while still staying concise and directly answering the last message.\n\n';
+	        } else if (isInquisitiveTone) {
+	          prompt +=
+	            '→ Tone strength is very high (8–10) and tone is inquisitive: be especially helpful, clear and detailed in your explanation, but avoid unnecessary length.\n\n';
+	        } else {
+	          // Fallback for other tones at high strength
+	          prompt +=
+	            '→ Tone strength is very high (8–10): strongly reflect the conversation tone in style, but never sacrifice accuracy, politeness or safety.\n\n';
+	        }
+	      }
+	    }
+	  }
+
   // PHASE 2: Show context quality warning if poor
   if (contextQuality && contextQuality.quality === 'poor') {
     prompt += `⚠️ Context quality: ${contextQuality.quality}\n`;
@@ -2053,7 +2126,7 @@ async function transcribeWithGoogle(audioData, mimeType, language) {
       languageCode: language || 'en-US',
       enableAutomaticPunctuation: true
     },
-    audio: {
+    audio: {  
       content: base64Audio
     }
   };

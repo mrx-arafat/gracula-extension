@@ -39,6 +39,13 @@ window.Gracula.GraculaApp = class {
     this.currentGenerationId = null;
     this.lastInsertedText = null;
 
+	    // NEW: Conversation tone confidence handler (event delegation)
+	    this._sentimentConfidenceHandlerInitialized = false;
+
+	    // Initialise global handler once
+	    this.initSentimentConfidenceHandler = this.initSentimentConfidenceHandler.bind(this);
+	    this.initSentimentConfidenceHandler();
+
     // Unified top-right dock for action buttons
     this.actionDock = null;
 
@@ -537,29 +544,49 @@ window.Gracula.GraculaApp = class {
       </div>
     ` : '<div style="font-size: 12px; color: #9ca3af;">No topics detected</div>';
 
-    // Sentiment analysis data
-    const sentimentData = analysis.sentiment || 'neutral';
-    let sentiment = 'neutral';
-    let sentimentConfidence = '';
-    if (typeof sentimentData === 'string') {
-      sentiment = sentimentData.toLowerCase();
-    } else if (typeof sentimentData === 'object' && sentimentData !== null) {
-      sentiment = (sentimentData.tone || sentimentData.label || 'neutral').toLowerCase();
-      if (sentimentData.confidence) {
-        sentimentConfidence = sentimentData.confidence.toString();
-      }
-    }
-    const sentimentDisplay = sentiment.charAt(0).toUpperCase() + sentiment.slice(1);
-    const sentimentConfidenceLabel = sentimentConfidence
-      ? sentimentConfidence.charAt(0).toUpperCase() + sentimentConfidence.slice(1) + ' confidence'
-      : '';
-    const sentimentPositionMap = { positive: '78%', negative: '22%', inquisitive: '62%', neutral: '50%' };
-    const sentimentPosition = sentimentPositionMap[sentiment] || '50%';
-    const sentimentEmojiMap = { positive: '😊', negative: '😔', inquisitive: '🤔', neutral: '😐' };
-    const sentimentEmoji = sentimentEmojiMap[sentiment] || '😐';
-    const sentimentConfidenceBadge = sentimentConfidenceLabel
-      ? `<span class="gracula-insight-pill">${sentimentConfidenceLabel}</span>`
-      : '';
+	    // Sentiment analysis data
+	    const sentimentData = analysis.sentiment || 'neutral';
+	    let sentiment = 'neutral';
+	    let sentimentConfidence = '';
+	    if (typeof sentimentData === 'string') {
+	      sentiment = sentimentData.toLowerCase();
+	    } else if (typeof sentimentData === 'object' && sentimentData !== null) {
+	      sentiment = (sentimentData.tone || sentimentData.label || 'neutral').toLowerCase();
+	      if (sentimentData.confidence) {
+	        sentimentConfidence = sentimentData.confidence.toString();
+	      }
+	    }
+	    const sentimentDisplay = sentiment.charAt(0).toUpperCase() + sentiment.slice(1);
+	    const sentimentConfidenceValue = (sentimentConfidence || 'medium').toLowerCase();
+	    const sentimentConfidenceLabel = sentimentConfidence
+	      ? sentimentConfidence.charAt(0).toUpperCase() + sentimentConfidence.slice(1) + ' confidence'
+	      : '';
+
+	    // Tone strength: 1–10 slider-style value (acts like a "volume" control for tone usage)
+	    let sentimentStrength = 6; // default mid
+	    if (
+	      typeof sentimentData === 'object' &&
+	      sentimentData !== null &&
+	      typeof sentimentData.confidenceScore === 'number'
+	    ) {
+	      const raw = Math.round(sentimentData.confidenceScore);
+	      sentimentStrength = Math.min(10, Math.max(1, raw));
+	    } else {
+	      if (sentimentConfidenceValue === 'low') {
+	        sentimentStrength = 3;
+	      } else if (sentimentConfidenceValue === 'high') {
+	        sentimentStrength = 9;
+	      } else {
+	        sentimentStrength = 6;
+	      }
+	    }
+	    const sentimentStrengthPercent = ((sentimentStrength - 1) / 9) * 100;
+
+	    const sentimentEmojiMap = { positive: '😊', negative: '😔', inquisitive: '🤔', neutral: '😐' };
+	    const sentimentEmoji = sentimentEmojiMap[sentiment] || '😐';
+	    const sentimentConfidenceBadge = sentimentConfidenceLabel
+	      ? `<span class="gracula-insight-pill gracula-sentiment-confidence-badge">${sentimentConfidenceLabel}</span>`
+	      : '';
 
     // Urgency data
     const urgencyData = analysis.urgency || 'low';
@@ -626,24 +653,36 @@ window.Gracula.GraculaApp = class {
           </div>
         </div>
 
-        <!-- Sentiment -->
-        <div class="gracula-insight-card">
-          <div class="gracula-insight-header">
-            <span class="gracula-insight-icon">${sentimentEmoji}</span>
-            <span>Conversation Tone</span>
-          </div>
-          <div class="gracula-insight-content">
-            <div style="font-size: 12px; margin-bottom: 8px; color: #6b7280; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-              <span>${sentimentDisplay}</span>
-              ${sentimentConfidenceBadge}
-            </div>
-            <div class="gracula-sentiment-meter">
-              <div class="gracula-sentiment-bar">
-                <div class="gracula-sentiment-indicator" style="left: ${sentimentPosition};"></div>
-              </div>
-            </div>
-          </div>
-        </div>
+	        <!-- Sentiment -->
+	        <div class="gracula-insight-card gracula-sentiment-card">
+	          <div class="gracula-insight-header">
+	            <span class="gracula-insight-icon">${sentimentEmoji}</span>
+	            <span>Conversation Tone</span>
+	          </div>
+	          <div class="gracula-insight-content">
+	            <div style="font-size: 12px; margin-bottom: 8px; color: #6b7280; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+	              <span>${sentimentDisplay}</span>
+	              ${sentimentConfidenceBadge}
+	            </div>
+	            <div class="gracula-sentiment-meter">
+	              <div class="gracula-sentiment-bar">
+	                <div
+	                  class="gracula-sentiment-indicator"
+	                  data-strength="${sentimentStrength}"
+	                  style="left: ${sentimentStrengthPercent}%;"></div>
+	              </div>
+	              <div class="gracula-sentiment-strength-label">
+	                Tone strength: ${sentimentStrength}/10
+	              </div>
+	            </div>
+	            <div class="gracula-sentiment-confidence-controls">
+	              <span class="gracula-sentiment-confidence-label">Confidence:</span>
+	              <button type="button" class="gracula-insight-pill gracula-sentiment-confidence-option ${sentimentConfidenceValue === 'low' ? 'active' : ''}" data-confidence="low">Low</button>
+	              <button type="button" class="gracula-insight-pill gracula-sentiment-confidence-option ${sentimentConfidenceValue === 'medium' ? 'active' : ''}" data-confidence="medium">Medium</button>
+	              <button type="button" class="gracula-insight-pill gracula-sentiment-confidence-option ${sentimentConfidenceValue === 'high' ? 'active' : ''}" data-confidence="high">High</button>
+	            </div>
+	          </div>
+	        </div>
 
         <!-- Urgency -->
         <div class="gracula-insight-card">
@@ -952,6 +991,157 @@ window.Gracula.GraculaApp = class {
       });
     }
   }
+
+	  /**
+	   * NEW: Global handler for conversation tone controls (right sidebar)
+	   * - Confidence pills (Low/Medium/High)
+	   * - Tone-strength bar acting like a 10 volume slider
+	   */
+	  initSentimentConfidenceHandler() {
+	    if (this._sentimentConfidenceHandlerInitialized) {
+	      return;
+	    }
+	    this._sentimentConfidenceHandlerInitialized = true;
+
+	    document.addEventListener('click', (event) => {
+	      if (!this.modal || !this.modal.getBody) return;
+	      const modalBody = this.modal.getBody();
+	      if (!modalBody) return;
+
+	      // 1) Confidence pills (Low/Medium/High)
+	      const button = event.target.closest('.gracula-sentiment-confidence-option');
+	      if (button && modalBody.contains(button)) {
+	        const value = (button.getAttribute('data-confidence') || '').toLowerCase();
+	        if (!value) return;
+
+	        const sentimentCard = button.closest('.gracula-sentiment-card');
+	        if (!sentimentCard) return;
+
+	        // Map textual confidence to numeric strength 10
+	        let strength = 6;
+	        if (value === 'low') strength = 3;
+	        else if (value === 'high') strength = 9;
+
+	        // Update active state on all confidence buttons within this card
+	        const confidenceButtons = sentimentCard.querySelectorAll('.gracula-sentiment-confidence-option');
+	        confidenceButtons.forEach((btn) => {
+	          btn.classList.toggle('active', btn === button);
+	        });
+
+	        // Update the confidence badge label text
+	        const confidenceBadge = sentimentCard.querySelector('.gracula-sentiment-confidence-badge');
+	        if (confidenceBadge) {
+	          const label = value.charAt(0).toUpperCase() + value.slice(1) + ' confidence';
+	          confidenceBadge.textContent = label;
+	        }
+
+	        // Move the indicator on the bar and update strength label
+	        const bar = sentimentCard.querySelector('.gracula-sentiment-bar');
+	        if (bar) {
+	          const indicator = bar.querySelector('.gracula-sentiment-indicator');
+	          if (indicator) {
+	            const percent = ((strength - 1) / 9) * 100;
+	            indicator.style.left = `${percent}%`;
+	            indicator.dataset.strength = String(strength);
+	          }
+	        }
+	        const strengthLabel = sentimentCard.querySelector('.gracula-sentiment-strength-label');
+	        if (strengthLabel) {
+	          strengthLabel.textContent = `Tone strength: ${strength}/10`;
+	        }
+
+	        // Ensure enhancedContext and analysis objects exist
+	        if (!this.enhancedContext) {
+	          this.enhancedContext = {};
+	        }
+	        if (!this.enhancedContext.analysis) {
+	          this.enhancedContext.analysis = {};
+	        }
+
+	        let sentiment = this.enhancedContext.analysis.sentiment;
+	        if (!sentiment || typeof sentiment !== 'object') {
+	          const tone = typeof sentiment === 'string' ? sentiment : 'neutral';
+	          sentiment = { tone };
+	          this.enhancedContext.analysis.sentiment = sentiment;
+	        }
+
+	        // Store the user-selected confidence and numeric strength
+	        sentiment.confidence = value;
+	        sentiment.confidenceScore = strength;
+
+	        return;
+	      }
+
+	      // 2) Tone-strength bar click (acts like a 10 slider)
+	      const bar = event.target.closest('.gracula-sentiment-bar');
+	      if (bar && modalBody.contains(bar)) {
+	        const sentimentCard = bar.closest('.gracula-sentiment-card');
+	        if (!sentimentCard) return;
+
+	        const rect = bar.getBoundingClientRect();
+	        if (!rect.width) return;
+
+	        let ratio = (event.clientX - rect.left) / rect.width;
+	        if (Number.isNaN(ratio)) return;
+	        ratio = Math.min(1, Math.max(0, ratio));
+
+	        // Map 00 position to integer 10 strength
+	        const strength = Math.min(10, Math.max(1, Math.round(1 + ratio * 9)));
+
+	        // Derive textual confidence from numeric strength
+	        let value = 'medium';
+	        if (strength <= 3) value = 'low';
+	        else if (strength >= 8) value = 'high';
+
+	        // Move indicator
+	        const indicator = bar.querySelector('.gracula-sentiment-indicator');
+	        if (indicator) {
+	          const percent = ((strength - 1) / 9) * 100;
+	          indicator.style.left = `${percent}%`;
+	          indicator.dataset.strength = String(strength);
+	        }
+
+	        // Update strength label
+	        const strengthLabel = sentimentCard.querySelector('.gracula-sentiment-strength-label');
+	        if (strengthLabel) {
+	          strengthLabel.textContent = `Tone strength: ${strength}/10`;
+	        }
+
+	        // Update confidence pills
+	        const confidenceButtons = sentimentCard.querySelectorAll('.gracula-sentiment-confidence-option');
+	        confidenceButtons.forEach((btn) => {
+	          const btnValue = (btn.getAttribute('data-confidence') || '').toLowerCase();
+	          btn.classList.toggle('active', btnValue === value);
+	        });
+
+	        // Update confidence badge
+	        const confidenceBadge = sentimentCard.querySelector('.gracula-sentiment-confidence-badge');
+	        if (confidenceBadge) {
+	          const label = value.charAt(0).toUpperCase() + value.slice(1) + ' confidence';
+	          confidenceBadge.textContent = label;
+	        }
+
+	        // Ensure enhancedContext and analysis objects exist
+	        if (!this.enhancedContext) {
+	          this.enhancedContext = {};
+	        }
+	        if (!this.enhancedContext.analysis) {
+	          this.enhancedContext.analysis = {};
+	        }
+
+	        let sentiment = this.enhancedContext.analysis.sentiment;
+	        if (!sentiment || typeof sentiment !== 'object') {
+	          const tone = typeof sentiment === 'string' ? sentiment : 'neutral';
+	          sentiment = { tone };
+	          this.enhancedContext.analysis.sentiment = sentiment;
+	        }
+
+	        // Store both numeric strength and derived textual confidence
+	        sentiment.confidence = value;
+	        sentiment.confidenceScore = strength;
+	      }
+	    });
+	  }
 
   /**
    * Handle tone selection
