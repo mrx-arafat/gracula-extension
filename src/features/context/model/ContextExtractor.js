@@ -780,6 +780,11 @@ window.Gracula.ContextExtractor = class {
 
       text = this.stripSpeakerPrefix(text, speakerInfo);
 
+      // Skip system / banner messages (e.g., WhatsApp encryption notices)
+      if (this.isSystemNoticeText(text)) {
+        return null;
+      }
+
       if (!text || text.length === 0) {
         return null;
       }
@@ -896,6 +901,43 @@ window.Gracula.ContextExtractor = class {
     });
 
     return unique;
+  }
+
+  /**
+   * Detect WhatsApp-style system notices (e.g., end-to-end encryption banners)
+   * so they are not treated as real conversation messages.
+   */
+  isSystemNoticeText(text) {
+    if (!text || typeof text !== 'string') {
+      return false;
+    }
+
+    const normalized = text.replace(/\s+/g, ' ').trim().toLowerCase();
+
+    // WhatsApp E2E banner commonly shown at the top of chats
+    // "Messages and calls are end-to-end encrypted. Only people in this chat can read, listen to, or share them. Click to learn more"
+    const e2eBannerCore = 'messages and calls are end-to-end encrypted.';
+
+    const e2eBannerTailPhrases = [
+      'only people in this chat can read, listen to, or share them. click to learn more',
+      'only people in this group can read, listen to, or share them. click to learn more'
+    ];
+
+    if (normalized.includes(e2eBannerCore)) {
+      const hasTail = e2eBannerTailPhrases.some(phrase => normalized.includes(phrase));
+      if (hasTail) {
+        return true;
+      }
+    }
+
+    // Older / alternative wording: "secured with end-to-end encryption" banners
+    if (normalized.includes('secured with end-to-end encryption')) {
+      if (normalized.includes('tap for more info') || normalized.includes('click to learn more')) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   stripSpeakerPrefix(text, speakerInfo = {}) {
