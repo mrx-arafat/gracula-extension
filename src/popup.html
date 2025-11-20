@@ -1,704 +1,656 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gracula Settings</title>
+  <title>Gracula</title>
   <style>
+    :root {
+      --bg-body: #f0f2f5;
+      --bg-card: #ffffff;
+      --text-main: #111827;
+      --text-sub: #6b7280;
+      --accent-color: #111827;
+      /* Dark black/charcoal for primary actions */
+      --accent-hover: #000000;
+      --tab-bg: #f3f4f6;
+      --tab-active: #ffffff;
+      --border-radius-card: 24px;
+      --border-radius-btn: 14px;
+      --shadow-soft: 0 10px 40px -10px rgba(0, 0, 0, 0.08);
+      --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+      --grid-color: rgba(0, 0, 0, 0.03);
+    }
+
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      -webkit-font-smoothing: antialiased;
     }
 
     body {
-      width: 350px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: #333;
+      width: 380px;
+      min-height: 580px;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: var(--bg-body);
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
     }
 
+    /* Main Card Container */
+    .main-card {
+      background: var(--bg-card);
+      border-radius: var(--border-radius-card);
+      box-shadow: var(--shadow-soft);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      position: relative;
+    }
+
+    /* Header */
     .header {
-      background: white;
-      padding: 20px;
-      text-align: center;
-      border-bottom: 2px solid #f0f0f0;
+      padding: 20px 24px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-card);
+      z-index: 10;
     }
 
-    .header h1 {
-      font-size: 24px;
-      margin-bottom: 4px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-main);
+      letter-spacing: -0.5px;
     }
 
-    .header p {
-      font-size: 12px;
-      color: #666;
+    .logo-icon {
+      width: 28px;
+      height: 28px;
+      background: var(--text-main);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 16px;
     }
 
-    .content {
-      background: white;
-      padding: 20px;
+    .header-actions {
+      display: flex;
+      gap: 12px;
     }
 
-    .section {
+    .icon-btn {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color: var(--text-sub);
+      font-size: 18px;
+      transition: color 0.2s;
+    }
+
+    .icon-btn:hover {
+      color: var(--text-main);
+    }
+
+    /* Tabs - Segmented Control */
+    .tabs-container {
+      padding: 0 24px;
       margin-bottom: 20px;
     }
 
-    .section h2 {
-      font-size: 14px;
+    .tabs {
+      background: var(--tab-bg);
+      padding: 4px;
+      border-radius: 16px;
+      display: flex;
+      position: relative;
+    }
+
+    .tab-button {
+      flex: 1;
+      padding: 8px 12px;
+      border: none;
+      background: transparent;
+      border-radius: 12px;
+      font-size: 13px;
       font-weight: 600;
-      margin-bottom: 12px;
-      color: #333;
+      color: var(--text-sub);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      z-index: 1;
+      text-align: center;
     }
 
-    .info-box {
-      background: #f8f9fa;
-      border-left: 4px solid #667eea;
-      padding: 12px;
-      border-radius: 4px;
-      font-size: 12px;
+    .tab-button.active {
+      background: var(--tab-active);
+      color: var(--text-main);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    /* Content Area */
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 24px 24px;
+      position: relative;
+    }
+
+    /* Scrollbar */
+    .content::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .content::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .content::-webkit-scrollbar-thumb {
+      background: #e5e7eb;
+      border-radius: 10px;
+    }
+
+    /* Grid Background for Home Tab */
+    .grid-bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 240px;
+      background-image:
+        linear-gradient(var(--grid-color) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+      background-size: 20px 20px;
+      z-index: 0;
+      mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 40%, rgba(0, 0, 0, 0));
+      -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 40%, rgba(0, 0, 0, 0));
+      pointer-events: none;
+    }
+
+    /* Hero Section */
+    .hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 20px 0 30px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-illustration {
+      width: 120px;
+      height: 120px;
+      margin-bottom: 24px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* CSS 3D-ish Shape */
+    .shape-group {
+      position: relative;
+      width: 80px;
+      height: 80px;
+      transform: rotate(-10deg);
+    }
+
+    .shape-1 {
+      position: absolute;
+      width: 60px;
+      height: 60px;
+      background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+      border-radius: 20px;
+      top: 0;
+      left: 0;
+      box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
+      z-index: 1;
+    }
+
+    .shape-2 {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      background: #111827;
+      border-radius: 50%;
+      top: -10px;
+      right: -10px;
+      z-index: 2;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .shape-3 {
+      position: absolute;
+      width: 50px;
+      height: 50px;
+      background: linear-gradient(135deg, #93c5fd 0%, #60a5fa 100%);
+      border-radius: 16px;
+      bottom: -5px;
+      right: -5px;
+      z-index: 0;
+    }
+
+    .hero h2 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      line-height: 1.3;
+    }
+
+    .hero p {
+      font-size: 14px;
+      color: var(--text-sub);
+      max-width: 260px;
       line-height: 1.5;
-      color: #666;
+    }
+
+    /* Action Buttons */
+    .actions-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: auto;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 16px;
+      background: var(--accent-color);
+      color: white;
+      border: none;
+      border-radius: var(--border-radius-btn);
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: transform 0.2s, background 0.2s;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      width: 100%;
+      padding: 16px;
+      background: white;
+      color: var(--text-main);
+      border: 1px solid #e5e7eb;
+      border-radius: var(--border-radius-btn);
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: all 0.2s;
+    }
+
+    .btn-secondary:hover {
+      background: #f9fafb;
+      border-color: #d1d5db;
+    }
+
+    /* Settings Styles */
+    .settings-section {
+      margin-bottom: 24px;
+    }
+
+    .settings-section h3 {
+      font-size: 12px;
+      text-transform: uppercase;
+      color: var(--text-sub);
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+
+    .input-group {
       margin-bottom: 16px;
     }
 
-    .form-group {
-      margin-bottom: 16px;
-    }
-
-    label {
+    .input-label {
       display: block;
       font-size: 13px;
-      font-weight: 500;
-      margin-bottom: 6px;
-      color: #333;
+      font-weight: 600;
+      margin-bottom: 8px;
     }
 
-    input[type="text"],
-    select {
+    .input-field {
       width: 100%;
-      padding: 10px;
-      border: 2px solid #e0e0e0;
-      border-radius: 8px;
-      font-size: 13px;
+      padding: 12px 16px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      font-size: 14px;
+      color: var(--text-main);
+      transition: all 0.2s;
       font-family: inherit;
-      transition: border-color 0.2s ease;
     }
 
-    input[type="text"]:focus,
-    select:focus {
+    .input-field:focus {
       outline: none;
-      border-color: #667eea;
+      background: white;
+      border-color: var(--accent-color);
+      box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.05);
     }
 
-    .hint {
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px;
+      background: #f9fafb;
+      border-radius: 12px;
+      border: 1px solid #e5e7eb;
+      margin-bottom: 12px;
+      cursor: pointer;
+    }
+
+    .toggle-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .toggle-title {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .toggle-desc {
       font-size: 11px;
-      color: #999;
-      margin-top: 4px;
+      color: var(--text-sub);
     }
 
-    /* Toggle Switch Styles */
-    .toggle-switch {
+    /* Custom Toggle */
+    .switch {
       position: relative;
       display: inline-block;
-      width: 50px;
-      height: 26px;
+      width: 44px;
+      height: 24px;
     }
 
-    .toggle-switch input {
+    .switch input {
       opacity: 0;
       width: 0;
       height: 0;
     }
 
-    .toggle-slider {
+    .slider {
       position: absolute;
       cursor: pointer;
       top: 0;
       left: 0;
       right: 0;
       bottom: 0;
-      background-color: #ccc;
-      transition: 0.3s;
-      border-radius: 26px;
+      background-color: #e5e7eb;
+      transition: .3s;
+      border-radius: 24px;
     }
 
-    .toggle-slider:before {
+    .slider:before {
       position: absolute;
       content: "";
-      height: 20px;
-      width: 20px;
+      height: 18px;
+      width: 18px;
       left: 3px;
       bottom: 3px;
       background-color: white;
-      transition: 0.3s;
+      transition: .3s;
       border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
-    .toggle-switch input:checked + .toggle-slider {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    input:checked+.slider {
+      background-color: var(--accent-color);
     }
 
-    .toggle-switch input:checked + .toggle-slider:before {
-      transform: translateX(24px);
+    input:checked+.slider:before {
+      transform: translateX(20px);
     }
 
-    .toggle-switch input:focus + .toggle-slider {
-      box-shadow: 0 0 1px #667eea;
-    }
-
-    .btn {
-      width: 100%;
-      padding: 12px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-      font-family: inherit;
-    }
-
-    .btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-    }
-
-    .btn:active {
-      transform: translateY(0);
-    }
-
-    .status {
-      padding: 10px;
-      border-radius: 8px;
-      font-size: 12px;
-      text-align: center;
-      margin-top: 12px;
-      display: none;
-    }
-
-    .status.success {
-      background: #d4edda;
-      color: #155724;
-      border: 1px solid #c3e6cb;
-    }
-
-    .status.error {
-      background: #f8d7da;
-      color: #721c24;
-      border: 1px solid #f5c6cb;
-    }
-
-    .features {
-      list-style: none;
-      padding: 0;
-    }
-
-    .features li {
-      padding: 8px 0;
-      font-size: 12px;
-      color: #666;
-      display: flex;
+    /* Status Badge */
+    .status-pill {
+      display: inline-flex;
       align-items: center;
-      gap: 8px;
-    }
-
-    .features li::before {
-      content: "✓";
-      color: #667eea;
-      font-weight: bold;
-      font-size: 14px;
-    }
-
-    .footer {
-      background: white;
-      padding: 16px 20px;
-      text-align: center;
-      border-top: 2px solid #f0f0f0;
-      font-size: 11px;
-      color: #999;
-    }
-
-    .footer a {
-      color: #667eea;
-      text-decoration: none;
-    }
-
-    .footer a:hover {
-      text-decoration: underline;
-    }
-
-    /* Status Badge Styles */
-    .status-badge {
-      display: inline-block;
-      padding: 4px 12px;
+      gap: 6px;
+      padding: 6px 12px;
+      background: #ecfdf5;
+      color: #059669;
       border-radius: 20px;
-      font-size: 11px;
-      font-weight: 600;
-      margin-left: 8px;
-    }
-
-    .status-badge.active {
-      background: #d4edda;
-      color: #155724;
-    }
-
-    .status-badge.inactive {
-      background: #e2e3e5;
-      color: #383d41;
-    }
-
-    .status-badge.ai {
-      background: #cfe2ff;
-      color: #084298;
-    }
-
-    .status-badge.offline {
-      background: #fff3cd;
-      color: #664d03;
-    }
-
-    /* State Indicator */
-    .state-indicator {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 12px;
-      background: #f8f9fa;
-      border-radius: 8px;
-      margin-bottom: 16px;
-      border-left: 4px solid #667eea;
-    }
-
-    .state-indicator .dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      animation: pulse 2s infinite;
-    }
-
-    .state-indicator .dot.active {
-      background: #28a745;
-    }
-
-    .state-indicator .dot.inactive {
-      background: #dc3545;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-
-    .state-indicator-text {
       font-size: 12px;
-      color: #666;
+      font-weight: 600;
+      margin-top: 12px;
     }
 
-    .state-indicator-text strong {
-      color: #333;
+    .status-pill.offline {
+      background: #fffbeb;
+      color: #d97706;
     }
 
-    /* Tabs */
-    .tabs {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 16px;
-      border-bottom: 2px solid #e0e0e0;
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
     }
 
-    .tab-button {
-      padding: 10px 16px;
-      background: none;
-      border: none;
-      border-bottom: 3px solid transparent;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 500;
-      color: #999;
-      transition: all 0.2s ease;
-    }
-
-    .tab-button:hover {
-      color: #667eea;
-    }
-
-    .tab-button.active {
-      color: #667eea;
-      border-bottom-color: #667eea;
-    }
-
+    /* Tab Content Visibility */
     .tab-content {
       display: none;
+      animation: fadeIn 0.3s ease;
     }
 
     .tab-content.active {
       display: block;
     }
 
-    /* Loading State */
-    .loading {
-      display: inline-block;
-      width: 12px;
-      height: 12px;
-      border: 2px solid #f3f3f3;
-      border-top: 2px solid #667eea;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin-right: 6px;
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(5px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    /* Collapsible Section */
-    .collapsible-header {
+    /* Footer */
+    .footer-links {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      cursor: pointer;
-      padding: 12px;
-      background: #f8f9fa;
-      border-radius: 8px;
-      margin-bottom: 12px;
-      transition: background 0.2s ease;
+      justify-content: center;
+      gap: 16px;
+      margin-top: 24px;
+      font-size: 12px;
+      color: var(--text-sub);
     }
 
-    .collapsible-header:hover {
-      background: #e9ecef;
+    .footer-links a {
+      color: var(--text-sub);
+      text-decoration: none;
     }
 
-    .collapsible-header.collapsed::after {
-      content: "▼";
-      font-size: 10px;
-      color: #667eea;
-    }
-
-    .collapsible-header.expanded::after {
-      content: "▲";
-      font-size: 10px;
-      color: #667eea;
-    }
-
-    .collapsible-content {
-      display: none;
-      padding: 12px;
-      background: #f8f9fa;
-      border-radius: 8px;
-      margin-bottom: 12px;
-    }
-
-    .collapsible-content.expanded {
-      display: block;
-    }
-
-    /* Badge for current mode */
-    .mode-badge {
-      display: inline-block;
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 11px;
-      font-weight: 600;
-      margin-top: 8px;
-    }
-
-    .mode-badge.ai-mode {
-      background: #cfe2ff;
-      color: #084298;
-    }
-
-    .mode-badge.offline-mode {
-      background: #fff3cd;
-      color: #664d03;
-    }
-
-    /* Better spacing for sections */
-    .section-divider {
-      height: 1px;
-      background: #e0e0e0;
-      margin: 20px 0;
-    }
-
-    /* Icon styles */
-    .icon {
-      font-size: 16px;
-      margin-right: 6px;
+    .footer-links a:hover {
+      color: var(--text-main);
+      text-decoration: underline;
     }
   </style>
 </head>
+
 <body>
-  <div class="header">
-    <h1>🧛 Gracula</h1>
-    <p>AI Reply Assistant</p>
-  </div>
-
-  <div class="content">
-    <!-- Status Indicator -->
-    <div class="state-indicator">
-      <div class="dot active" id="statusDot"></div>
-      <div class="state-indicator-text">
-        <strong>Status:</strong> <span id="statusText">Ready</span>
-        <span class="status-badge" id="modeBadge">Offline Mode</span>
+  <div class="main-card">
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">
+        <div class="logo-icon">🧛</div>
+        Gracula
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" title="Help">?</button>
+        <button class="icon-btn" title="More">⋮</button>
       </div>
     </div>
 
-    <div class="section">
-      <div class="info-box">
-        <strong>🎉 Welcome to Gracula!</strong><br>
-        Your AI-powered reply assistant is ready. Visit any messaging platform and look for the floating Gracula button near your message input!
+    <!-- Tabs -->
+    <div class="tabs-container">
+      <div class="tabs">
+        <button class="tab-button active" data-tab="overviewTab">Overview</button>
+        <button class="tab-button" data-tab="settingsTab">Settings</button>
+        <button class="tab-button" data-tab="voiceTab">Voice</button>
       </div>
     </div>
 
-    <div class="section">
-      <h2>✨ Features</h2>
-      <ul class="features">
-        <li>AI-powered reply generation</li>
-        <li>11 different tone options</li>
-        <li>Works on all messaging platforms</li>
-        <li>Smart autocomplete suggestions</li>
-        <li>Offline pattern-based predictions</li>
-        <li>Voice-to-text input support</li>
-      </ul>
-    </div>
+    <!-- Content -->
+    <div class="content">
 
-    <div class="section">
-      <h2>🎯 Autocomplete Settings</h2>
-      <div class="form-group">
-        <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
-          <span style="font-weight: 600;">
-            <span style="font-size: 16px;">🤖</span> AI-Powered Autosuggestions
-          </span>
-          <label class="toggle-switch">
-            <input type="checkbox" id="aiToggle">
-            <span class="toggle-slider"></span>
-          </label>
-        </label>
-        <div class="hint" style="margin-top: 8px;">
-          When enabled, uses AI to generate smart suggestions as you type. When disabled, uses offline pattern-based predictions (no API calls).
-        </div>
-        <div id="aiModeIndicator" style="margin-top: 8px;">
-          <span class="mode-badge offline-mode">📊 Offline Mode Active</span>
-        </div>
-        <div class="info-box" style="margin-top: 12px; background: #fff3cd; border-left: 4px solid #ffc107;">
-          <strong>💡 Tip:</strong> Disable AI suggestions to save API costs and use faster offline predictions. Enable for more contextual and intelligent suggestions.
-        </div>
-      </div>
-    </div>
+      <!-- Overview Tab -->
+      <div id="overviewTab" class="tab-content active">
+        <div class="grid-bg"></div>
 
-    <div class="section">
-      <h2>⚙️ API Settings</h2>
-      <div class="info-box">
-        <strong>🔑 API Key Required</strong><br>
-        Gracula supports multiple AI providers. Choose your preferred provider and add your API key below to get started.
-      </div>
+        <div class="hero">
+          <div class="hero-illustration">
+            <div class="shape-group">
+              <div class="shape-1"></div>
+              <div class="shape-2"></div>
+              <div class="shape-3"></div>
+            </div>
+          </div>
 
-      <form id="settingsForm">
-        <div class="form-group">
-          <label for="provider">AI Provider</label>
-          <select id="provider">
-            <option value="openai">OpenAI (Recommended)</option>
-            <option value="google">Google AI Studio (Gemini)</option>
-            <option value="openrouter">OpenRouter (Free Models Available)</option>
-            <option value="huggingface">Hugging Face (Free)</option>
-          </select>
-          <div class="hint">OpenAI provides best quality, Google AI Studio offers powerful Gemini models, OpenRouter offers free models</div>
-        </div>
+          <h2>Your AI Assistant<br>is ready to reply!</h2>
+          <p>Navigate to any chat and look for the Gracula icon to generate smart replies instantly.</p>
 
-        <div class="form-group">
-          <label for="apiKey">API Key</label>
-          <input type="text" id="apiKey" placeholder="sk-proj-... or AIza... or sk-or-v1-...">
-          <div class="hint" id="apiKeyHint">Required for OpenAI, Google AI Studio, and OpenRouter. Optional for Hugging Face</div>
-        </div>
-
-        <div class="form-group" id="openaiModelGroup">
-          <label for="openaiModel">OpenAI Model</label>
-          <select id="openaiModel">
-            <option value="gpt-4o">GPT-4o (Latest, Best, Fastest)</option>
-            <option value="gpt-4o-mini">GPT-4o Mini (Fast & Cheap)</option>
-            <option value="gpt-4-turbo">GPT-4 Turbo (Previous Gen)</option>
-            <option value="gpt-4">GPT-4 (Classic, Best Quality)</option>
-            <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Cheapest)</option>
-          </select>
-          <div class="hint">GPT-4o is the latest and best model. Get key at <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Platform</a></div>
-        </div>
-
-        <div class="form-group" id="googleModelGroup" style="display: none;">
-          <label for="googleModel">Google AI Model</label>
-          <select id="googleModel">
-            <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash (Latest, Fast)</option>
-            <option value="gemini-2.0-flash-thinking-exp-01-21">Gemini 2.0 Flash Thinking (Reasoning)</option>
-            <option value="gemini-1.5-pro">Gemini 1.5 Pro (Best Quality)</option>
-            <option value="gemini-1.5-flash">Gemini 1.5 Flash (Fast & Efficient)</option>
-            <option value="gemini-1.5-flash-8b">Gemini 1.5 Flash 8B (Lightweight)</option>
-          </select>
-          <div class="hint">Get your API key at <a href="https://aistudio.google.com/apikey" target="_blank">Google AI Studio</a></div>
-        </div>
-
-        <div class="form-group" id="openrouterModelGroup" style="display: none;">
-          <label for="openrouterModel">OpenRouter Model</label>
-          <select id="openrouterModel">
-            <!-- Premium Models (Best Quality) -->
-            <optgroup label="🌟 Premium Models">
-              <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet (Best)</option>
-              <option value="anthropic/claude-3-opus">Claude 3 Opus (Top Quality)</option>
-              <option value="openai/gpt-4o">GPT-4o (Latest OpenAI)</option>
-              <option value="google/gemini-2.0-flash-exp">Gemini 2.0 Flash</option>
-            </optgroup>
-
-            <!-- Free Models -->
-            <optgroup label="🆓 Free Models">
-              <option value="google/gemini-2.0-flash-exp:free">Gemini 2.0 Flash (Free)</option>
-              <option value="deepseek/deepseek-chat-v3.1:free">DeepSeek Chat v3.1 (Free)</option>
-              <option value="z-ai/glm-4.5-air:free">GLM 4.5 Air (Free)</option>
-              <option value="moonshotai/kimi-k2:free">Kimi K2 (Free)</option>
-              <option value="qwen/qwen3-30b-a3b:free">Qwen3 30B (Free)</option>
-              <option value="meta-llama/llama-3.1-8b-instruct:free">Llama 3.1 8B (Free)</option>
-            </optgroup>
-
-            <!-- Budget Models -->
-            <optgroup label="💰 Budget Models">
-              <option value="anthropic/claude-3-haiku">Claude 3 Haiku</option>
-              <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
-              <option value="openai/gpt-3.5-turbo">GPT-3.5 Turbo</option>
-            </optgroup>
-          </select>
-          <div class="hint">Get your API key at <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai</a></div>
-          <div class="hint" style="margin-top: 8px; color: #ff9800;">
-            ⚠️ Free tier: 50 requests/day, 16/min. <a href="https://openrouter.ai/credits" target="_blank" style="color: #ff9800;">Add credits</a> for premium models.
+          <div class="status-pill" id="statusPill">
+            <div class="status-dot"></div>
+            <span id="statusText">System Ready</span>
           </div>
         </div>
 
-        <div class="form-group" id="huggingfaceModelGroup" style="display: none;">
-          <label for="huggingfaceModel">Hugging Face Model</label>
-          <select id="huggingfaceModel">
-            <option value="mistralai/Mistral-7B-Instruct-v0.2">Mistral 7B (Recommended)</option>
-            <option value="meta-llama/Llama-2-7b-chat-hf">Llama 2 7B</option>
-            <option value="google/flan-t5-large">Flan-T5 Large</option>
-            <option value="tiiuae/falcon-7b-instruct">Falcon 7B</option>
-          </select>
+        <div class="actions-container">
+          <button class="btn-primary" id="openSettingsBtn">
+            <span>⚙️</span> Configure AI Model
+          </button>
+          <button class="btn-secondary" id="testDemoBtn">
+            <span>⌨️</span> Try Demo Input
+          </button>
         </div>
-
-        <button type="submit" class="btn">Save Settings</button>
-        <div id="status" class="status"></div>
-      </form>
-    </div>
-
-    <div class="section">
-      <h2>🎤 Voice-to-Text Settings</h2>
-      <div class="info-box">
-        <strong>🗣️ Voice Input</strong><br>
-        Enable voice input to dictate messages using speech recognition. Choose from multiple providers or use the free browser-based option.
       </div>
 
-      <form id="voiceSettingsForm">
-        <div class="form-group">
-          <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
-            <span style="font-weight: 600;">
-              <span style="font-size: 16px;">🎙️</span> Enable Voice Input
-            </span>
-            <label class="toggle-switch">
-              <input type="checkbox" id="voiceToggle">
-              <span class="toggle-slider"></span>
+      <!-- Settings Tab -->
+      <div id="settingsTab" class="tab-content">
+        <div class="settings-section">
+          <h3>AI Configuration</h3>
+
+          <div class="input-group">
+            <label class="input-label">AI Provider</label>
+            <select id="provider" class="input-field">
+              <option value="openai">OpenAI (Recommended)</option>
+              <option value="google">Google AI Studio</option>
+              <option value="openrouter">OpenRouter</option>
+              <option value="huggingface">Hugging Face</option>
+            </select>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label">API Key</label>
+            <input type="password" id="apiKey" class="input-field" placeholder="sk-..." autocomplete="new-password">
+          </div>
+
+          <div class="input-group" id="openaiModelGroup">
+            <label class="input-label">Model</label>
+            <select id="openaiModel" class="input-field">
+              <option value="gpt-4o">GPT-4o (Best)</option>
+              <option value="gpt-4o-mini">GPT-4o Mini (Fast)</option>
+              <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3>Preferences</h3>
+
+          <label class="toggle-row">
+            <div class="toggle-info">
+              <span class="toggle-title">AI Autocomplete</span>
+              <span class="toggle-desc">Suggest replies while typing</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="aiToggle">
+              <span class="slider"></span>
             </label>
           </label>
-          <div class="hint" style="margin-top: 8px;">
-            When enabled, press <strong>Ctrl+Shift+V</strong> or click the microphone button to start voice input.
+        </div>
+
+        <button class="btn-primary" id="saveSettingsBtn">Save Changes</button>
+        <div id="status" class="status-pill"
+          style="display:none; width: 100%; justify-content: center; margin-top: 10px;"></div>
+      </div>
+
+      <!-- Voice Tab -->
+      <div id="voiceTab" class="tab-content">
+        <div class="settings-section">
+          <h3>Voice Input</h3>
+
+          <label class="toggle-row">
+            <div class="toggle-info">
+              <span class="toggle-title">Enable Voice</span>
+              <span class="toggle-desc">Dictate messages with microphone</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="voiceToggle">
+              <span class="slider"></span>
+            </label>
+          </label>
+
+          <div class="input-group">
+            <label class="input-label">Language</label>
+            <select id="voiceLanguage" class="input-field">
+              <option value="en">English</option>
+              <option value="es">Spanish</option>
+              <option value="fr">French</option>
+              <option value="de">German</option>
+              <option value="zh">Chinese</option>
+            </select>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label">Shortcut</label>
+            <input type="text" id="voiceShortcut" class="input-field" value="Ctrl+Shift+V" readonly
+              style="cursor: pointer;">
           </div>
         </div>
 
-        <div class="form-group">
-          <label for="voiceProvider">Voice Provider</label>
-          <select id="voiceProvider">
-            <option value="webspeech">Web Speech API (Free, Built-in)</option>
-            <option value="elevenlabs">ElevenLabs (High Quality)</option>
-            <option value="openai">OpenAI Whisper (Best Accuracy)</option>
-            <option value="google">Google Speech-to-Text</option>
-            <option value="deepgram">Deepgram (Fast & Accurate)</option>
-          </select>
-          <div class="hint">Web Speech API is free and works offline. Cloud providers require API keys but offer better accuracy.</div>
-        </div>
+        <button class="btn-primary" id="saveVoiceBtn">Save Voice Settings</button>
+      </div>
 
-        <div class="form-group" id="elevenlabsKeyGroup" style="display: none;">
-          <label for="elevenlabsApiKey">ElevenLabs API Key</label>
-          <input type="text" id="elevenlabsApiKey" placeholder="sk_...">
-          <div class="hint">Get your API key at <a href="https://elevenlabs.io/app/speech-synthesis/speech-to-text" target="_blank">ElevenLabs Speech-to-Text</a></div>
-        </div>
-
-        <div class="form-group" id="googleVoiceKeyGroup" style="display: none;">
-          <label for="googleVoiceApiKey">Google API Key</label>
-          <input type="text" id="googleVoiceApiKey" placeholder="AIza...">
-          <div class="hint">Use the same Google AI Studio API key or get a Speech-to-Text key at <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></div>
-        </div>
-
-        <div class="form-group" id="deepgramKeyGroup" style="display: none;">
-          <label for="deepgramApiKey">Deepgram API Key</label>
-          <input type="text" id="deepgramApiKey" placeholder="...">
-          <div class="hint">Get your API key at <a href="https://console.deepgram.com/" target="_blank">Deepgram Console</a></div>
-        </div>
-
-        <div class="form-group">
-          <label for="voiceLanguage">Language</label>
-          <select id="voiceLanguage">
-            <option value="en">English</option>
-            <option value="es">Spanish</option>
-            <option value="fr">French</option>
-            <option value="de">German</option>
-            <option value="it">Italian</option>
-            <option value="pt">Portuguese</option>
-            <option value="zh">Chinese</option>
-            <option value="ja">Japanese</option>
-            <option value="ko">Korean</option>
-            <option value="ar">Arabic</option>
-            <option value="hi">Hindi</option>
-            <option value="bn">Bengali</option>
-          </select>
-          <div class="hint">Select the language you'll be speaking in</div>
-        </div>
-
-        <div class="form-group">
-          <label for="voiceShortcut">Voice Input Shortcut</label>
-          <input type="text" id="voiceShortcut" placeholder="Ctrl+Shift+V" readonly style="cursor: pointer; background: #f8f9fa;">
-          <div class="hint">Click the field and press your desired key combination. Default: <strong>Ctrl+Shift+V</strong></div>
-          <div class="info-box" style="margin-top: 8px; background: #e7f3ff; border-left: 4px solid #2196F3;">
-            <strong>⌨️ How to customize:</strong><br>
-            1. Click the input field above<br>
-            2. Press your desired key combination (e.g., Ctrl+Space, Alt+V)<br>
-            3. Click "Save Voice Settings" to apply
-          </div>
-        </div>
-
-        <button type="submit" class="btn">Save Voice Settings</button>
-        <div id="voiceStatus" class="status"></div>
-      </form>
+      <div class="footer-links">
+        <a href="#" target="_blank">Documentation</a>
+        <span>•</span>
+        <a href="#" target="_blank">Support</a>
+      </div>
     </div>
-
-    <div class="section">
-      <h2>📖 How to Use</h2>
-      <ol style="padding-left: 20px; font-size: 12px; color: #666; line-height: 1.8;">
-        <li>Open any messaging platform (WhatsApp Web, Instagram, etc.)</li>
-        <li>Click on a message input field</li>
-        <li>Look for the floating 🧛 Gracula button</li>
-        <li>Click it and select your desired tone</li>
-        <li>Choose from generated replies and insert!</li>
-      </ol>
-    </div>
-  </div>
-
-  <div class="footer">
-    Made with 🧛 by Gracula Team<br>
-    <a href="https://github.com" target="_blank">GitHub</a> • 
-    <a href="#" id="reportIssue">Report Issue</a>
   </div>
 
   <script src="popup.js"></script>
 </body>
-</html>
 
+</html>

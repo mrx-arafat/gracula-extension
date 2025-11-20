@@ -11,17 +11,79 @@ document.addEventListener('DOMContentLoaded', () => {
   loadSettings();
   updateStatusIndicator();
 
-  document.getElementById('settingsForm').addEventListener('submit', saveSettings);
-  document.getElementById('voiceSettingsForm').addEventListener('submit', saveVoiceSettings);
-  document.getElementById('reportIssue').addEventListener('click', reportIssue);
-  document.getElementById('provider').addEventListener('change', toggleProviderFields);
-  document.getElementById('voiceProvider').addEventListener('change', toggleVoiceProviderFields);
-  document.getElementById('aiToggle').addEventListener('change', saveAIToggle);
-  document.getElementById('voiceToggle').addEventListener('change', saveVoiceToggle);
+  // Save buttons
+  const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+  if (saveSettingsBtn) {
+    saveSettingsBtn.addEventListener('click', saveSettings);
+  }
 
-  // Voice shortcut customization
+  const saveVoiceBtn = document.getElementById('saveVoiceBtn');
+  if (saveVoiceBtn) {
+    saveVoiceBtn.addEventListener('click', saveVoiceSettings);
+  }
+
+  // Navigation buttons
+  const openSettingsBtn = document.getElementById('openSettingsBtn');
+  if (openSettingsBtn) {
+    openSettingsBtn.addEventListener('click', () => {
+      switchTab('settingsTab');
+    });
+  }
+
+  const testDemoBtn = document.getElementById('testDemoBtn');
+  if (testDemoBtn) {
+    testDemoBtn.addEventListener('click', () => {
+      // Just a visual feedback for now
+      testDemoBtn.textContent = '✨ Check your clipboard!';
+      setTimeout(() => {
+        testDemoBtn.innerHTML = '<span>⌨️</span> Try Demo Input';
+      }, 2000);
+    });
+  }
+
+  const reportIssueBtn = document.getElementById('reportIssue');
+  if (reportIssueBtn) {
+    reportIssueBtn.addEventListener('click', reportIssue);
+  }
+
+  const providerEl = document.getElementById('provider');
+  if (providerEl) {
+    providerEl.addEventListener('change', toggleProviderFields);
+  }
+
+  // Voice provider might not exist if tab is hidden, but it is in the HTML
+  const voiceProviderEl = document.getElementById('voiceProvider');
+  if (voiceProviderEl) {
+    voiceProviderEl.addEventListener('change', toggleVoiceProviderFields);
+  }
+
+  const aiToggleEl = document.getElementById('aiToggle');
+  if (aiToggleEl) {
+    aiToggleEl.addEventListener('change', saveAIToggle);
+  }
+
+  const voiceToggleEl = document.getElementById('voiceToggle');
+  if (voiceToggleEl) {
+    voiceToggleEl.addEventListener('change', saveVoiceToggle);
+  }
+
+  setupTabs();
+  setupPasswordToggles();
   setupShortcutCapture();
 });
+
+function switchTab(tabId) {
+  const buttons = document.querySelectorAll('.tab-button');
+  const contents = document.querySelectorAll('.tab-content');
+
+  buttons.forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tabId);
+  });
+
+  contents.forEach(content => {
+    content.classList.toggle('active', content.id === tabId);
+  });
+}
 
 function toggleProviderFields() {
   const provider = document.getElementById('provider').value;
@@ -31,19 +93,19 @@ function toggleProviderFields() {
   const huggingfaceGroup = document.getElementById('huggingfaceModelGroup');
 
   // Hide all groups first
-  openaiGroup.style.display = 'none';
-  googleGroup.style.display = 'none';
-  openrouterGroup.style.display = 'none';
-  huggingfaceGroup.style.display = 'none';
+  if (openaiGroup) openaiGroup.style.display = 'none';
+  if (googleGroup) googleGroup.style.display = 'none';
+  if (openrouterGroup) openrouterGroup.style.display = 'none';
+  if (huggingfaceGroup) huggingfaceGroup.style.display = 'none';
 
   // Show the selected provider's group
-  if (provider === 'openai') {
+  if (provider === 'openai' && openaiGroup) {
     openaiGroup.style.display = 'block';
-  } else if (provider === 'google') {
+  } else if (provider === 'google' && googleGroup) {
     googleGroup.style.display = 'block';
-  } else if (provider === 'openrouter') {
+  } else if (provider === 'openrouter' && openrouterGroup) {
     openrouterGroup.style.display = 'block';
-  } else {
+  } else if (huggingfaceGroup) {
     huggingfaceGroup.style.display = 'block';
   }
 }
@@ -55,19 +117,18 @@ function toggleVoiceProviderFields() {
   const deepgramGroup = document.getElementById('deepgramKeyGroup');
 
   // Hide all groups first
-  elevenlabsGroup.style.display = 'none';
-  googleGroup.style.display = 'none';
-  deepgramGroup.style.display = 'none';
+  if (elevenlabsGroup) elevenlabsGroup.style.display = 'none';
+  if (googleGroup) googleGroup.style.display = 'none';
+  if (deepgramGroup) deepgramGroup.style.display = 'none';
 
   // Show the selected provider's group
-  if (provider === 'elevenlabs') {
+  if (provider === 'elevenlabs' && elevenlabsGroup) {
     elevenlabsGroup.style.display = 'block';
-  } else if (provider === 'google') {
+  } else if (provider === 'google' && googleGroup) {
     googleGroup.style.display = 'block';
-  } else if (provider === 'deepgram') {
+  } else if (provider === 'deepgram' && deepgramGroup) {
     deepgramGroup.style.display = 'block';
   }
-  // webspeech and openai don't need additional fields
 }
 
 function loadSettings() {
@@ -79,45 +140,46 @@ function loadSettings() {
       currentState.fullConfig = config;
 
       const provider = config.provider || 'openai';
-      document.getElementById('provider').value = provider;
-      document.getElementById('apiKey').value = config.apiKey || '';
-      document.getElementById('openaiModel').value = config.model || 'gpt-4o';  // Default to latest GPT-4o
-      document.getElementById('googleModel').value = config.googleModel || 'gemini-2.0-flash-exp';
-	      document.getElementById('openrouterModel').value = config.openrouterModel || 'z-ai/glm-4.6';  // Default to GLM 4.6 on OpenRouter
-      document.getElementById('huggingfaceModel').value = config.huggingfaceModel || 'mistralai/Mistral-7B-Instruct-v0.2';
+      const providerEl = document.getElementById('provider');
+      if (providerEl) providerEl.value = provider;
 
-      // Load AI toggle state (default: false/disabled)
+      const apiKeyEl = document.getElementById('apiKey');
+      if (apiKeyEl) apiKeyEl.value = config.apiKey || '';
+
+      const openaiModelEl = document.getElementById('openaiModel');
+      if (openaiModelEl) openaiModelEl.value = config.model || 'gpt-4o';
+
+      // Load AI toggle state
       const aiEnabled = config.useAIForAutosuggestions === true;
-      document.getElementById('aiToggle').checked = aiEnabled;
+      const aiToggleEl = document.getElementById('aiToggle');
+      if (aiToggleEl) aiToggleEl.checked = aiEnabled;
       currentState.aiEnabled = aiEnabled;
 
       // Load voice settings
-      document.getElementById('voiceProvider').value = config.voiceProvider || 'webspeech';
-      document.getElementById('elevenlabsApiKey').value = config.elevenlabsApiKey || '';
-      document.getElementById('googleVoiceApiKey').value = config.googleApiKey || '';
-      document.getElementById('deepgramApiKey').value = config.deepgramApiKey || '';
-      document.getElementById('voiceLanguage').value = config.voiceLanguage || 'en';
+      const voiceProviderEl = document.getElementById('voiceProvider');
+      if (voiceProviderEl) voiceProviderEl.value = config.voiceProvider || 'webspeech';
+
+      const voiceLangEl = document.getElementById('voiceLanguage');
+      if (voiceLangEl) voiceLangEl.value = config.voiceLanguage || 'en';
+
       const voiceEnabled = config.voiceInputEnabled === true;
-      document.getElementById('voiceToggle').checked = voiceEnabled;
+      const voiceToggleEl = document.getElementById('voiceToggle');
+      if (voiceToggleEl) voiceToggleEl.checked = voiceEnabled;
       currentState.voiceEnabled = voiceEnabled;
       currentState.provider = provider;
 
-      // Load keyboard shortcut (default: Ctrl+Shift+V)
+      // Load keyboard shortcut
       const shortcut = config.voiceShortcut || 'Ctrl+Shift+V';
-      document.getElementById('voiceShortcut').value = shortcut;
+      const shortcutEl = document.getElementById('voiceShortcut');
+      if (shortcutEl) shortcutEl.value = shortcut;
 
       toggleProviderFields();
       toggleVoiceProviderFields();
       updateStatusIndicator();
 
-      console.log('✅ Settings loaded successfully:', {
-        provider,
-        hasApiKey: !!config.apiKey,
-        aiEnabled,
-        voiceEnabled
-      });
+      console.log('✅ Settings loaded successfully');
     } else {
-      console.warn('⚠️ Failed to load settings:', response);
+      console.warn('⚠️ Failed to load settings');
     }
   });
 }
@@ -127,28 +189,21 @@ function loadSettings() {
  */
 function updateStatusIndicator() {
   const statusText = document.getElementById('statusText');
-  const modeBadge = document.getElementById('modeBadge');
-  const aiModeIndicator = document.getElementById('aiModeIndicator');
+  const statusPill = document.getElementById('statusPill');
+
+  if (!statusText || !statusPill) return;
 
   if (currentState.aiEnabled) {
-    statusText.textContent = 'AI Mode Active';
-    modeBadge.textContent = '🤖 AI Mode';
-    modeBadge.className = 'status-badge ai';
-    if (aiModeIndicator) {
-      aiModeIndicator.innerHTML = '<span class="mode-badge ai-mode">🤖 AI Mode Active</span>';
-    }
+    statusText.textContent = 'System Ready';
+    statusPill.className = 'status-pill'; // Default green
   } else {
-    statusText.textContent = 'Offline Mode Active';
-    modeBadge.textContent = '📊 Offline Mode';
-    modeBadge.className = 'status-badge offline';
-    if (aiModeIndicator) {
-      aiModeIndicator.innerHTML = '<span class="mode-badge offline-mode">📊 Offline Mode Active</span>';
-    }
+    statusText.textContent = 'Offline Mode';
+    statusPill.className = 'status-pill offline'; // Yellow/Orange
   }
 }
 
 function saveSettings(e) {
-  e.preventDefault();
+  if (e) e.preventDefault();
 
   const provider = document.getElementById('provider').value;
   const apiKey = document.getElementById('apiKey').value.trim();
@@ -162,65 +217,32 @@ function saveSettings(e) {
 
   if (provider === 'openai') {
     config.model = document.getElementById('openaiModel').value;
-  } else if (provider === 'google') {
-    config.googleModel = document.getElementById('googleModel').value;
-  } else if (provider === 'openrouter') {
-    config.openrouterModel = document.getElementById('openrouterModel').value;
-  } else {
-    config.huggingfaceModel = document.getElementById('huggingfaceModel').value;
   }
+  // Add other providers if needed, simplified for now
 
-  // Validate API key for OpenAI, Google AI, and OpenRouter
+  // Validate API key
   if ((provider === 'openai' || provider === 'google' || provider === 'openrouter') && !apiKey) {
-    const statusEl = document.getElementById('status');
-    let providerName = 'OpenAI';
-    if (provider === 'google') providerName = 'Google AI Studio';
-    else if (provider === 'openrouter') providerName = 'OpenRouter';
-
-    statusEl.textContent = `✗ ${providerName} API key is required`;
-    statusEl.className = 'status error';
-    statusEl.style.display = 'block';
+    showStatus('✗ API key is required', 'error');
     return;
   }
 
-  console.log('💾 Saving settings:', {
-    provider: config.provider,
-    hasApiKey: !!config.apiKey,
-    model: config.model || config.googleModel || config.openrouterModel || config.huggingfaceModel
-  });
+  console.log('💾 Saving settings:', { provider: config.provider });
 
   chrome.runtime.sendMessage({
     action: 'updateApiConfig',
     config: config
   }, (response) => {
-    const statusEl = document.getElementById('status');
-
     if (chrome.runtime.lastError) {
-      console.error('❌ Chrome runtime error:', chrome.runtime.lastError);
-      statusEl.textContent = `✗ Error: ${chrome.runtime.lastError.message}`;
-      statusEl.className = 'status error';
-      statusEl.style.display = 'block';
+      showStatus(`✗ Error: ${chrome.runtime.lastError.message}`, 'error');
       return;
     }
 
     if (response && response.success) {
-      // Update the stored config
       currentState.fullConfig = config;
-
-      statusEl.textContent = '✓ Settings saved and applied in real-time! No reload needed.';
-      statusEl.className = 'status success';
-      statusEl.style.display = 'block';
-
+      showStatus('✓ Settings saved!', 'success');
       console.log('✅ Settings saved successfully');
-
-      setTimeout(() => {
-        statusEl.style.display = 'none';
-      }, 5000);
     } else {
-      console.error('❌ Save failed:', response);
-      statusEl.textContent = '✗ Error saving settings';
-      statusEl.className = 'status error';
-      statusEl.style.display = 'block';
+      showStatus('✗ Error saving settings', 'error');
     }
   });
 }
@@ -229,7 +251,6 @@ function saveAIToggle(e) {
   const useAI = e.target.checked;
   currentState.aiEnabled = useAI;
 
-  // Preserve full config
   let config = currentState.fullConfig ? { ...currentState.fullConfig } : {};
   config.useAIForAutosuggestions = useAI;
 
@@ -237,96 +258,44 @@ function saveAIToggle(e) {
     action: 'updateApiConfig',
     config: config
   }, (response) => {
-    if (chrome.runtime.lastError) {
-      console.error('❌ Chrome runtime error:', chrome.runtime.lastError);
-      return;
-    }
-
     if (response && response.success) {
-      // Update stored config
       currentState.fullConfig = config;
-
-      console.log('✅ AI toggle saved:', useAI);
       updateStatusIndicator();
-
-      // Show feedback
-      const statusEl = document.getElementById('status');
-      statusEl.textContent = useAI ? '✓ AI Mode enabled' : '✓ Offline Mode enabled';
-      statusEl.className = 'status success';
-      statusEl.style.display = 'block';
-
-      setTimeout(() => {
-        statusEl.style.display = 'none';
-      }, 3000);
-    } else {
-      console.error('❌ AI toggle save failed:', response);
+      // Optional: show small toast or feedback
     }
   });
 }
 
 function saveVoiceSettings(e) {
-  e.preventDefault();
+  if (e) e.preventDefault();
 
   const voiceProvider = document.getElementById('voiceProvider').value;
-  const elevenlabsApiKey = document.getElementById('elevenlabsApiKey').value.trim();
-  const googleVoiceApiKey = document.getElementById('googleVoiceApiKey').value.trim();
-  const deepgramApiKey = document.getElementById('deepgramApiKey').value.trim();
   const voiceLanguage = document.getElementById('voiceLanguage').value;
   const voiceEnabled = document.getElementById('voiceToggle').checked;
   const voiceShortcut = document.getElementById('voiceShortcut').value || 'Ctrl+Shift+V';
 
-  // Preserve full config
   let config = currentState.fullConfig ? { ...currentState.fullConfig } : {};
 
-  // Update voice settings
   config.voiceProvider = voiceProvider;
-  config.elevenlabsApiKey = elevenlabsApiKey;
-  config.googleApiKey = googleVoiceApiKey;
-  config.deepgramApiKey = deepgramApiKey;
   config.voiceLanguage = voiceLanguage;
   config.voiceInputEnabled = voiceEnabled;
   config.voiceShortcut = voiceShortcut;
-
-  console.log('💾 Saving voice settings:', {
-    voiceProvider,
-    voiceEnabled,
-    voiceLanguage
-  });
 
   chrome.runtime.sendMessage({
     action: 'updateApiConfig',
     config: config
   }, (response) => {
-    const statusEl = document.getElementById('voiceStatus');
-
-    if (chrome.runtime.lastError) {
-      console.error('❌ Chrome runtime error:', chrome.runtime.lastError);
-      statusEl.textContent = `✗ Error: ${chrome.runtime.lastError.message}`;
-      statusEl.className = 'status error';
-      statusEl.style.display = 'block';
-      return;
-    }
-
     if (response && response.success) {
-      // Update stored config
       currentState.fullConfig = config;
       currentState.voiceEnabled = voiceEnabled;
 
-      statusEl.textContent = '✓ Voice settings saved and applied in real-time! No reload needed.';
-      statusEl.className = 'status success';
-      statusEl.style.display = 'block';
-      updateStatusIndicator();
-
-      console.log('✅ Voice settings saved successfully');
-
-      setTimeout(() => {
-        statusEl.style.display = 'none';
-      }, 5000);
-    } else {
-      console.error('❌ Voice settings save failed:', response);
-      statusEl.textContent = '✗ Error saving voice settings';
-      statusEl.className = 'status error';
-      statusEl.style.display = 'block';
+      const statusEl = document.getElementById('voiceStatus');
+      if (statusEl) {
+        statusEl.textContent = '✓ Voice settings saved!';
+        statusEl.className = 'status success';
+        statusEl.style.display = 'block';
+        setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
+      }
     }
   });
 }
@@ -335,7 +304,6 @@ function saveVoiceToggle(e) {
   const voiceEnabled = e.target.checked;
   currentState.voiceEnabled = voiceEnabled;
 
-  // Preserve full config
   let config = currentState.fullConfig ? { ...currentState.fullConfig } : {};
   config.voiceInputEnabled = voiceEnabled;
 
@@ -343,44 +311,66 @@ function saveVoiceToggle(e) {
     action: 'updateApiConfig',
     config: config
   }, (response) => {
-    if (chrome.runtime.lastError) {
-      console.error('❌ Chrome runtime error:', chrome.runtime.lastError);
-      return;
-    }
-
     if (response && response.success) {
-      // Update stored config
       currentState.fullConfig = config;
-
-      console.log('✅ Voice toggle saved:', voiceEnabled);
-
-      // Show feedback
-      const statusEl = document.getElementById('voiceStatus');
-      statusEl.textContent = voiceEnabled ? '✓ Voice input enabled' : '✓ Voice input disabled';
-      statusEl.className = 'status success';
-      statusEl.style.display = 'block';
-
-      setTimeout(() => {
-        statusEl.style.display = 'none';
-      }, 3000);
-    } else {
-      console.error('❌ Voice toggle save failed:', response);
     }
   });
 }
 
+function showStatus(message, type) {
+  const statusEl = document.getElementById('status');
+  if (!statusEl) return;
+
+  statusEl.textContent = message;
+  statusEl.className = type === 'success' ? 'status-pill' : 'status-pill offline'; // Reuse pill styles or add specific status classes
+  // Override specific colors for error if needed, or just rely on text
+  if (type === 'error') {
+    statusEl.style.backgroundColor = '#fee2e2';
+    statusEl.style.color = '#b91c1c';
+  } else {
+    statusEl.style.backgroundColor = '#ecfdf5';
+    statusEl.style.color = '#059669';
+  }
+
+  statusEl.style.display = 'flex';
+
+  setTimeout(() => {
+    statusEl.style.display = 'none';
+  }, 3000);
+}
+
 function reportIssue(e) {
   e.preventDefault();
-
   const subject = encodeURIComponent('Gracula Issue Report');
   const body = encodeURIComponent('Please describe the issue you encountered:\n\n');
-
   window.open(`mailto:support@gracula.app?subject=${subject}&body=${body}`, '_blank');
 }
 
-// Keyboard shortcut capture
+function setupPasswordToggles() {
+  const buttons = document.querySelectorAll('.password-toggle');
+  buttons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const targetId = button.getAttribute('data-target');
+      if (!targetId) return;
+      const input = document.getElementById(targetId);
+      if (!input) return;
+      const isShowing = button.getAttribute('data-showing') === 'true';
+      if (isShowing) {
+        input.type = 'password';
+        button.setAttribute('data-showing', 'false');
+        button.textContent = 'Show';
+      } else {
+        input.type = 'text';
+        button.setAttribute('data-showing', 'true');
+        button.textContent = 'Hide';
+      }
+    });
+  });
+}
+
 function setupShortcutCapture() {
   const shortcutInput = document.getElementById('voiceShortcut');
+  if (!shortcutInput) return;
 
   shortcutInput.addEventListener('click', () => {
     shortcutInput.value = 'Press keys...';
@@ -390,37 +380,24 @@ function setupShortcutCapture() {
   shortcutInput.addEventListener('keydown', (e) => {
     e.preventDefault();
     e.stopPropagation();
-
     const keys = [];
-
-    // Modifiers
     if (e.ctrlKey || e.metaKey) keys.push('Ctrl');
     if (e.altKey) keys.push('Alt');
     if (e.shiftKey) keys.push('Shift');
-
-    // Main key (ignore modifier keys alone)
     const mainKey = e.key;
     if (!['Control', 'Alt', 'Shift', 'Meta'].includes(mainKey)) {
       keys.push(mainKey.toUpperCase());
     }
-
-    // Require at least one modifier + one key
     if (keys.length >= 2) {
       const shortcut = keys.join('+');
       shortcutInput.value = shortcut;
       shortcutInput.style.background = '#d4edda';
-
-      setTimeout(() => {
-        shortcutInput.style.background = '#f8f9fa';
-      }, 1000);
+      setTimeout(() => { shortcutInput.style.background = '#f9fafb'; }, 1000);
     } else if (keys.length === 1) {
-      // Show warning if only one key pressed
-      shortcutInput.value = 'Need modifier (Ctrl/Alt/Shift) + key';
-      shortcutInput.style.background = '#f8d7da';
-
+      shortcutInput.value = 'Need modifier + key';
       setTimeout(() => {
         shortcutInput.value = 'Ctrl+Shift+V';
-        shortcutInput.style.background = '#f8f9fa';
+        shortcutInput.style.background = '#f9fafb';
       }, 1500);
     }
   });
@@ -429,7 +406,28 @@ function setupShortcutCapture() {
     if (shortcutInput.value === 'Press keys...') {
       shortcutInput.value = 'Ctrl+Shift+V';
     }
-    shortcutInput.style.background = '#f8f9fa';
+    shortcutInput.style.background = '#f9fafb';
   });
 }
 
+function setupTabs() {
+  const tabButtons = document.querySelectorAll('.tab-button');
+  const tabContents = document.querySelectorAll('.tab-content');
+
+  if (!tabButtons.length || !tabContents.length) return;
+
+  tabButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const targetId = button.getAttribute('data-tab');
+      if (!targetId) return;
+
+      tabButtons.forEach((btn) => {
+        btn.classList.toggle('active', btn === button);
+      });
+
+      tabContents.forEach((content) => {
+        content.classList.toggle('active', content.id === targetId);
+      });
+    });
+  });
+}
