@@ -441,6 +441,47 @@ function buildPrompt(tone, context, enhancedContext, responseMode = 'reply') {
 	    }
 	  }
 
+  // Per-contact priority / respect level (1-10, user-adjustable in UI)
+  if (analysis?.contactPriority) {
+    let priorityLevel = null;
+    let band = null;
+    const cp = analysis.contactPriority;
+
+    if (typeof cp === 'number') {
+      priorityLevel = cp;
+    } else if (cp && typeof cp === 'object') {
+      if (typeof cp.level === 'number') {
+        priorityLevel = cp.level;
+      }
+      if (typeof cp.band === 'string') {
+        band = cp.band.toLowerCase();
+      }
+    }
+
+    if (priorityLevel == null) {
+      priorityLevel = 5;
+    }
+    priorityLevel = Math.min(10, Math.max(1, Math.round(priorityLevel)));
+
+    if (!band) {
+      if (priorityLevel <= 3) band = 'low';
+      else if (priorityLevel <= 6) band = 'medium';
+      else band = 'high';
+    }
+
+    prompt += '=== ⚡ CONTACT PRIORITY LEVEL (USER-ADJUSTABLE) ===\n';
+    prompt += `User-set priority for this contact: ${priorityLevel}/10 (${band} priority).\n`;
+
+    if (band === 'low') {
+      prompt += '→ Treat this contact as low priority. It is OK to keep replies short, simple, and a bit distant. Do NOT be rude, abusive, or insulting. You can politely downplay effort and avoid extra details.\n\n';
+    } else if (band === 'medium') {
+      prompt += '→ Treat this contact with normal, neutral priority. Reply in a balanced, polite way without extra deference or extra dismissiveness.\n\n';
+    } else if (band === 'high') {
+      prompt += '→ Treat this contact as very important. Be especially respectful, clear, and considerate. Avoid sarcasm or anything that could sound dismissive. You may add a bit more care and warmth while still being concise.\n\n';
+    }
+  }
+
+
   // PHASE 2: Show context quality warning if poor
   if (contextQuality && contextQuality.quality === 'poor') {
     prompt += `⚠️ Context quality: ${contextQuality.quality}\n`;
@@ -2126,7 +2167,7 @@ async function transcribeWithGoogle(audioData, mimeType, language) {
       languageCode: language || 'en-US',
       enableAutomaticPunctuation: true
     },
-    audio: {  
+    audio: {
       content: base64Audio
     }
   };

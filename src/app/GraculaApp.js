@@ -39,12 +39,19 @@ window.Gracula.GraculaApp = class {
     this.currentGenerationId = null;
     this.lastInsertedText = null;
 
-	    // NEW: Conversation tone confidence handler (event delegation)
-	    this._sentimentConfidenceHandlerInitialized = false;
+    // NEW: Conversation tone confidence handler (event delegation)
+    this._sentimentConfidenceHandlerInitialized = false;
 
-	    // Initialise global handler once
-	    this.initSentimentConfidenceHandler = this.initSentimentConfidenceHandler.bind(this);
-	    this.initSentimentConfidenceHandler();
+    // Initialise global handler once
+    this.initSentimentConfidenceHandler = this.initSentimentConfidenceHandler.bind(this);
+    this.initSentimentConfidenceHandler();
+
+    // NEW: Per-contact priority (1-10) for respect/urgency
+    this.currentContactPriority = 5;
+    this.currentContactKey = null;
+    this._contactPriorityHandlerInitialized = false;
+    this.initContactPriorityHandler = this.initContactPriorityHandler.bind(this);
+    this.initContactPriorityHandler();
 
     // Unified top-right dock for action buttons
     this.actionDock = null;
@@ -421,6 +428,67 @@ window.Gracula.GraculaApp = class {
     this.enhancedContext = this.contextExtractor.getEnhancedContext();
     this.context = this.contextExtractor.getSimpleContext();
 
+    // Derive a stable contact key for this conversation (used for per-contact priority)
+    try {
+      const summary = this.enhancedContext?.summary || {};
+      const host = (typeof window !== 'undefined' && window.location && window.location.host)
+        ? window.location.host
+        : 'unknown-host';
+      const platformId = `whatsapp:${host}`;
+
+      let contactIdentifier = null;
+
+      if (summary.lastFriendSpeaker && typeof summary.lastFriendSpeaker === 'string' && summary.lastFriendSpeaker.trim()) {
+        contactIdentifier = `friend:${summary.lastFriendSpeaker.trim()}`;
+      } else if (summary.participants && typeof summary.participants === 'string' && summary.participants.trim()) {
+        contactIdentifier = `participants:${summary.participants.trim()}`;
+      }
+
+      if (!contactIdentifier && Array.isArray(this.context)) {
+        const firstOther = this.context.find(line => typeof line === 'string' && line.includes(':'));
+        if (firstOther) {
+          contactIdentifier = `raw:${firstOther.split(':')[0].trim()}`;
+        }
+      }
+
+      if (!contactIdentifier) {
+        contactIdentifier = 'unknown-contact';
+      }
+
+      this.currentContactKey = `${platformId}::${contactIdentifier}`;
+    } catch (error) {
+      console.warn('⚠️ Failed to compute contact key for priority slider:', error);
+      this.currentContactKey = null;
+    }
+
+    // Load stored priority for this contact, defaulting to mid (5/10)
+    try {
+      const loadedPriority = await this.loadContactPriority(this.currentContactKey);
+      if (typeof loadedPriority === 'number' && !Number.isNaN(loadedPriority)) {
+        this.currentContactPriority = loadedPriority;
+      }
+    } catch (error) {
+      console.warn('⚠️ Failed to load contact priority in extractContext:', error);
+    }
+
+    // Mirror into enhancedContext.analysis for background prompt
+    if (!this.enhancedContext) {
+      this.enhancedContext = {};
+    }
+    if (!this.enhancedContext.analysis) {
+      this.enhancedContext.analysis = {};
+    }
+    if (this.currentContactPriority) {
+      const meta = this.computeContactPriorityLabel(this.currentContactPriority);
+      this.enhancedContext.analysis.contactPriority = {
+        level: meta.value,
+        band: meta.band,
+        source: 'stored-preference',
+        contactKey: this.currentContactKey || null
+      };
+    }
+
+
     const enhancedMessages = Array.isArray(this.enhancedContext?.messages) ? this.enhancedContext.messages : [];
     if (enhancedMessages.length > 0) {
       this.contextMessages = enhancedMessages;
@@ -603,6 +671,20 @@ window.Gracula.GraculaApp = class {
     const urgencyLevel = urgency === 'high' ? 3 : urgency === 'medium' ? 2 : 1;
     const urgencyDisplay = urgency.charAt(0).toUpperCase() + urgency.slice(1);
 
+
+    // Contact priority (per-contact 1-10 slider)
+    let contactPriorityLevel = this.currentContactPriority;
+    if (typeof contactPriorityLevel !== 'number' || Number.isNaN(contactPriorityLevel)) {
+      contactPriorityLevel = 5;
+    } else {
+      contactPriorityLevel = Math.min(10, Math.max(1, Math.round(contactPriorityLevel)));
+    }
+
+    const contactPriorityMeta = this.computeContactPriorityLabel
+      ? this.computeContactPriorityLabel(contactPriorityLevel)
+      : { label: 'Medium priority' };
+    const contactPriorityLabel = contactPriorityMeta.label || 'Medium priority';
+
     // Languages
     const languageMix = analysis.languageMix || {};
     const languages = Array.isArray(languageMix.languages) && languageMix.languages.length
@@ -698,6 +780,28 @@ window.Gracula.GraculaApp = class {
             </div>
             <div style="font-size: 11px; margin-top: 6px; color: #6b7280;">
               ${urgencyDisplay} priority${urgencyScore !== null ? ' • score ' + urgencyScore : ''}
+            </div>
+
+            <!-- Per-contact priority slider -->
+            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e5e7eb;">
+              <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #374151;">
+                <span>Contact priority</span>
+                <span class="gracula-contact-priority-label" data-priority="${contactPriorityLevel}">
+                  ${contactPriorityLabel} (${contactPriorityLevel}/10)
+                </span>
+              </div>
+              <div
+                class="gracula-contact-priority-bar"
+                data-priority="${contactPriorityLevel}"
+                style="margin-top: 8px; display: flex; gap: 2px; cursor: pointer;">
+                ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(level => `
+                  <div
+                    class="gracula-contact-priority-segment ${level <= contactPriorityLevel ? 'active' : ''}"
+                    data-priority-level="${level}"
+                    style="flex: 1; height: 6px; border-radius: 999px; background: ${level <= contactPriorityLevel ? '#22c55e' : '#e5e7eb'};">
+                  </div>
+                `).join('')}
+              </div>
             </div>
           </div>
         </div>
@@ -991,6 +1095,154 @@ window.Gracula.GraculaApp = class {
       });
     }
   }
+
+  /**
+   * Compute human-friendly label for a given contact priority level (1-10).
+   */
+  computeContactPriorityLabel(level) {
+    let value = typeof level === 'number' && !Number.isNaN(level) ? Math.round(level) : 5;
+    value = Math.min(10, Math.max(1, value));
+
+    if (value <= 3) {
+      return { value, label: 'Very low priority', band: 'low' };
+    }
+    if (value <= 6) {
+      return { value, label: 'Medium priority', band: 'medium' };
+    }
+    return { value, label: 'Very high priority', band: 'high' };
+  }
+
+  /**
+   * NEW: Global handler for contact priority slider (right sidebar).
+   * - Listens for clicks on the 1-10 bar segments.
+   * - Updates UI, in-memory state and chrome.storage.local.
+   */
+  initContactPriorityHandler() {
+    if (this._contactPriorityHandlerInitialized) {
+      return;
+    }
+    this._contactPriorityHandlerInitialized = true;
+
+    document.addEventListener('click', (event) => {
+      if (!this.modal || !this.modal.getBody) return;
+      const modalBody = this.modal.getBody();
+      if (!modalBody) return;
+
+      const segment = event.target.closest('.gracula-contact-priority-segment');
+      if (!segment || !modalBody.contains(segment)) {
+        return;
+      }
+
+      const rawLevel = parseInt(segment.getAttribute('data-priority-level') || '0', 10);
+      if (!rawLevel || Number.isNaN(rawLevel)) return;
+
+      const clamped = Math.min(10, Math.max(1, rawLevel));
+
+      // Update bar segments
+      const bar = segment.closest('.gracula-contact-priority-bar');
+      if (bar) {
+        const segments = bar.querySelectorAll('.gracula-contact-priority-segment');
+        segments.forEach((seg) => {
+          const segLevel = parseInt(seg.getAttribute('data-priority-level') || '0', 10);
+          const isActive = !Number.isNaN(segLevel) && segLevel <= clamped;
+          seg.classList.toggle('active', isActive);
+          seg.style.backgroundColor = isActive ? '#22c55e' : '#e5e7eb';
+        });
+        bar.setAttribute('data-priority', String(clamped));
+      }
+
+      // Update label
+      const meta = this.computeContactPriorityLabel(clamped);
+      const labelEl = modalBody.querySelector('.gracula-contact-priority-label');
+      if (labelEl && meta) {
+        labelEl.textContent = `${meta.label} (${meta.value}/10)`;
+        labelEl.setAttribute('data-priority', String(meta.value));
+      }
+
+      // Ensure analysis object exists
+      if (!this.enhancedContext) {
+        this.enhancedContext = {};
+      }
+      if (!this.enhancedContext.analysis) {
+        this.enhancedContext.analysis = {};
+      }
+
+      this.enhancedContext.analysis.contactPriority = {
+        level: clamped,
+        band: meta.band,
+        source: 'user-slider'
+      };
+
+      this.currentContactPriority = clamped;
+
+      if (this.currentContactKey) {
+        this.saveContactPriority(this.currentContactKey, clamped);
+      }
+    });
+  }
+
+  /**
+   * Load stored priority for a given contact key from chrome.storage.local.
+   */
+  async loadContactPriority(contactKey) {
+    if (!contactKey || typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+      const meta = this.computeContactPriorityLabel(this.currentContactPriority || 5);
+      return meta.value;
+    }
+
+    try {
+      const store = await new Promise((resolve) => {
+        chrome.storage.local.get(['gracula_contact_priorities'], (result) => {
+          resolve(result && result.gracula_contact_priorities ? result.gracula_contact_priorities : {});
+        });
+      });
+
+      const entry = store[contactKey];
+      if (entry && typeof entry.level === 'number' && !Number.isNaN(entry.level)) {
+        const meta = this.computeContactPriorityLabel(entry.level);
+        return meta.value;
+      }
+
+      const fallbackMeta = this.computeContactPriorityLabel(this.currentContactPriority || 5);
+      return fallbackMeta.value;
+    } catch (error) {
+      console.warn('⚠️ Failed to load contact priority from storage:', error);
+      const meta = this.computeContactPriorityLabel(this.currentContactPriority || 5);
+      return meta.value;
+    }
+  }
+
+  /**
+   * Save priority for a given contact key into chrome.storage.local.
+   */
+  async saveContactPriority(contactKey, level) {
+    if (!contactKey || typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+      return;
+    }
+
+    const meta = this.computeContactPriorityLabel(level);
+    const value = meta.value;
+
+    try {
+      const store = await new Promise((resolve) => {
+        chrome.storage.local.get(['gracula_contact_priorities'], (result) => {
+          resolve(result && result.gracula_contact_priorities ? result.gracula_contact_priorities : {});
+        });
+      });
+
+      store[contactKey] = {
+        level: value,
+        updatedAt: Date.now()
+      };
+
+      await new Promise((resolve) => {
+        chrome.storage.local.set({ gracula_contact_priorities: store }, () => resolve());
+      });
+    } catch (error) {
+      console.warn('⚠️ Failed to save contact priority to storage:', error);
+    }
+  }
+
 
 	  /**
 	   * NEW: Global handler for conversation tone controls (right sidebar)
