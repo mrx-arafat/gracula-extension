@@ -8,7 +8,7 @@ window.Gracula.AutocompleteManager = class {
     this.inputField = options.inputField;
     this.contextExtractor = options.contextExtractor;
     this.autocompleteDropdown = options.autocompleteDropdown;
-    this.onSuggestionSelect = options.onSuggestionSelect || (() => {});
+    this.onSuggestionSelect = options.onSuggestionSelect || (() => { });
 
     // Settings
     this.minChars = options.minChars || 2; // Minimum characters to trigger (reduced for faster response)
@@ -97,8 +97,15 @@ window.Gracula.AutocompleteManager = class {
         }
 
         if (response && response.success && response.config) {
-          this.useAI = response.config.useAIForAutosuggestions || false;
-          console.log('🧛 Autocomplete: AI mode:', this.useAI ? 'ENABLED' : 'DISABLED (Offline)');
+          // Treat useAIForAutosuggestions as the master switch for the entire feature
+          // If false, disable everything (including offline suggestions)
+          this.enabled = response.config.useAIForAutosuggestions !== false;
+          this.useAI = this.enabled; // If enabled, try to use AI (fallback to offline happens elsewhere if API fails)
+
+          console.log('🧛 Autocomplete: Feature is', this.enabled ? 'ENABLED' : 'DISABLED');
+          if (!this.enabled) {
+            this.autocompleteDropdown?.hide();
+          }
         }
       });
     } catch (error) {
@@ -113,19 +120,27 @@ window.Gracula.AutocompleteManager = class {
   setupConfigListener() {
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       if (request.action === 'configUpdated' && request.config) {
-        const oldValue = this.useAI;
-        this.useAI = request.config.useAIForAutosuggestions || false;
+        const oldEnabled = this.enabled;
 
-        if (oldValue !== this.useAI) {
-          console.log('🧛 Autocomplete: AI mode updated to:', this.useAI ? 'ENABLED' : 'DISABLED (Offline)');
+        // Treat useAIForAutosuggestions as the master switch
+        this.enabled = request.config.useAIForAutosuggestions !== false;
+        this.useAI = this.enabled;
 
-          // Clear cache when AI mode changes
-          this.cache.clear();
-          this.preGeneratedSuggestions.clear();
+        if (oldEnabled !== this.enabled) {
+          console.log('🧛 Autocomplete: Feature updated to:', this.enabled ? 'ENABLED' : 'DISABLED');
 
-          // Pre-generate common suggestions if AI was enabled
-          if (this.useAI && this.inputField) {
-            this.preGenerateCommonSuggestions();
+          if (!this.enabled) {
+            this.autocompleteDropdown?.hide();
+            this.clearDebounce();
+          } else {
+            // Clear cache when re-enabled
+            this.cache.clear();
+            this.preGeneratedSuggestions.clear();
+
+            // Pre-generate common suggestions if enabled
+            if (this.inputField) {
+              this.preGenerateCommonSuggestions();
+            }
           }
         }
       }

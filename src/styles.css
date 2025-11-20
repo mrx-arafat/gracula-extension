@@ -2,28 +2,61 @@
 
 /* Animations */
 @keyframes slideIn {
-  from { transform: translateX(400px); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideOut {
-  from { transform: translateX(0); opacity: 1; }
-  to { transform: translateX(400px); opacity: 0; }
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+
+  to {
+    transform: translateX(400px);
+    opacity: 0;
+  }
 }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 15px rgba(102, 126, 234, 0.5), 0 0 30px rgba(118, 75, 162, 0.3); }
-  50% { box-shadow: 0 0 25px rgba(102, 126, 234, 0.8), 0 0 50px rgba(118, 75, 162, 0.5); }
+
+  0%,
+  100% {
+    box-shadow: 0 0 15px rgba(102, 126, 234, 0.5), 0 0 30px rgba(118, 75, 162, 0.3);
+  }
+
+  50% {
+    box-shadow: 0 0 25px rgba(102, 126, 234, 0.8), 0 0 50px rgba(118, 75, 162, 0.5);
+  }
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-5px); }
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-5px);
+  }
 }
 
 /* Floating Button - Glass Orb */
@@ -72,7 +105,7 @@
 .gracula-btn-icon {
   font-size: 28px !important;
   line-height: 1 !important;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2)) !important;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2)) !important;
   transition: transform 0.3s ease !important;
 }
 
@@ -98,7 +131,7 @@
   pointer-events: none !important;
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2) !important;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
@@ -142,8 +175,15 @@
 }
 
 @keyframes slideUp {
-  from { transform: translateY(40px) scale(0.95); opacity: 0; }
-  to { transform: translateY(0) scale(1); opacity: 1; }
+  from {
+    transform: translateY(40px) scale(0.95);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
 }
 
 .gracula-modal-header {
@@ -161,7 +201,7 @@
   font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.5px;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .gracula-close-btn {
@@ -197,7 +237,7 @@
   padding: 20px;
   margin-bottom: 24px;
   border: 1px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
 }
 
 .gracula-context-header {
@@ -291,7 +331,7 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.02);
 }
 
 .gracula-tone-btn:hover {
@@ -303,7 +343,7 @@
 
 .gracula-tone-emoji {
   font-size: 28px;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
   transition: transform 0.3s ease;
 }
 
@@ -325,7 +365,7 @@
   padding: 20px;
   border: 1px solid rgba(255, 255, 255, 0.8);
   transition: all 0.3s ease;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
   margin-bottom: 16px;
 }
 
@@ -410,7 +450,7 @@
   padding: 12px 16px;
 }
 
-.gracula-toggle-switch input:checked + .gracula-toggle-slider {
+.gracula-toggle-switch input:checked+.gracula-toggle-slider {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
@@ -418,4 +458,674 @@
 .gracula-spinner {
   border: 4px solid rgba(102, 126, 234, 0.1);
   border-top: 4px solid #667eea;
+}
+
+/* Action Dock - Top Right Container */
+#gracula-action-dock {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 2147483647;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: none;
+  /* Let clicks pass through empty space */
+}
+
+/* Ensure children are clickable */
+#gracula-action-dock>* {
+  pointer-events: auto;
+}
+
+/* Compact Floating Button inside Dock */
+#gracula-floating-btn.gracula-compact {
+  position: relative !important;
+  /* Override fixed */
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  margin: 0 !important;
+  width: 50px !important;
+  height: 50px !important;
+}
+
+#gracula-floating-btn.gracula-compact .gracula-btn-icon {
+  font-size: 24px !important;
+}
+
+/* Voice Button in Dock */
+.gracula-voice-dock-btn {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  color: white;
+  font-size: 22px;
+}
+
+.gracula-voice-dock-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.gracula-voice-dock-btn.recording {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+  animation: pulse-red 2s infinite;
+}
+
+@keyframes pulse-red {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+
+  70% {
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+/* Mode Selection Cards */
+.gracula-mode-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.gracula-mode-card {
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 16px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gracula-mode-card:hover {
+  background: rgba(255, 255, 255, 0.8);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.1);
+}
+
+.gracula-mode-card.active {
+  background: white;
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+}
+
+.gracula-mode-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.gracula-mode-card-icon {
+  font-size: 20px;
+}
+
+.gracula-mode-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #2d3748;
+  margin: 0;
+}
+
+.gracula-mode-card-description {
+  font-size: 13px;
+  color: #4a5568;
+  line-height: 1.4;
+  margin: 0;
+  flex: 1;
+}
+
+.gracula-mode-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #718096;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* Ensure Tone Selector looks good */
+.gracula-tone-selector {
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+/* --- New three-column modal layout --- */
+
+.gracula-modal-content.gracula-modal-new-layout {
+  max-width: 980px;
+  max-height: 90vh;
+}
+
+.gracula-modal-body-wrapper {
+	padding: 20px 26px 28px;
+	background: linear-gradient(180deg, rgba(249, 250, 251, 0.98) 0%, rgba(243, 244, 246, 0.96) 100%);
+	display: flex;
+	flex-direction: column;
+	gap: 16px; /* tighter, consistent vertical rhythm between header cards and columns */
+}
+
+.gracula-mode-section {
+  flex-shrink: 0;
+}
+
+.gracula-three-column-layout {
+	display: grid;
+	grid-template-columns: minmax(0, 0.7fr) minmax(0, 0.9fr) minmax(0, 0.75fr);
+	gap: 16px;
+	align-items: flex-start;
+}
+
+.gracula-left-sidebar,
+.gracula-center-content,
+.gracula-right-sidebar {
+	max-height: 60vh;
+	overflow-y: auto;
+	padding: 4px 2px 18px; /* small top pad + comfortable bottom pad for scroll end */
+	box-sizing: border-box;
+}
+
+@media (max-width: 1100px) {
+  .gracula-three-column-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .gracula-right-sidebar {
+    order: 3;
+  }
+}
+
+/* --- Tone selector: categorized layout --- */
+
+.gracula-tone-selector-categorized {
+  background: rgba(255, 255, 255, 0.86);
+  border-radius: 18px;
+  padding: 14px 14px 12px;
+  border: 1px solid rgba(229, 231, 235, 0.9);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+	margin-bottom: 4px; /* prevent card from sticking to column edge at bottom */
+}
+
+.gracula-tone-selector-header h3 {
+  margin: 0 0 6px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.gracula-tone-search-container {
+  margin: 10px 0 6px;
+}
+
+.gracula-tone-search {
+  width: 100%;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  padding: 6px 12px;
+  font-size: 13px;
+  outline: none;
+  background: #f9fafb;
+}
+
+.gracula-tone-search:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.35);
+  background: #ffffff;
+}
+
+.gracula-tone-categories {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.gracula-tone-category-simple {
+  background: rgba(249, 250, 251, 0.9);
+  border-radius: 12px;
+  padding: 6px 8px 8px;
+}
+
+.gracula-tone-category-header-simple {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.gracula-tone-category-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.gracula-tone-category-count {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(129, 140, 248, 0.12);
+  color: #4f46e5;
+}
+
+.gracula-tone-category-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.gracula-tone-btn-compact {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(229, 231, 235, 0.9);
+  padding: 4px 10px;
+  background: #ffffff;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.gracula-tone-btn-compact .gracula-tone-emoji {
+  font-size: 18px;
+}
+
+.gracula-tone-btn-compact .gracula-tone-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.gracula-tone-btn-compact:hover {
+  transform: translateY(-1px);
+  border-color: #6366f1;
+  box-shadow: 0 4px 10px rgba(129, 140, 248, 0.2);
+}
+
+.gracula-tone-btn-compact.selected {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.gracula-tone-btn-compact.selected .gracula-tone-name {
+  color: #ffffff;
+}
+
+/* AI toggle visuals (toggle body already colored above) */
+
+.gracula-ai-toggle-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 10px;
+}
+
+.gracula-ai-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gracula-ai-toggle-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.gracula-ai-toggle-subtitle {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.gracula-toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 22px;
+}
+
+.gracula-toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.gracula-toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: #e5e7eb;
+  border-radius: 999px;
+  transition: background 0.2s ease;
+}
+
+.gracula-toggle-slider::before {
+  content: '';
+  position: absolute;
+  height: 18px;
+  width: 18px;
+  left: 2px;
+  bottom: 2px;
+  background-color: #ffffff;
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.3);
+  transition: transform 0.2s ease;
+}
+
+.gracula-toggle-switch input:checked + .gracula-toggle-slider::before {
+  transform: translateX(20px);
+}
+
+/* --- Reply list: enhanced cards --- */
+
+.gracula-replies-container {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 18px;
+  padding: 14px 14px 12px;
+  border: 1px solid rgba(229, 231, 235, 0.9);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+  display: flex;
+  flex-direction: column;
+  min-height: 260px;
+	margin-bottom: 4px;
+}
+
+.gracula-replies-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.gracula-replies-list {
+  flex: 1;
+  overflow-y: auto;
+	padding: 4px 4px 8px 0; /* slight top + bottom padding for last card */
+}
+
+.gracula-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 28px 0;
+  color: #6b7280;
+}
+
+.gracula-empty-state {
+  text-align: center;
+}
+
+.gracula-reply-card-enhanced {
+  background: rgba(249, 250, 251, 0.96);
+  border-radius: 14px;
+  padding: 14px 12px;
+  border: 1px solid rgba(229, 231, 235, 0.95);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+  margin-bottom: 10px;
+}
+
+.gracula-reply-card-enhanced.best-match {
+  border-color: #10b981;
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.26), 0 6px 18px rgba(16, 185, 129, 0.25);
+}
+
+.gracula-reply-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  gap: 8px;
+}
+
+.gracula-reply-quality {
+  font-size: 13px;
+  color: #f59e0b;
+}
+
+.gracula-reply-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.gracula-reply-btn-enhanced {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease-in-out;
+}
+
+.gracula-reply-btn-insert {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: #ffffff;
+  box-shadow: 0 6px 18px rgba(79, 70, 229, 0.3);
+}
+
+.gracula-reply-btn-insert:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(79, 70, 229, 0.35);
+}
+
+.gracula-reply-btn-copy {
+  background: rgba(129, 140, 248, 0.08);
+  color: #4f46e5;
+}
+
+.gracula-reply-btn-copy:hover {
+  background: rgba(129, 140, 248, 0.18);
+}
+
+/* --- Right sidebar: Context insights panel --- */
+
+.gracula-context-insights {
+  background: rgba(255, 255, 255, 0.94);
+  border-radius: 18px;
+  padding: 12px 12px 14px;
+  border: 1px solid rgba(229, 231, 235, 0.95);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+	margin-bottom: 4px;
+}
+
+.gracula-context-insights-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.gracula-all-context-toggle-btn {
+  border-radius: 999px;
+  border: 1px solid rgba(156, 163, 175, 0.55);
+  background: #ffffff;
+  font-size: 11px;
+  padding: 4px 10px;
+  cursor: pointer;
+  color: #374151;
+}
+
+.gracula-all-context-toggle-btn.active {
+  background: rgba(129, 140, 248, 0.12);
+  border-color: #6366f1;
+}
+
+.gracula-all-context-panel {
+  margin-top: 8px;
+}
+
+.gracula-insight-card {
+  background: rgba(249, 250, 251, 0.95);
+  border-radius: 12px;
+  padding: 8px 9px;
+}
+
+.gracula-insight-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.gracula-insight-icon {
+  font-size: 15px;
+}
+
+.gracula-insight-content {
+  font-size: 11px;
+  color: #4b5563;
+}
+
+.gracula-topic-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.gracula-topic-pill {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(129, 140, 248, 0.14);
+  color: #4338ca;
+}
+
+.gracula-insight-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  border: 1px solid rgba(209, 213, 219, 0.9);
+  background: #f9fafb;
+  color: #4b5563;
+}
+
+.gracula-sentiment-card {
+  border-left: 3px solid #6366f1;
+}
+
+.gracula-sentiment-meter {
+  margin-top: 4px;
+}
+
+.gracula-sentiment-bar {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ef4444, #f97316, #facc15, #22c55e);
+  overflow: hidden;
+}
+
+.gracula-sentiment-indicator {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.5);
+  transform: translate(-50%, -50%);
+}
+
+.gracula-sentiment-strength-label {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.gracula-sentiment-confidence-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.gracula-sentiment-confidence-label {
+  font-size: 11px;
+  color: #4b5563;
+}
+
+.gracula-sentiment-confidence-option {
+  cursor: pointer;
+}
+
+.gracula-sentiment-confidence-option.active {
+  border-color: #6366f1;
+  color: #3730a3;
+  background: rgba(129, 140, 248, 0.14);
+}
+
+.gracula-sentiment-confidence-badge {
+  border-color: transparent;
+  background: rgba(129, 140, 248, 0.16);
+  color: #3730a3;
+}
+
+.gracula-urgency-level {
+  display: flex;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.gracula-urgency-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #e5e7eb;
+}
+
+.gracula-urgency-dot.active {
+  background: #f97316;
+}
+
+.gracula-contact-priority-bar {
+  margin-top: 6px;
+}
+
+.gracula-contact-priority-segment {
+  transition: background-color 0.12s ease-in-out;
+}
+
+.gracula-contact-priority-label {
+  font-size: 11px;
+  color: #4b5563;
 }
