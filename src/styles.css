@@ -542,71 +542,119 @@
 
 /* Mode Selection Cards */
 .gracula-mode-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+	gap: 18px; /* slightly more breathing room between primary cards */
+	margin-bottom: 18px; /* tighter relationship to columns below */
 }
 
 .gracula-mode-card {
-  background: rgba(255, 255, 255, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  border-radius: 16px;
-  padding: 16px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+	background: rgba(255, 255, 255, 0.78);
+	backdrop-filter: blur(16px);
+	-webkit-backdrop-filter: blur(16px);
+	border: 1px solid rgba(255, 255, 255, 0.75);
+	border-radius: 18px;
+	padding: 16px 18px;
+	cursor: pointer;
+	transition: all 0.18s ease;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
 }
 
 .gracula-mode-card:hover {
-  background: rgba(255, 255, 255, 0.8);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.1);
+	background: rgba(255, 255, 255, 0.96);
+	transform: translateY(-2px);
+	box-shadow: 0 10px 26px rgba(15, 23, 42, 0.10);
 }
 
 .gracula-mode-card.active {
-  background: white;
-  border-color: #667eea;
-  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+	background: #ffffff;
+	border-color: #6366f1;
+	box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.45), 0 10px 26px rgba(79, 70, 229, 0.16);
 }
 
 .gracula-mode-card-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 6px;
 }
 
 .gracula-mode-card-icon {
-  font-size: 20px;
+	font-size: 20px;
 }
 
 .gracula-mode-card-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: #2d3748;
-  margin: 0;
+	font-size: 15px;
+	font-weight: 700;
+	color: #111827;
+	margin: 0;
 }
 
 .gracula-mode-card-description {
-  font-size: 13px;
-  color: #4a5568;
-  line-height: 1.4;
-  margin: 0;
-  flex: 1;
+	font-size: 13px;
+	color: #4b5563;
+	line-height: 1.5;
+	margin: 0;
+	flex: 1;
 }
 
 .gracula-mode-card-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #718096;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 12px;
+	color: #6b7280;
+	margin-top: 8px;
+	padding-top: 8px;
+	border-top: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+/* Legacy mode tabs (if used by old layout) */
+.gracula-mode-tabs {
+	display: flex;
+	gap: 10px;
+	margin-bottom: 18px;
+	flex-wrap: wrap;
+}
+
+.gracula-mode-tab {
+	background: rgba(255, 255, 255, 0.72);
+	border-radius: 999px;
+	border: 1px solid rgba(209, 213, 219, 0.9);
+	padding: 6px 14px;
+	font-size: 12px;
+	color: #4b5563;
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	transition: all 0.18s ease;
+}
+
+.gracula-mode-tab-icon {
+	font-size: 14px;
+}
+
+.gracula-mode-tab-label {
+	font-weight: 600;
+}
+
+.gracula-mode-tab-desc {
+	font-size: 11px;
+	opacity: 0.8;
+}
+
+.gracula-mode-tab:hover {
+	background: rgba(255, 255, 255, 0.96);
+	border-color: #6366f1;
+}
+
+.gracula-mode-tab.active {
+	background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+	color: #ffffff;
+	border-color: transparent;
 }
 
 /* Ensure Tone Selector looks good */
@@ -621,7 +669,7 @@
 
 .gracula-modal-content.gracula-modal-new-layout {
   max-width: 980px;
-  max-height: 90vh;
+	max-height: 88vh; /* keep full modal comfortably within viewport */
 }
 
 .gracula-modal-body-wrapper {
@@ -648,7 +696,7 @@
 .gracula-right-sidebar {
 	max-height: 60vh;
 	overflow-y: auto;
-	padding: 4px 2px 18px; /* small top pad + comfortable bottom pad for scroll end */
+	padding: 6px 4px 18px; /* subtle top pad + comfortable bottom pad for scroll end */
 	box-sizing: border-box;
 }
 
@@ -869,7 +917,7 @@
 .gracula-replies-list {
   flex: 1;
   overflow-y: auto;
-	padding: 4px 4px 8px 0; /* slight top + bottom padding for last card */
+	padding: 6px 4px 10px 0; /* balanced top + bottom padding around reply cards */
 }
 
 .gracula-loading {
