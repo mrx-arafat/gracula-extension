@@ -37,10 +37,33 @@ The test file contains 15 messages across 5 date groups:
 Open `test-whatsapp-group.html` in a browser and use the test controls.
 
 ### Automated Testing
-Currently, tests are manual. Future improvements could include:
-- Automated browser testing with Playwright or Puppeteer
-- Unit tests for individual modules
-- Integration tests for the full extension
+
+#### System Banner Filter Tests
+Tests the logic that filters out WhatsApp E2E encryption banners:
+```bash
+node test/test-system-banner-filter.js
+```
+Tests 9 different scenarios including:
+- Full E2E banners (chat and group)
+- Banners with extra whitespace
+- Normal user messages
+- Edge cases (null, empty strings, partial banners)
+
+#### Reply to Last Message Integration Tests
+Tests the full flow of message extraction, filtering, and last message selection:
+```bash
+node test/test-reply-last-message-integration.js
+```
+Tests the user's actual conversation scenario:
+- Filters out the E2E encryption banner
+- Correctly identifies the last human message from Shohan
+- Ensures reply generation uses the correct context
+
+#### Browser-based Tests (Playwright)
+```bash
+npm run test:last-message
+```
+Note: Requires Playwright browsers to be installed (`npx playwright install`)
 
 ## Adding New Tests
 

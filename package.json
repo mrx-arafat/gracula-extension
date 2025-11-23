@@ -3,7 +3,14 @@
   "version": "1.0.0",
   "description": "Gracula Chrome Extension - AI-powered messaging assistant",
   "scripts": {
-    "watch": "node watch-and-reload.js"
+    "watch": "node watch-and-reload.js",
+    "test": "node test/run-all-tests.js",
+    "test:banner-filter": "node test/test-system-banner-filter.js",
+    "test:integration": "node test/test-reply-last-message-integration.js",
+    "test:regressions": "node test/test-no-regressions.js",
+    "test:playwright": "playwright test",
+    "test:last-message": "playwright test test/playwright-last-message-test.spec.js",
+    "test:ui": "playwright test --ui"
   },
   "keywords": ["chrome-extension", "ai", "messaging"],
   "author": "Arafat",
