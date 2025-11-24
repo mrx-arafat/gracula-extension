@@ -5,8 +5,8 @@ window.Gracula = window.Gracula || {};
 
 window.Gracula.ReplyList = class {
   constructor(options = {}) {
-    this.onInsert = options.onInsert || (() => {});
-    this.onCopy = options.onCopy || (() => {});
+    this.onInsert = options.onInsert || (() => { });
+    this.onCopy = options.onCopy || (() => { });
     this.replies = [];
   }
 
@@ -17,7 +17,7 @@ window.Gracula.ReplyList = class {
     const html = `
       <div class="gracula-replies-container">
         <div class="gracula-replies-header">
-          <h3 style="margin: 0 0 16px 0; font-size: 16px; font-weight: 600; color: #111827;">
+          <h3 style="margin: 0 0 16px 0; font-size: 16px; font-weight: 600; color: #ffffff;">
             💬 Generated Replies
           </h3>
         </div>
@@ -223,12 +223,12 @@ window.Gracula.ReplyList = class {
     try {
       await navigator.clipboard.writeText(text);
       window.Gracula.logger.success('Reply copied to clipboard');
-      
+
       // Show feedback
       const originalText = button.textContent;
       button.textContent = '✓ Copied!';
       button.style.backgroundColor = '#10b981';
-      
+
       setTimeout(() => {
         button.textContent = originalText;
         button.style.backgroundColor = '';
