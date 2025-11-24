@@ -27,6 +27,10 @@ window.Gracula.GraculaApp = class {
     this.autocompleteDropdown = null;
     this.autocompleteManager = null;
 
+    // NEW: Ghost text inline autocomplete components
+    this.ghostTextController = null;
+    this.ghostTextOverlay = null;
+
     // NEW: Voice input component (platform-specific - legacy)
     this.voiceInputManager = null;
 
@@ -300,6 +304,9 @@ window.Gracula.GraculaApp = class {
     // NEW: Attach autocomplete to input field
     this.attachAutocomplete(inputField);
 
+    // NEW: Attach ghost text inline autocomplete (after autocomplete manager exists)
+    this.attachGhostText(inputField);
+
     // NEW: Attach voice input to input field
     this.attachVoiceInput(inputField);
 
@@ -357,6 +364,46 @@ window.Gracula.GraculaApp = class {
     this.autocompleteManager.start();
 
     console.log('✅ [GRACULA APP] Autocomplete attached to input field');
+  }
+
+  /**
+   * NEW: Attach ghost text inline autocomplete to input field
+   */
+  attachGhostText(inputField) {
+    // Clean up any existing ghost text instances
+    if (this.ghostTextController) {
+      this.ghostTextController.destroy();
+      this.ghostTextController = null;
+    }
+
+    if (this.ghostTextOverlay) {
+      this.ghostTextOverlay.destroy();
+      this.ghostTextOverlay = null;
+    }
+
+    if (!window.Gracula.GhostTextController || !window.Gracula.GhostTextOverlay) {
+      console.warn('🧞 GhostText: Classes not loaded yet');
+      return;
+    }
+
+    if (!this.autocompleteManager) {
+      console.warn('🧞 GhostText: AutocompleteManager not available; skipping ghost text init');
+      return;
+    }
+
+    this.ghostTextController = new window.Gracula.GhostTextController({
+      inputField,
+      contextExtractor: this.contextExtractor,
+      autocompleteManager: this.autocompleteManager
+    });
+
+    this.ghostTextOverlay = new window.Gracula.GhostTextOverlay({
+      inputField,
+      controller: this.ghostTextController
+    });
+
+    this.ghostTextController.start();
+    console.log('✅ [GRACULA APP] Ghost text inline autocomplete attached to input field');
   }
 
   /**
