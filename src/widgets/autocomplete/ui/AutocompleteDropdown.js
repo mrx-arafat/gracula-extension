@@ -12,7 +12,8 @@ window.Gracula.AutocompleteDropdown = class {
     this.isVisible = false;
     this.container = null;
     this.inputField = null;
-    this.maxSuggestions = 5; // Increased from 3 to 5
+	    // Hybrid layout: 3 quick chips + up to 4 contextual list items
+	    this.maxSuggestions = 7;
     this.cursorPosition = null;
   }
 
@@ -20,7 +21,7 @@ window.Gracula.AutocompleteDropdown = class {
    * Show autocomplete dropdown with suggestions
    */
   show(suggestions, inputField) {
-    this.suggestions = suggestions.slice(0, this.maxSuggestions); // Top 5
+	    this.suggestions = suggestions.slice(0, this.maxSuggestions);
     this.selectedIndex = 0;
     this.isVisible = true;
     this.inputField = inputField;
@@ -202,12 +203,77 @@ window.Gracula.AutocompleteDropdown = class {
         font-family: 'SF Mono', Monaco, 'Courier New', monospace;
       }
 
-      /* Suggestions Container */
-      .gracula-autocomplete-suggestions {
-        padding: 8px;
-        max-height: 300px;
-        overflow-y: auto;
-      }
+	      /* Suggestions Container */
+	      .gracula-autocomplete-suggestions {
+	        padding: 6px 8px 8px 8px;
+	        max-height: 300px;
+	        overflow-y: auto;
+	      }
+
+	      /* TOP: Quick chips row (first 3 suggestions) */
+	      .gracula-autocomplete-chips-row {
+	        display: flex;
+	        flex-wrap: nowrap;
+	        gap: 8px;
+	        padding: 6px 10px 4px 10px;
+	        border-bottom: 1px solid rgba(102, 126, 234, 0.14);
+	        overflow-x: auto;
+	        scrollbar-width: none;
+	      }
+
+	      .gracula-autocomplete-chips-row::-webkit-scrollbar {
+	        display: none;
+	      }
+
+	      .gracula-autocomplete-chip {
+	        display: inline-flex;
+	        align-items: center;
+	        gap: 6px;
+	        padding: 6px 10px;
+	        border-radius: 999px;
+	        border: 1px solid rgba(148, 163, 184, 0.55);
+	        background: rgba(255, 255, 255, 0.96);
+	        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+	        font-size: 12px;
+	        cursor: pointer;
+	        transition: all 0.14s cubic-bezier(0.4, 0, 0.2, 1);
+	        white-space: nowrap;
+	        max-width: 180px;
+	        overflow: hidden;
+	        text-overflow: ellipsis;
+	      }
+
+	      .gracula-autocomplete-chip:hover {
+	        transform: translateY(-1px);
+	        box-shadow: 0 4px 10px rgba(15, 23, 42, 0.16);
+	      }
+
+	      .gracula-autocomplete-chip.selected {
+	        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+	        border-color: transparent;
+	        color: #fff;
+	        box-shadow: 0 6px 16px rgba(102, 126, 234, 0.45);
+	      }
+
+	      .gracula-autocomplete-chip-badge {
+	        font-size: 10px;
+	        font-weight: 600;
+	        color: rgba(15, 23, 42, 0.78);
+	        background: rgba(148, 163, 184, 0.35);
+	        padding: 1px 6px;
+	        border-radius: 999px;
+	        font-family: 'SF Mono', Monaco, monospace;
+	      }
+
+	      .gracula-autocomplete-chip.selected .gracula-autocomplete-chip-badge {
+	        background: rgba(255, 255, 255, 0.26);
+	        color: #fff;
+	      }
+
+	      .gracula-autocomplete-chip-label {
+	        overflow: hidden;
+	        text-overflow: ellipsis;
+	      }
 
       /* Custom Scrollbar */
       .gracula-autocomplete-suggestions::-webkit-scrollbar {
@@ -432,7 +498,7 @@ window.Gracula.AutocompleteDropdown = class {
         <span>Smart Suggestions</span>
       </div>
       <div class="gracula-autocomplete-shortcuts">
-        <kbd class="gracula-autocomplete-kbd">1-${this.suggestions.length}</kbd>
+	        <kbd class="gracula-autocomplete-kbd">Ctrl + 1-${Math.min(this.suggestions.length, this.maxSuggestions)}</kbd>
         <kbd class="gracula-autocomplete-kbd">↓↑</kbd>
         <kbd class="gracula-autocomplete-kbd">Enter</kbd>
         <kbd class="gracula-autocomplete-kbd">Esc</kbd>
@@ -440,48 +506,88 @@ window.Gracula.AutocompleteDropdown = class {
     `;
     this.container.appendChild(header);
 
-    // Suggestions container
-    const suggestionsContainer = document.createElement('div');
-    suggestionsContainer.className = 'gracula-autocomplete-suggestions';
+	    const chipsCount = Math.min(3, this.suggestions.length);
+	    const listStartIndex = chipsCount;
 
-    // Suggestion items
-    this.suggestions.forEach((suggestion, index) => {
-      const item = document.createElement('div');
-      item.className = 'gracula-autocomplete-item-v2';
-      item.dataset.index = index;
+	    // QUICK CHIPS ROW (top 1-3 suggestions)
+	    if (chipsCount > 0) {
+	      const chipsRow = document.createElement('div');
+	      chipsRow.className = 'gracula-autocomplete-chips-row';
 
-      // Determine source icon
-      const sourceIcon = this.getSourceIcon(suggestion);
+	      for (let index = 0; index < chipsCount; index += 1) {
+	        const suggestion = this.suggestions[index];
+	        const chip = document.createElement('button');
+	        chip.type = 'button';
+	        chip.className = 'gracula-autocomplete-chip';
+	        chip.dataset.index = String(index);
 
-      const isSelected = index === this.selectedIndex;
-      if (isSelected) {
-        item.classList.add('selected');
-      }
+	        const isSelected = index === this.selectedIndex;
+	        if (isSelected) {
+	          chip.classList.add('selected');
+	        }
 
-      item.innerHTML = `
-        <span class="gracula-autocomplete-source">${sourceIcon}</span>
-        <span class="gracula-autocomplete-text">${this.escapeHtml(suggestion)}</span>
-        <kbd class="gracula-autocomplete-number">${index + 1}</kbd>
-      `;
+	        chip.innerHTML = `
+	          <span class="gracula-autocomplete-chip-badge">[${index + 1}]</span>
+	          <span class="gracula-autocomplete-chip-label">${this.escapeHtml(suggestion)}</span>
+	        `;
 
-      // Hover effect
-      item.addEventListener('mouseenter', () => {
-        this.selectedIndex = index;
-        this.updateContent();
-      });
+	        chip.addEventListener('mouseenter', () => {
+	          this.selectedIndex = index;
+	          this.updateContent();
+	        });
 
-      // Click to select
-      item.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.selectedIndex = index;
-        this.selectCurrent();
-      });
+	        chip.addEventListener('mousedown', (e) => {
+	          e.preventDefault();
+	          e.stopPropagation();
+	          this.selectedIndex = index;
+	          this.selectCurrent();
+	        });
 
-      suggestionsContainer.appendChild(item);
-    });
+	        chipsRow.appendChild(chip);
+	      }
 
-    this.container.appendChild(suggestionsContainer);
+	      this.container.appendChild(chipsRow);
+	    }
+
+	    // Suggestions container (contextual list under chips)
+	    const suggestionsContainer = document.createElement('div');
+	    suggestionsContainer.className = 'gracula-autocomplete-suggestions';
+
+	    for (let index = listStartIndex; index < this.suggestions.length; index += 1) {
+	      const suggestion = this.suggestions[index];
+	      const item = document.createElement('div');
+	      item.className = 'gracula-autocomplete-item-v2';
+	      item.dataset.index = String(index);
+
+	      const sourceIcon = this.getSourceIcon(suggestion);
+	      const isSelected = index === this.selectedIndex;
+	      if (isSelected) {
+	        item.classList.add('selected');
+	      }
+
+	      const hotkeyNumber = index + 1;
+	      item.innerHTML = `
+	        <span class="gracula-autocomplete-source">${sourceIcon}</span>
+	        <span class="gracula-autocomplete-text">${this.escapeHtml(suggestion)}</span>
+	        <kbd class="gracula-autocomplete-number">${hotkeyNumber}</kbd>
+	      `;
+
+	      item.addEventListener('mouseenter', () => {
+	        this.selectedIndex = index;
+	        this.updateContent();
+	      });
+
+	      item.addEventListener('click', (e) => {
+	        e.preventDefault();
+	        e.stopPropagation();
+	        this.selectedIndex = index;
+	        this.selectCurrent();
+	      });
+
+	      suggestionsContainer.appendChild(item);
+	    }
+
+	    this.container.appendChild(suggestionsContainer);
 
     // Footer
     const footer = document.createElement('div');
@@ -533,65 +639,51 @@ window.Gracula.AutocompleteDropdown = class {
     return div.innerHTML;
   }
 
-  /**
-   * Position dropdown near cursor for better UX
-   */
-  positionNearCursor() {
-    if (!this.container || !this.inputField) return;
+	  /**
+	   * Position dropdown as a floating command palette near the active input.
+	   * Prefer sitting immediately ABOVE the input; if there is not enough space,
+	   * gracefully fall back to BELOW while staying within the viewport.
+	   */
+	  positionNearCursor() {
+	    if (!this.container || !this.inputField) return;
 
-    const inputRect = this.inputField.getBoundingClientRect();
-    const dropdownHeight = Math.min(400, this.suggestions.length * 50 + 100);
-    const dropdownWidth = Math.max(380, Math.min(520, inputRect.width));
-    const spacing = 12;
+	    const inputRect = this.inputField.getBoundingClientRect();
+	    const viewportWidth = window.innerWidth;
+	    const viewportHeight = window.innerHeight;
 
-    // Try to position near cursor if available
-    let top, left;
+	    const dropdownHeight = Math.min(400, this.suggestions.length * 50 + 100);
+	    const dropdownWidth = Math.max(380, Math.min(520, inputRect.width));
+	    const spacing = 12;
+	    const margin = 20;
 
-    if (this.cursorPosition) {
-      // Position near cursor
-      top = this.cursorPosition.bottom + spacing;
-      left = this.cursorPosition.left;
-    } else {
-      // Fallback to input field position
-      top = inputRect.bottom + spacing;
-      left = inputRect.left;
-    }
+	    // Center horizontally relative to the input field
+	    let left = inputRect.left + (inputRect.width - dropdownWidth) / 2;
+	    let top = inputRect.top - dropdownHeight - spacing; // prefer above input
 
-    // Viewport dimensions
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
+	    // If not enough space above, place below the input
+	    if (top < margin) {
+	      top = inputRect.bottom + spacing;
+	    }
 
-    // Check if dropdown would go off-screen at bottom
-    if (top + dropdownHeight > viewportHeight - 20) {
-      // Position above cursor/input
-      if (this.cursorPosition) {
-        top = this.cursorPosition.top - dropdownHeight - spacing;
-      } else {
-        top = inputRect.top - dropdownHeight - spacing;
-      }
-    }
+	    // Clamp within viewport bounds
+	    if (left + dropdownWidth > viewportWidth - margin) {
+	      left = viewportWidth - dropdownWidth - margin;
+	    }
+	    if (left < margin) {
+	      left = margin;
+	    }
+	    if (top + dropdownHeight > viewportHeight - margin) {
+	      top = viewportHeight - dropdownHeight - margin;
+	    }
+	    if (top < margin) {
+	      top = margin;
+	    }
 
-    // Check if dropdown would go off-screen on the right
-    if (left + dropdownWidth > viewportWidth - 20) {
-      left = viewportWidth - dropdownWidth - 20;
-    }
-
-    // Ensure dropdown doesn't go off-screen on the left
-    if (left < 20) {
-      left = 20;
-    }
-
-    // Ensure dropdown doesn't go off-screen at the top
-    if (top < 20) {
-      top = 20;
-    }
-
-    // Apply position
-    this.container.style.top = `${top}px`;
-    this.container.style.left = `${left}px`;
-    this.container.style.width = `${dropdownWidth}px`;
-    this.container.style.maxHeight = `${dropdownHeight}px`;
-  }
+	    this.container.style.top = `${top}px`;
+	    this.container.style.left = `${left}px`;
+	    this.container.style.width = `${dropdownWidth}px`;
+	    this.container.style.maxHeight = `${dropdownHeight}px`;
+	  }
 
   /**
    * Update cursor position for better positioning
@@ -628,32 +720,73 @@ window.Gracula.AutocompleteDropdown = class {
   }
 
   /**
-   * Navigate selection up
-   */
-  navigateUp() {
-    if (this.suggestions.length === 0) return;
+	   * Navigate selection up (hybrid: list + chips)
+	   */
+	  navigateUp() {
+	    if (this.suggestions.length === 0) return;
 
-    this.selectedIndex = this.selectedIndex > 0
-      ? this.selectedIndex - 1
-      : this.suggestions.length - 1;
+	    const chipsCount = Math.min(3, this.suggestions.length);
+	    const hasChips = chipsCount > 0;
+	    const listStartIndex = chipsCount;
+	    const inListArea = this.selectedIndex >= listStartIndex;
 
-    this.updateContent();
-    this.scrollToSelected();
-  }
+	    if (!hasChips) {
+	      // Simple vertical list behaviour
+	      this.selectedIndex = this.selectedIndex > 0
+	        ? this.selectedIndex - 1
+	        : this.suggestions.length - 1;
+	    } else if (inListArea) {
+	      // Move within list, or jump back into chips from first list row
+	      if (this.selectedIndex === listStartIndex) {
+	        this.selectedIndex = chipsCount - 1; // jump to last chip
+	      } else {
+	        this.selectedIndex -= 1;
+	      }
+	    } else {
+	      // Already in chips row: keep position on ArrowUp
+	      return;
+	    }
 
-  /**
-   * Navigate selection down
-   */
-  navigateDown() {
-    if (this.suggestions.length === 0) return;
+	    this.updateContent();
+	    this.scrollToSelected();
+	  }
 
-    this.selectedIndex = this.selectedIndex < this.suggestions.length - 1
-      ? this.selectedIndex + 1
-      : 0;
+	  /**
+	   * Navigate selection down (chips row → list → list)
+	   */
+	  navigateDown() {
+	    if (this.suggestions.length === 0) return;
 
-    this.updateContent();
-    this.scrollToSelected();
-  }
+	    const chipsCount = Math.min(3, this.suggestions.length);
+	    const hasChips = chipsCount > 0;
+	    const listStartIndex = chipsCount;
+	    const listLength = this.suggestions.length - chipsCount;
+	    const inListArea = this.selectedIndex >= listStartIndex;
+
+	    if (!hasChips) {
+	      // Simple vertical list behaviour
+	      this.selectedIndex = this.selectedIndex < this.suggestions.length - 1
+	        ? this.selectedIndex + 1
+	        : 0;
+	    } else if (!inListArea) {
+	      // From chips row → jump into first list item (if any)
+	      if (listLength > 0) {
+	        this.selectedIndex = listStartIndex;
+	      } else {
+	        // Only chips, no list
+	        this.selectedIndex = Math.min(this.selectedIndex + 1, chipsCount - 1);
+	      }
+	    } else {
+	      // Within list area, move down but do not wrap back to chips
+	      const lastListIndex = listStartIndex + listLength - 1;
+	      if (this.selectedIndex < lastListIndex) {
+	        this.selectedIndex += 1;
+	      }
+	    }
+
+	    this.updateContent();
+	    this.scrollToSelected();
+	  }
 
   /**
    * Scroll to selected item
@@ -692,24 +825,27 @@ window.Gracula.AutocompleteDropdown = class {
       selectedIndex: this.selectedIndex
     });
 
-    if (!this.isVisible) {
-      return false;
-    }
+	    if (!this.isVisible) {
+	      return false;
+	    }
 
-    // Number keys 1-5 for instant selection
-    if (event.key >= '1' && event.key <= '5') {
-      const index = parseInt(event.key) - 1;
-      if (index < this.suggestions.length) {
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation();
-        this.selectedIndex = index;
-        this.selectCurrent();
-        return true;
-      }
-    }
+	    const chipsCount = Math.min(3, this.suggestions.length);
+	    const inChipsArea = this.selectedIndex < chipsCount;
 
-    // Ctrl+Tab to insert suggestion
+	    // Ctrl + Number (1-7) for instant selection, aligned with badges
+	    if (event.ctrlKey && event.key >= '1' && event.key <= '9') {
+	      const index = parseInt(event.key, 10) - 1;
+	      if (index >= 0 && index < this.suggestions.length && index < this.maxSuggestions) {
+	        event.preventDefault();
+	        event.stopPropagation();
+	        event.stopImmediatePropagation();
+	        this.selectedIndex = index;
+	        this.selectCurrent();
+	        return true;
+	      }
+	    }
+
+	    // Ctrl+Tab to insert suggestion
     if (event.key === 'Tab' && event.ctrlKey) {
       event.preventDefault();
       event.stopPropagation();
@@ -741,6 +877,35 @@ window.Gracula.AutocompleteDropdown = class {
         console.log('✅ [DROPDOWN] ArrowUp pressed - navigating up');
         this.navigateUp();
         return true;
+
+	      case 'ArrowRight': {
+	        if (inChipsArea) {
+	          event.preventDefault();
+	          event.stopPropagation();
+	          console.log('✅ [DROPDOWN] ArrowRight pressed - moving within chips');
+	          const chipsMaxIndex = Math.min(3, this.suggestions.length) - 1;
+	          if (this.selectedIndex < chipsMaxIndex) {
+	            this.selectedIndex += 1;
+	            this.updateContent();
+	          }
+	          return true;
+	        }
+	        return false;
+	      }
+
+	      case 'ArrowLeft': {
+	        if (inChipsArea) {
+	          event.preventDefault();
+	          event.stopPropagation();
+	          console.log('✅ [DROPDOWN] ArrowLeft pressed - moving within chips');
+	          if (this.selectedIndex > 0) {
+	            this.selectedIndex -= 1;
+	            this.updateContent();
+	          }
+	          return true;
+	        }
+	        return false;
+	      }
 
       case 'Escape':
         event.preventDefault();

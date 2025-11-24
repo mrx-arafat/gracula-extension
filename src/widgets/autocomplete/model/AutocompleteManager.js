@@ -274,34 +274,24 @@ window.Gracula.AutocompleteManager = class {
 
     // NEW: Handle Control key press/release for toggle
     if (event.key === 'Control') {
-      console.log('🔑 [MANAGER] Control key detected, dropdown visible:', this.autocompleteDropdown?.isVisible);
-
-      if (this.autocompleteDropdown?.isVisible) {
-        // Control pressed again while visible → hide (like Escape)
-        console.log('✅ [MANAGER] Control pressed - HIDING dropdown');
-        this.autocompleteDropdown.hide();
-        this.controlKeyPressed = false;
-      } else {
-        // Control pressed while hidden → show INSTANTLY
-        console.log('✅ [MANAGER] Control pressed - SHOWING autocomplete INSTANTLY');
-        this.controlKeyPressed = true;
-
-        // Clear any pending debounce for instant response
-        this.clearDebounce();
-
-        // Get current text and generate suggestions (AI or offline)
-        const currentText = this.getInputText();
-
-        if (currentText && currentText.trim().length >= this.minChars) {
-          // If there's enough text, generate AI suggestions (wait for AI, don't show offline first)
-          console.log('📝 [MANAGER] Generating AI suggestions for:', currentText);
-          this.generateSuggestions(currentText, true); // forceAI = true for manual trigger
-        } else {
-          // If not enough text, show common starters
-          console.log('📝 [MANAGER] Showing common starters');
-          this.triggerInstantSuggestions();
-        }
-      }
+	      console.log('🔑 [MANAGER] Control key detected, dropdown visible:', this.autocompleteDropdown?.isVisible);
+	
+	      if (this.autocompleteDropdown?.isVisible) {
+	        // Control pressed again while visible → hide (like Escape)
+	        console.log('✅ [MANAGER] Control pressed - HIDING dropdown');
+	        this.autocompleteDropdown.hide();
+	        this.controlKeyPressed = false;
+	      } else {
+	        // Control pressed while hidden → show command-palette replies (full sentences)
+	        console.log('✅ [MANAGER] Control pressed - SHOWING command-palette replies');
+	        this.controlKeyPressed = true;
+	
+	        // Clear any pending debounce for instant response
+	        this.clearDebounce();
+	
+	        // Always generate context-aware, full-sentence replies for the Ctrl palette
+	        this.generatePaletteReplies();
+	      }
 
       // Stop the event completely
       event.preventDefault();
@@ -508,15 +498,66 @@ window.Gracula.AutocompleteManager = class {
         // console.error('🧛 Autocomplete: Error generating suggestions:', error);
         this.autocompleteDropdown?.hide();
       }
-    } finally {
-      this.isGenerating = false;
-    }
-  }
+	    } finally {
+	      this.isGenerating = false;
+	    }
+	  }
 
-  /**
-   * Analyze partial text to understand what user is typing
-   */
-  analyzePartialText(text) {
+	  /**
+	   * Generate full-sentence, context-aware replies for the Ctrl-triggered command palette.
+	   * This is completely separate from the short phrase-style autocomplete used by ghost text.
+	   */
+	  async generatePaletteReplies() {
+	    if (this.isGenerating) {
+	      // Cancel any in-flight request so the palette always shows the freshest replies
+	      this.abortController?.abort();
+	    }
+
+	    this.isGenerating = true;
+	    this.abortController = new AbortController();
+
+	    try {
+	      // Ensure context extractor has up-to-date data
+	      await this.getCachedContext();
+
+	      const simpleContext = this.contextExtractor?.getSimpleContext() || [];
+	      const enhancedContext = this.contextExtractor?.getEnhancedContext() || {};
+	      const partialText = this.getInputText() || '';
+
+	      console.log(' [PALETTE] Requesting full-sentence replies for Ctrl palette. Partial text:', partialText);
+
+	      // Show loading state in the existing command-palette UI
+	      this.autocompleteDropdown?.show([], this.inputField);
+
+	      const suggestions = await this.requestPaletteReplies({
+	        partialText,
+	        context: simpleContext,
+	        enhancedContext
+	      });
+
+	      if (Array.isArray(suggestions) && suggestions.length > 0) {
+	        // The dropdown already knows how to render chips + list; we just feed it 3 replies
+	        this.autocompleteDropdown?.show(suggestions, this.inputField);
+	      } else {
+	        // If nothing useful came back, hide the palette gracefully
+	        this.autocompleteDropdown?.hide();
+	      }
+	    } catch (error) {
+	      if (error.name === 'AbortError') {
+	        console.log(' [PALETTE] Palette reply request aborted');
+	      } else {
+	        console.error(' [PALETTE] Error generating palette replies:', error);
+	        this.autocompleteDropdown?.hide();
+	      }
+	    } finally {
+	      this.isGenerating = false;
+	    }
+	  }
+
+	  /**
+	   * Analyze partial text to understand what user is typing
+	   */
+	  analyzePartialText(text) {
     const trimmedText = text.trim();
     const words = trimmedText.split(/\s+/);
     const lastWord = words[words.length - 1] || '';
@@ -776,6 +817,29 @@ window.Gracula.AutocompleteManager = class {
       });
     });
   }
+
+	  /**
+	   * Request full-sentence palette replies from background script (Ctrl palette only)
+	   */
+	  async requestPaletteReplies(data) {
+	    return new Promise((resolve, reject) => {
+	      chrome.runtime.sendMessage({
+	        action: 'generatePaletteReplies',
+	        partialText: data.partialText,
+	        context: data.context,
+	        enhancedContext: data.enhancedContext
+	      }, (response) => {
+	        if (response && response.success && Array.isArray(response.replies)) {
+	          resolve(response.replies);
+	        } else if (response && response.success && Array.isArray(response.suggestions)) {
+	          // Safety net if background ever reuses suggestions field
+	          resolve(response.suggestions);
+	        } else {
+	          reject(new Error(response?.error || 'Unknown palette reply error'));
+	        }
+	      });
+	    });
+	  }
 
   /**
    * Insert selected suggestion - REWRITTEN to work with Lexical editor

@@ -118,20 +118,35 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true; // Keep channel open for async response
   }
 
-  // NEW: Handle autocomplete suggestions
-  if (request.action === 'generateAutocompletions') {
-    console.log('🎯 [MESSAGE] Received generateAutocompletions request from tab:', sender.tab?.id);
-    handleGenerateAutocompletions(request.partialText, request.analysis, request.context, request.enhancedContext)
-      .then(suggestions => {
-        console.log('✅ [MESSAGE] Sending generateAutocompletions response');
-        sendResponse({ success: true, suggestions });
-      })
-      .catch(error => {
-        console.error('❌ [MESSAGE] generateAutocompletions error:', error.message);
-        sendResponse({ success: false, error: error.message });
-      });
-    return true; // Keep channel open for async response
-  }
+	  // NEW: Handle autocomplete suggestions (short phrase completions)
+	  if (request.action === 'generateAutocompletions') {
+	    console.log('🎯 [MESSAGE] Received generateAutocompletions request from tab:', sender.tab?.id);
+	    handleGenerateAutocompletions(request.partialText, request.analysis, request.context, request.enhancedContext)
+	      .then(suggestions => {
+	        console.log('✅ [MESSAGE] Sending generateAutocompletions response');
+	        sendResponse({ success: true, suggestions });
+	      })
+	      .catch(error => {
+	        console.error('❌ [MESSAGE] generateAutocompletions error:', error.message);
+	        sendResponse({ success: false, error: error.message });
+	      });
+	    return true; // Keep channel open for async response
+	  }
+
+	  // NEW: Handle Ctrl-triggered command-palette replies (full-sentence suggestions)
+	  if (request.action === 'generatePaletteReplies') {
+	    console.log('🎯 [MESSAGE] Received generatePaletteReplies request from tab:', sender.tab?.id);
+	    handleGeneratePaletteReplies(request.partialText, request.context, request.enhancedContext)
+	      .then(replies => {
+	        console.log('✅ [MESSAGE] Sending generatePaletteReplies response');
+	        sendResponse({ success: true, replies });
+	      })
+	      .catch(error => {
+	        console.error('❌ [MESSAGE] generatePaletteReplies error:', error.message);
+	        sendResponse({ success: false, error: error.message });
+	      });
+	    return true; // Keep channel open for async response
+	  }
 
   // NEW: Handle audio transcription
   if (request.action === 'transcribeAudio') {
@@ -1853,16 +1868,17 @@ function generateContextualReplies(tone, context) {
 }
 
 // ========================================
-// AUTOCOMPLETE HANDLER
+// AUTOCOMPLETE + PALETTE HANDLERS
 // ========================================
 
+// Short phrase-style autocomplete (used by ghost text and inline suggestions)
 async function handleGenerateAutocompletions(partialText, analysis, context, enhancedContext) {
   console.log('🧛 Gracula Background: Generating autocompletions for:', partialText);
 
   // Build autocomplete prompt
   const prompt = buildAutocompletePrompt(partialText, analysis, context, enhancedContext);
 
-  // Call AI API
+  // Call AI API in autocomplete mode (6 short completions)
   const suggestions = await callAIAPI(prompt, {
     enhancedContext,
     isAutocomplete: true,
@@ -1870,6 +1886,47 @@ async function handleGenerateAutocompletions(partialText, analysis, context, enh
   });
 
   return suggestions;
+}
+
+// Full-sentence, context-aware replies for the Ctrl-triggered command palette
+async function handleGeneratePaletteReplies(partialText, context, enhancedContext) {
+  console.log('🧛 Gracula Background: Generating PALETTE replies (Ctrl palette)');
+
+  const prompt = buildPaletteRepliesPrompt(partialText, context, enhancedContext);
+
+  const rawReplies = await callAIAPI(prompt, {
+    enhancedContext,
+    metrics: enhancedContext?.metrics,
+    responseMode: 'palette'
+  });
+
+  const repliesArray = Array.isArray(rawReplies)
+    ? rawReplies
+    : (rawReplies ? [rawReplies] : []);
+
+  // Post-process to ensure each reply is a single sentence and at most 3 options
+  const normalized = repliesArray
+    .map((text) => {
+      if (!text) return null;
+      let cleaned = String(text).trim();
+
+      // If model returns multiple sentences, keep only the first one
+      const sentenceMatch = cleaned.match(/^(.+?[.!?])(?:\s|$)/);
+      if (sentenceMatch) {
+        cleaned = sentenceMatch[1].trim();
+      }
+
+      // Also strip any line breaks beyond the first line
+      cleaned = cleaned.split('\n')[0].trim();
+
+      return cleaned || null;
+    })
+    .filter(Boolean)
+    .slice(0, 3);
+
+  console.log('🧛 Gracula Background: Palette replies generated:', normalized);
+
+  return normalized;
 }
 
 function buildAutocompletePrompt(partialText, analysis, context, enhancedContext) {
@@ -2012,6 +2069,83 @@ function buildAutocompletePrompt(partialText, analysis, context, enhancedContext
   prompt += `- NO unnecessary questions\n`;
   prompt += `- Be helpful and direct\n\n`;
   prompt += 'Completions:\n';
+
+  return prompt;
+}
+
+// Prompt builder for Ctrl palette full-sentence replies
+function buildPaletteRepliesPrompt(partialText, context, enhancedContext) {
+  let prompt = '';
+
+  const summary = enhancedContext?.summary || {};
+  const analysis = enhancedContext?.analysis;
+  const metrics = enhancedContext?.metrics;
+
+  const userName = summary.userName || 'You';
+  const friendName = summary.lastFriendSpeaker || summary.lastSpeaker || 'Friend';
+  const lastFriendMessage = summary.lastFriendMessage || '';
+  const lastMessage = summary.lastMessage || (Array.isArray(context) && context.length > 0 ? context[context.length - 1] : '');
+
+  prompt += '=== 💬 WHATSAPP QUICK REPLY PALETTE ===\n\n';
+
+  // Identity reminder so the model never treats the user name as the friend
+  if (userName && userName !== 'You') {
+    prompt += '=== 👤 WHO IS WHO ===\n';
+    prompt += `You are: ${userName}. You are replying to: ${friendName}.\n`;
+    prompt += `"${userName}" is the sender (the user), NOT the person you are talking to.\n`;
+    prompt += `Never say "Hey ${userName}" or otherwise address the user by their own name.\n`;
+    prompt += `Write replies from ${userName} to ${friendName}.\n\n`;
+  }
+
+  const targetMessage = lastFriendMessage || lastMessage || '';
+  if (targetMessage) {
+    prompt += '=== 🎯 REPLY TARGET (ONLY REPLY TO THIS MESSAGE) ===\n';
+    prompt += `>>> ${targetMessage} <<<\n\n`;
+  }
+
+  // Show a compact slice of recent context for topic awareness
+  if (Array.isArray(context) && context.length > 0) {
+    const recent = context.slice(-8);
+    prompt += '=== 🧵 RECENT CONVERSATION (MOST RECENT LAST) ===\n';
+    recent.forEach((line) => {
+      prompt += `${line}\n`;
+    });
+    prompt += '\n';
+  }
+
+  // Style and language hints
+  if (metrics?.languageHints?.length > 0) {
+    prompt += `Languages to use naturally (you may mix them like the chat does): ${metrics.languageHints.join(', ')}\n`;
+  }
+
+  if (analysis?.emojiUsage && analysis.emojiUsage !== 'none') {
+    prompt += `Emoji usage in this chat: ${analysis.emojiUsage}. Match this naturally.\n`;
+  }
+
+  if (partialText && partialText.trim()) {
+    prompt += '\nThe user has already started typing part of their reply:\n';
+    prompt += `"${partialText}"\n`;
+    prompt += 'Your suggestions should either:\n';
+    prompt += ' - continue this text naturally as a complete single sentence, OR\n';
+    prompt += ' - propose a better single-sentence reply that the user could send instead.\n\n';
+  } else {
+    prompt += '\nThe user has not typed anything yet. Suggest what they could reply right now.\n\n';
+  }
+
+  prompt += '=== 🎯 YOUR TASK ===\n';
+  prompt += 'You are drafting WhatsApp replies for the user.\n';
+  prompt += 'Generate 3 different, natural-sounding reply options that the user could send.\n';
+  prompt += 'Each reply MUST be exactly one sentence (no extra sentences, bullet points, or explanations).\n';
+  prompt += 'Focus ONLY on replying to the target message (marked with >>>).\n';
+  prompt += 'Be concise, friendly and human-like. Avoid meta-comments about being an AI.\n';
+  prompt += 'Do not ask follow-up questions unless absolutely necessary to answer the message.\n\n';
+
+  prompt += '=== OUTPUT FORMAT ===\n';
+  prompt += 'Reply 1: <one sentence reply>\n';
+  prompt += 'Reply 2: <one sentence reply>\n';
+  prompt += 'Reply 3: <one sentence reply>\n\n';
+
+  prompt += 'Generate ONLY the three reply lines, nothing else.\n';
 
   return prompt;
 }
