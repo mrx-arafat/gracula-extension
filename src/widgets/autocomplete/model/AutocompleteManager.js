@@ -74,14 +74,32 @@ window.Gracula.AutocompleteManager = class {
   /**
    * Initialize n-gram phrase predictor
    */
-  initializePhrasePredictor() {
-    if (window.Gracula.PhrasePredictor) {
-      this.phrasePredictor = new window.Gracula.PhrasePredictor();
-      console.log('⚡ Autocomplete: Phrase predictor initialized');
-    } else {
-      console.warn('⚠️ Autocomplete: Phrase predictor not loaded');
-    }
-  }
+	  initializePhrasePredictor(retryCount = 0) {
+	    try {
+	      // If predictor class is available, initialize once and stop
+	      if (window.Gracula && window.Gracula.PhrasePredictor) {
+	        if (!this.phrasePredictor) {
+	          this.phrasePredictor = new window.Gracula.PhrasePredictor();
+	          console.log('⚡ Autocomplete: Phrase predictor initialized');
+	        }
+	        return;
+	      }
+
+	      // In some environments the script load order can race a bit.
+	      // Retry a few times before giving up, to avoid noisy warnings.
+	      const maxRetries = 5;
+	      if (retryCount < maxRetries) {
+	        if (retryCount === 0) {
+	          console.log('⏳ Autocomplete: Phrase predictor not ready yet, retrying...');
+	        }
+	        setTimeout(() => this.initializePhrasePredictor(retryCount + 1), 500);
+	      } else {
+	        console.warn('⚠️ Autocomplete: Phrase predictor not available, continuing without n-gram predictions');
+	      }
+	    } catch (error) {
+	      console.warn('⚠️ Autocomplete: Failed to initialize phrase predictor:', error?.message || error);
+	    }
+	  }
 
   /**
    * Load AI configuration from background

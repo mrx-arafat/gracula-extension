@@ -98,6 +98,7 @@
         "widgets/reply-list/ui/ReplyList.js",
         "widgets/reply-list/index.js",
         "widgets/autocomplete/ui/AutocompleteDropdown.js",
+        "widgets/autocomplete/model/PhrasePredictor.js",
         "widgets/autocomplete/model/AutocompleteManager.js",
         "widgets/autocomplete/index.js",
         "app/GraculaApp.js",
