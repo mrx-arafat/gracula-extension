@@ -213,6 +213,8 @@ window.Gracula.GhostTextController = class {
     if (this.autocompleteManager) {
       if (this.autocompleteManager.enabled === false) return false;
       if (this.autocompleteManager.useAI === false) return false;
+	      // Respect Ghost Text specific toggle when present
+	      if (this.autocompleteManager.ghostTextEnabled === false) return false;
     }
 
     return true;

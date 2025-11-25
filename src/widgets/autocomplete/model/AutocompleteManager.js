@@ -41,7 +41,9 @@ window.Gracula.AutocompleteManager = class {
 
     // NEW: Offline suggestion system
     this.patternMatcher = null;
-    this.useAI = false; // Will be loaded from config
+	    this.useAI = false; // Will be loaded from config
+	    // Separate toggle to control Ghost Text independently from the main AI switch
+	    this.ghostTextEnabled = true;
     this.initializeOfflineSuggestions();
     this.loadAIConfig();
 
@@ -114,17 +116,19 @@ window.Gracula.AutocompleteManager = class {
           return;
         }
 
-        if (response && response.success && response.config) {
-          // Treat useAIForAutosuggestions as the master switch for the entire feature
-          // If false, disable everything (including offline suggestions)
-          this.enabled = response.config.useAIForAutosuggestions !== false;
-          this.useAI = this.enabled; // If enabled, try to use AI (fallback to offline happens elsewhere if API fails)
+	        if (response && response.success && response.config) {
+	          // Treat useAIForAutosuggestions as the master switch for the entire feature
+	          // If false, disable everything (including offline suggestions)
+	          this.enabled = response.config.useAIForAutosuggestions !== false;
+	          this.useAI = this.enabled; // If enabled, try to use AI (fallback to offline happens elsewhere if API fails)
+	          // Ghost Text can be controlled independently via its own flag (defaults to true)
+	          this.ghostTextEnabled = response.config.ghostTextEnabled !== false;
 
-          console.log('🧛 Autocomplete: Feature is', this.enabled ? 'ENABLED' : 'DISABLED');
-          if (!this.enabled) {
-            this.autocompleteDropdown?.hide();
-          }
-        }
+	          console.log('🧛 Autocomplete: Feature is', this.enabled ? 'ENABLED' : 'DISABLED');
+	          if (!this.enabled) {
+	            this.autocompleteDropdown?.hide();
+	          }
+	        }
       });
     } catch (error) {
       console.warn('🧛 Autocomplete: Failed to load AI config, using offline mode:', error.message);
@@ -142,7 +146,9 @@ window.Gracula.AutocompleteManager = class {
 
         // Treat useAIForAutosuggestions as the master switch
         this.enabled = request.config.useAIForAutosuggestions !== false;
-        this.useAI = this.enabled;
+	        this.useAI = this.enabled;
+	        // Update Ghost Text toggle as well (defaults to true when not explicitly false)
+	        this.ghostTextEnabled = request.config.ghostTextEnabled !== false;
 
         if (oldEnabled !== this.enabled) {
           console.log('🧛 Autocomplete: Feature updated to:', this.enabled ? 'ENABLED' : 'DISABLED');

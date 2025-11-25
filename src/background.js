@@ -79,10 +79,12 @@ let apiConfig = {
   elevenlabsEndpoint: 'https://api.elevenlabs.io/v1/speech-to-text',
   googleApiKey: '', // Google Cloud Speech-to-Text API key
   deepgramApiKey: '', // Deepgram API key
-  // AI toggle for autosuggestions (disabled by default)
-  useAIForAutosuggestions: false,
-  // Voice input toggle (enabled by default for quick access)
-  voiceInputEnabled: true,
+	  // AI toggle for autosuggestions (disabled by default)
+	  useAIForAutosuggestions: false,
+	  // Ghost text toggle (inline suggestions while typing)
+	  ghostTextEnabled: true,
+	  // Voice input toggle (enabled by default for quick access)
+	  voiceInputEnabled: true,
   // Voice input keyboard shortcut
   voiceShortcut: 'Ctrl+Shift+V'
 };
@@ -174,12 +176,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return;
       }
 
-      console.log('🧛 Gracula: API Config saved successfully:', {
-        provider: apiConfig.provider,
-        hasKey: !!apiConfig.apiKey,
-        voiceEnabled: apiConfig.voiceInputEnabled,
-        aiEnabled: apiConfig.useAIForAutosuggestions
-      });
+	      console.log('🧛 Gracula: API Config saved successfully:', {
+	        provider: apiConfig.provider,
+	        hasKey: !!apiConfig.apiKey,
+	        voiceEnabled: apiConfig.voiceInputEnabled,
+	        aiEnabled: apiConfig.useAIForAutosuggestions,
+	        ghostTextEnabled: apiConfig.ghostTextEnabled
+	      });
 
       // Broadcast config update to all tabs
       chrome.tabs.query({}, (tabs) => {

@@ -62,6 +62,11 @@ document.addEventListener('DOMContentLoaded', () => {
     aiToggleEl.addEventListener('change', saveAIToggle);
   }
 
+  const ghostToggleEl = document.getElementById('ghostTextToggle');
+  if (ghostToggleEl) {
+    ghostToggleEl.addEventListener('change', saveGhostTextToggle);
+  }
+
   const voiceToggleEl = document.getElementById('voiceToggle');
   if (voiceToggleEl) {
     voiceToggleEl.addEventListener('change', saveVoiceToggle);
@@ -155,6 +160,12 @@ function loadSettings() {
       if (aiToggleEl) aiToggleEl.checked = aiEnabled;
       currentState.aiEnabled = aiEnabled;
 
+      // Load Ghost Text toggle state (defaults to enabled when not explicitly false)
+      const ghostEnabled = config.ghostTextEnabled !== false;
+      const ghostToggleEl = document.getElementById('ghostTextToggle');
+      if (ghostToggleEl) ghostToggleEl.checked = ghostEnabled;
+      currentState.ghostTextEnabled = ghostEnabled;
+
       // Load voice settings
       const voiceProviderEl = document.getElementById('voiceProvider');
       if (voiceProviderEl) voiceProviderEl.value = config.voiceProvider || 'webspeech';
@@ -243,6 +254,27 @@ function saveSettings(e) {
       console.log('✅ Settings saved successfully');
     } else {
       showStatus('✗ Error saving settings', 'error');
+    }
+  });
+}
+
+/**
+ * Save Ghost Text toggle in real-time (no Save button required)
+ */
+function saveGhostTextToggle(e) {
+  const ghostEnabled = e.target.checked;
+  currentState.ghostTextEnabled = ghostEnabled;
+
+  // Start with the existing full config to preserve all settings
+  let config = currentState.fullConfig ? { ...currentState.fullConfig } : {};
+  config.ghostTextEnabled = ghostEnabled;
+
+  chrome.runtime.sendMessage({
+    action: 'updateApiConfig',
+    config: config
+  }, (response) => {
+    if (response && response.success) {
+      currentState.fullConfig = config;
     }
   });
 }
