@@ -70,7 +70,20 @@ window.Gracula.GhostTextOverlay = class {
     this.overlay.style.lineHeight = style.lineHeight;
     this.overlay.style.letterSpacing = style.letterSpacing;
     this.overlay.style.textAlign = style.textAlign;
-    this.overlay.style.direction = style.direction;
+	    this.overlay.style.direction = style.direction;
+	    // Match weight/style so character widths stay aligned with host text
+	    this.overlay.style.fontWeight = style.fontWeight;
+	    this.overlay.style.fontStyle = style.fontStyle;
+
+	    // Align padding so ghost text starts exactly where the real text starts.
+	    // This avoids the grey suggestion drifting left or right and overlapping
+	    // with typed characters when the host input has internal padding.
+	    if (this.inner) {
+	      this.inner.style.paddingTop = style.paddingTop;
+	      this.inner.style.paddingRight = style.paddingRight;
+	      this.inner.style.paddingBottom = style.paddingBottom;
+	      this.inner.style.paddingLeft = style.paddingLeft;
+	    }
   }
 
   handleWindowResize() {

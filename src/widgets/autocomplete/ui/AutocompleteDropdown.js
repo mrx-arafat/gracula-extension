@@ -227,20 +227,22 @@ window.Gracula.AutocompleteDropdown = class {
 
 	      .gracula-autocomplete-chip {
 	        display: inline-flex;
-	        align-items: center;
+	        align-items: flex-start;
 	        gap: 6px;
 	        padding: 6px 10px;
 	        border-radius: 999px;
 	        border: 1px solid rgba(148, 163, 184, 0.55);
 	        background: rgba(255, 255, 255, 0.96);
 	        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
-	        font-size: 12px;
+	        font-size: 11px;
 	        cursor: pointer;
 	        transition: all 0.14s cubic-bezier(0.4, 0, 0.2, 1);
-	        white-space: nowrap;
-	        max-width: 180px;
-	        overflow: hidden;
-	        text-overflow: ellipsis;
+	        /* Allow full sentences to wrap across multiple lines */
+	        white-space: normal;
+	        max-width: 100%;
+	        overflow: visible;
+	        text-overflow: unset;
+	        line-height: 1.4;
 	      }
 
 	      .gracula-autocomplete-chip:hover {
@@ -271,8 +273,10 @@ window.Gracula.AutocompleteDropdown = class {
 	      }
 
 	      .gracula-autocomplete-chip-label {
-	        overflow: hidden;
-	        text-overflow: ellipsis;
+	        /* Never truncate chip text; allow full sentence visibility */
+	        overflow: visible;
+	        text-overflow: unset;
+	        white-space: normal;
 	      }
 
       /* Custom Scrollbar */
@@ -310,7 +314,8 @@ window.Gracula.AutocompleteDropdown = class {
         align-items: center;
         gap: 10px;
         position: relative;
-        overflow: hidden;
+	        /* Allow text to grow naturally; container scroll handles overflow */
+	        overflow: visible;
       }
 
       .gracula-autocomplete-item-v2:hover {
@@ -349,6 +354,11 @@ window.Gracula.AutocompleteDropdown = class {
         color: #333;
         font-weight: 500;
         letter-spacing: -0.2px;
+	        /* Slightly smaller text so long sentences fit more comfortably */
+	        font-size: 13px;
+	        line-height: 1.4;
+	        white-space: normal;
+	        word-break: break-word;
       }
 
       .gracula-autocomplete-item-v2.selected .gracula-autocomplete-text {
@@ -371,6 +381,32 @@ window.Gracula.AutocompleteDropdown = class {
         background: rgba(255, 255, 255, 0.25);
         color: white;
       }
+
+	      /* Detail preview for the currently selected suggestion (always full text) */
+	      .gracula-autocomplete-preview {
+	        padding: 8px 12px 10px 12px;
+	        border-top: 1px dashed rgba(102, 126, 234, 0.3);
+	        background: rgba(255, 255, 255, 0.9);
+	      }
+
+	      .gracula-autocomplete-preview-label {
+	        font-size: 10px;
+	        font-weight: 600;
+	        text-transform: uppercase;
+	        letter-spacing: 0.08em;
+	        color: rgba(107, 114, 128, 0.9);
+	        margin-bottom: 4px;
+	      }
+
+	      .gracula-autocomplete-preview-body {
+	        font-size: 11px;
+	        line-height: 1.5;
+	        color: #111827;
+	        max-height: 96px;
+	        overflow-y: auto;
+	        white-space: pre-wrap;
+	        word-break: break-word;
+	      }
 
       /* Loading State */
       .gracula-autocomplete-loading {
@@ -520,6 +556,8 @@ window.Gracula.AutocompleteDropdown = class {
 	        chip.type = 'button';
 	        chip.className = 'gracula-autocomplete-chip';
 	        chip.dataset.index = String(index);
+	        // Native tooltip so hovering always reveals the full sentence
+	        chip.title = typeof suggestion === 'string' ? suggestion : String(suggestion ?? '');
 
 	        const isSelected = index === this.selectedIndex;
 	        if (isSelected) {
@@ -558,6 +596,8 @@ window.Gracula.AutocompleteDropdown = class {
 	      const item = document.createElement('div');
 	      item.className = 'gracula-autocomplete-item-v2';
 	      item.dataset.index = String(index);
+	      // Native tooltip on list items as a backup to the preview pane
+	      item.title = typeof suggestion === 'string' ? suggestion : String(suggestion ?? '');
 
 	      const sourceIcon = this.getSourceIcon(suggestion);
 	      const isSelected = index === this.selectedIndex;
@@ -589,7 +629,27 @@ window.Gracula.AutocompleteDropdown = class {
 
 	    this.container.appendChild(suggestionsContainer);
 
-    // Footer
+	    // Detail preview panel: always shows the full currently selected sentence
+	    const previewWrapper = document.createElement('div');
+	    previewWrapper.className = 'gracula-autocomplete-preview';
+
+	    const previewLabel = document.createElement('div');
+	    previewLabel.className = 'gracula-autocomplete-preview-label';
+	    previewLabel.textContent = 'Preview';
+
+	    const previewBody = document.createElement('div');
+	    previewBody.className = 'gracula-autocomplete-preview-body';
+	    const currentSuggestion =
+	      typeof this.suggestions[this.selectedIndex] === 'string'
+	        ? this.suggestions[this.selectedIndex]
+	        : (this.suggestions[this.selectedIndex] ?? '').toString();
+	    previewBody.textContent = currentSuggestion || '';
+
+	    previewWrapper.appendChild(previewLabel);
+	    previewWrapper.appendChild(previewBody);
+	    this.container.appendChild(previewWrapper);
+
+	    // Footer
     const footer = document.createElement('div');
     footer.className = 'gracula-autocomplete-footer-v2';
     footer.innerHTML = `

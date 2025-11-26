@@ -101,13 +101,17 @@ window.Gracula.GhostTextController = class {
     const text = this.getCurrentText();
     this.currentText = text;
 
-    // Clear any existing ghost when text changes
-    this.clearSuggestion(false);
+	    // Clear any existing ghost when text changes so we never show
+	    // a stale suggestion that no longer matches the current input.
+	    // Notify subscribers so the overlay can hide immediately when
+	    // the user deletes everything or when WhatsApp clears the box
+	    // after sending a message.
+	    this.clearSuggestion(true);
 
-    if (!text || text.trim().length < 3) {
-      // Too short for ghost text; avoid spamming API
-      return;
-    }
+	    if (!text || text.trim().length < 3) {
+	      // Too short for ghost text; avoid spamming API
+	      return;
+	    }
 
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
@@ -127,6 +131,15 @@ window.Gracula.GhostTextController = class {
       }
       return;
     }
+
+	    // Enter (without modifiers): message is being sent in WhatsApp.
+	    // Let WhatsApp handle the send, but immediately clear any ghost
+	    // suggestion so it doesn't remain visible over an empty composer.
+	    if (event.key === 'Enter' && !event.shiftKey && !event.altKey && !event.ctrlKey) {
+	      this.currentText = '';
+	      this.clearSuggestion(true);
+	      return;
+	    }
 
     // Right Arrow: accept ghost text when available
     if (event.key === 'ArrowRight') {

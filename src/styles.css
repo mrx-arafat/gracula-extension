@@ -1655,11 +1655,13 @@
 }
 
 .gracula-ghost-overlay-inner {
-  width: 100%;
-  height: 100%;
-  padding: 0 4px;
-  box-sizing: border-box;
-}
+	  width: 100%;
+	  height: 100%;
+	  /* Padding will be synced dynamically from the host input element
+	     so ghost text lines up perfectly with the real text. */
+	  padding: 0;
+	  box-sizing: border-box;
+	}
 
 .gracula-ghost-typed {
   color: transparent;
