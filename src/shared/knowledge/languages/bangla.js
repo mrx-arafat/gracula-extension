@@ -171,7 +171,10 @@ window.Gracula.Knowledge.Languages.Bangla = {
     'magir': { meaning: 'friend (vulgar)', sentiment: 'neutral', usage: 'close_friend_address', intimacy: 'very_high' },
     'sala': { meaning: 'dude (vulgar)', sentiment: 'neutral', usage: 'close_friend_address', intimacy: 'very_high' },
     'baal': { meaning: 'nonsense (vulgar)', sentiment: 'negative', usage: 'dismissal', intimacy: 'high' },
-
+    'bokachoda': { meaning: 'idiot/friend (vulgar)', sentiment: 'neutral', usage: 'close_friend_address', intimacy: 'very_high' },
+    'choda': { meaning: 'fucker (vulgar)'![1764700337301](image/bangla/1764700337301.png), sentiment: 'neutral', usage: 'close_friend_address', intimacy: 'very_high' },
+    'put': { meaning: 'son (vulgar)', sentiment: 'neutral', usage: 'close_friend_address', intimacy: 'very_high' },
+![1764700346902](image/bangla/1764700346902.png)
     // Common Slang
     'kop': { meaning: 'cool/awesome/great', sentiment: 'positive', usage: 'approval', intimacy: 'medium' },
     'darun': { meaning: 'awesome/great', sentiment: 'positive', usage: 'appreciation', intimacy: 'low' },
@@ -274,14 +277,18 @@ window.Gracula.Knowledge.Languages.Bangla = {
     'mess': { name: 'Mess/Hostel', type: 'residence', context: 'student' },
     'hall': { name: 'Dormitory/Hall', type: 'residence', context: 'university' },
     'class': { name: 'Class', type: 'campus', context: 'university' },
-    'lab': { name: 'Laboratory', type: 'campus', context: 'university' }
+    'lab': { name: 'Laboratory', type: 'campus', context: 'university' },
+    'cantonment': { name: 'Cantonment', type: 'area', context: 'location' },
+    'mirpur': { name: 'Mirpur', type: 'area', context: 'location' },
+    'avesh': { name: 'Avesh (Place)', type: 'area', context: 'location' },
+    'gym': { name: 'Gym', type: 'activity_center', context: 'fitness' }
   },
 
   // Relationship & Social Context
   relationshipMarkers: {
     // Intimacy Levels (based on language used)
     'very_close': {
-      indicators: ['khanki', 'hala', 'magir', 'sala', 'tui', 'tor', 'tora'],
+      indicators: ['khanki', 'hala', 'magir', 'sala', 'tui', 'tor', 'tora', 'bokachoda'],
       description: 'Very close friends - vulgar slang indicates high intimacy',
       tone: 'very_informal',
       trust: 'very_high'

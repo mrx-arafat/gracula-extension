@@ -383,7 +383,8 @@ window.Gracula.ConversationAnalyzer = class {
     let uppercaseShouts = 0;
     let repeatedPunctuation = 0;
     const slangSamples = new Set();
-    const slangRegex = /\b(lol|lmao|rofl|haha|xd|idk|ikr|tbh|omg|wtf|brb|gonna|wanna|nah|yea|pls|plz|bro|dude|sis|bestie)\b/i;
+    // Enhanced regex to include common Banglish slang
+    const slangRegex = /\b(lol|lmao|rofl|haha|xd|idk|ikr|tbh|omg|wtf|brb|gonna|wanna|nah|yea|pls|plz|bro|dude|sis|bestie|hala|mama|dost|bokachoda|bal|baal|sala|khanki|magir)\b/i;
 
     this.messages.forEach(message => {
       const text = (message?.text || '').trim();
@@ -429,7 +430,13 @@ window.Gracula.ConversationAnalyzer = class {
     }
 
     let register = 'neutral';
-    if (slangSamples.size > 0 || lowercaseOnly / total > 0.4) {
+    // Check for high-intimacy Bangla slang
+    const intimateSlang = ['hala', 'bokachoda', 'khanki', 'magir', 'sala', 'baal', 'bal'];
+    const hasIntimateSlang = Array.from(slangSamples).some(s => intimateSlang.includes(s));
+
+    if (hasIntimateSlang) {
+      register = 'intimate/very casual';
+    } else if (slangSamples.size > 0 || lowercaseOnly / total > 0.4) {
       register = 'casual';
     } else if (uppercaseShouts > 0) {
       register = 'intense';
@@ -935,9 +942,11 @@ window.Gracula.ConversationAnalyzer = class {
       speaker: speaker,
       timeGap: timeGapText,
       context: isFromUser
-        ? 'You sent the last message - friend may be waiting for their response'
+        ? (summary.hasQuestion
+            ? `You sent the last message, but ${summary.lastFriendSpeaker} asked a question ("${summary.lastFriendMessage}") that needs answering.`
+            : 'You sent the last message - continue your thought or follow up')
         : `${speaker} sent the last message - you should respond`,
-      approach: approach,
+      approach: isFromUser && summary.hasQuestion ? 'Answer the friend\'s previous question' : approach,
       exampleTone: exampleTone,
       sentiment: summary.sentiment,
       hasQuestion: summary.hasQuestion

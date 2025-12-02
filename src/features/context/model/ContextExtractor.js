@@ -1542,15 +1542,33 @@ window.Gracula.ContextExtractor = class {
             const banglaWords = langInfo.detectedBanglaWords.slice(0, 5).join(', ');
             contextLines.push(`🗣️ Bangla terms: ${banglaWords}`);
           }
+
+          // Explicitly instruct LLM to match the language
+          if (langInfo.primaryLanguage === 'Bangla' || langInfo.mixingLevel !== 'none') {
+             const instruction = `👉 INSTRUCTION: Reply in the SAME language/mix as the user. If they use Banglish (Bangla written in English), reply in Banglish.`;
+             contextLines.push(instruction);
+             console.log('🗣️ [CONTEXT] Added language instruction:', instruction);
+          }
         }
       } else if (analysis.topics && analysis.topics.length > 0) {
         // Fallback to old topic extraction
         contextLines.push(`🎯 Main topics: ${analysis.topics.join(', ')}`);
       }
 
-      // Unanswered question
+      // Unanswered question - CRITICAL for reply logic
       if (analysis.hasUnansweredQuestion && analysis.hasUnansweredQuestion.hasQuestion) {
-        contextLines.push(`❓ Unanswered question from ${analysis.hasUnansweredQuestion.askedBy}: "${analysis.hasUnansweredQuestion.question}"`);
+        const asker = analysis.hasUnansweredQuestion.askedBy;
+        const question = analysis.hasUnansweredQuestion.question;
+        
+        // If the question is from a friend, emphasize it strongly
+        if (asker !== 'You' && asker !== this.detectedUserName) {
+           contextLines.push(`❓ PENDING QUESTION from ${asker}: "${question}"`);
+           contextLines.push(`👉 CRITICAL INSTRUCTION: The user wants to reply to THIS question ("${question}").`);
+           contextLines.push(`👉 IGNORE the user's own recent messages if they are just explaining words or seem unrelated.`);
+           contextLines.push(`👉 Your goal is to answer "${question}" directly (e.g. with a location or status).`);
+        } else {
+           contextLines.push(`❓ Unanswered question from ${asker}: "${question}"`);
+        }
       }
 
       // Conversation flow

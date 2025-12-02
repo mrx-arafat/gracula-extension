@@ -349,7 +349,12 @@ window.Gracula.TopicAnalyzer = class {
       const indicators = marker.indicators || [];
       const hasIndicator = indicators.some(ind => detectedBanglaWords.includes(ind));
       if (hasIndicator) {
-        relationshipType = type;
+        // If we find a marker for a higher intimacy level, upgrade the relationship type
+        // Priority: very_close > close > friendly > formal
+        const priority = { 'very_close': 4, 'close': 3, 'friendly': 2, 'formal': 1, 'neutral': 0 };
+        if (priority[type] > priority[relationshipType]) {
+          relationshipType = type;
+        }
       }
     });
 
@@ -381,6 +386,7 @@ window.Gracula.TopicAnalyzer = class {
     const banglaKnowledge = this.languages.Bangla || {};
     const banglaTopics = banglaKnowledge.topics || {};
     const combinedText = messages.map(m => (m.text || '').toLowerCase()).join(' ');
+    const words = new Set(combinedText.split(/\s+|[?!.,]/).filter(Boolean));
 
     // Detect Bangla-specific topics
     const detectedTopics = [];
@@ -388,8 +394,11 @@ window.Gracula.TopicAnalyzer = class {
       let score = 0;
 
       (topic.keywords || []).forEach(keyword => {
-        if (combinedText.includes(keyword.toLowerCase())) {
-          score += 2;
+        // Use exact word matching or substring if it's a phrase
+        if (keyword.includes(' ')) {
+           if (combinedText.includes(keyword.toLowerCase())) score += 3;
+        } else if (words.has(keyword.toLowerCase())) {
+           score += 3; // Increased weight for direct keyword match
         }
       });
 
@@ -485,6 +494,17 @@ window.Gracula.TopicAnalyzer = class {
         type: 'context',
         name: contextUnderstanding.primaryContext,
         relevance: contextUnderstanding.confidence
+      });
+    }
+
+    // Add specific detected Bangla topics
+    if (contextUnderstanding.detectedTopics && contextUnderstanding.detectedTopics.length > 0) {
+      contextUnderstanding.detectedTopics.forEach(topic => {
+        topics.push({
+          type: 'specific_topic',
+          name: topic.description, // e.g., "Sharing current location"
+          relevance: 'high'
+        });
       });
     }
 
@@ -641,4 +661,3 @@ window.Gracula.TopicAnalyzer = class {
     };
   }
 };
-
