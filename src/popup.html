@@ -517,6 +517,7 @@
         <button class="tab-button active" data-tab="overviewTab">Overview</button>
         <button class="tab-button" data-tab="settingsTab">Settings</button>
         <button class="tab-button" data-tab="voiceTab">Voice</button>
+        <button class="tab-button" data-tab="accountTab">Account</button>
       </div>
     </div>
 
@@ -651,6 +652,39 @@
         </div>
 
         <button class="btn-primary" id="saveVoiceBtn">Save Voice Settings</button>
+      </div>
+
+      <!-- Account Tab -->
+      <div id="accountTab" class="tab-content">
+        <div class="settings-section">
+          <h3>Gracula Account</h3>
+          <p style="font-size: 13px; color: var(--text-sub); margin-bottom: 16px;">
+            Sign in to sync your conversation memory across devices and enable personalized AI responses.
+          </p>
+
+          <div id="authForms">
+            <div class="input-group">
+              <label class="input-label">Email</label>
+              <input type="email" id="authEmail" class="input-field" placeholder="you@example.com">
+            </div>
+            <div class="input-group">
+              <label class="input-label">Password</label>
+              <input type="password" id="authPassword" class="input-field" placeholder="••••••••">
+            </div>
+            
+            <div style="display: flex; gap: 10px;">
+              <button class="btn-primary" id="signInBtn" style="flex: 1;">Sign In</button>
+              <button class="btn-secondary" id="signUpBtn" style="flex: 1;">Sign Up</button>
+            </div>
+          </div>
+
+          <div id="authStatus" style="display: none; text-align: center; padding: 20px 0;">
+            <div style="font-size: 48px; margin-bottom: 10px;">👤</div>
+            <h3 style="font-size: 16px; color: var(--text-main); margin-bottom: 4px;">Signed In</h3>
+            <p id="currentUserEmail" style="font-size: 14px; color: var(--text-sub); margin-bottom: 20px;"></p>
+            <button class="btn-secondary" id="signOutBtn">Sign Out</button>
+          </div>
+        </div>
       </div>
 
       <div class="footer-links">

@@ -5,8 +5,8 @@ window.Gracula = window.Gracula || {};
 
 window.Gracula.ConversationSummarizer = class {
   constructor() {
-    this.maxMessagesBeforeSummary = 28;
-    this.summaryTargetLength = 200; // characters
+    this.maxMessagesBeforeSummary = 50;
+    this.summaryTargetLength = 350; // characters
   }
 
   /**

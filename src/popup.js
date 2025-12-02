@@ -72,9 +72,20 @@ document.addEventListener('DOMContentLoaded', () => {
     voiceToggleEl.addEventListener('change', saveVoiceToggle);
   }
 
+  // Auth buttons
+  const signInBtn = document.getElementById('signInBtn');
+  if (signInBtn) signInBtn.addEventListener('click', () => handleAuth('signIn'));
+
+  const signUpBtn = document.getElementById('signUpBtn');
+  if (signUpBtn) signUpBtn.addEventListener('click', () => handleAuth('signUp'));
+
+  const signOutBtn = document.getElementById('signOutBtn');
+  if (signOutBtn) signOutBtn.addEventListener('click', handleSignOut);
+
   setupTabs();
   setupPasswordToggles();
   setupShortcutCapture();
+  checkAuthStatus();
 });
 
 function switchTab(tabId) {
@@ -461,5 +472,55 @@ function setupTabs() {
         content.classList.toggle('active', content.id === targetId);
       });
     });
+  });
+}
+
+// Auth Functions
+function handleAuth(type) {
+  const email = document.getElementById('authEmail').value;
+  const password = document.getElementById('authPassword').value;
+
+  if (!email || !password) {
+    showStatus('Please enter email and password', 'error');
+    return;
+  }
+
+  chrome.runtime.sendMessage({
+    action: 'auth',
+    type: type,
+    payload: { email, password }
+  }, (response) => {
+    if (response && response.success) {
+      showStatus(`Successfully ${type === 'signIn' ? 'signed in' : 'signed up'}!`, 'success');
+      checkAuthStatus();
+    } else {
+      showStatus(response?.error || 'Auth failed', 'error');
+    }
+  });
+}
+
+function handleSignOut() {
+  chrome.runtime.sendMessage({ action: 'signOut' }, (response) => {
+    if (response && response.success) {
+      showStatus('Signed out', 'success');
+      checkAuthStatus();
+    }
+  });
+}
+
+function checkAuthStatus() {
+  chrome.runtime.sendMessage({ action: 'getSession' }, (response) => {
+    const authForms = document.getElementById('authForms');
+    const authStatus = document.getElementById('authStatus');
+    const currentUserEmail = document.getElementById('currentUserEmail');
+
+    if (response && response.success && response.session) {
+      if (authForms) authForms.style.display = 'none';
+      if (authStatus) authStatus.style.display = 'block';
+      if (currentUserEmail) currentUserEmail.textContent = response.session.user?.email || 'User';
+    } else {
+      if (authForms) authForms.style.display = 'block';
+      if (authStatus) authStatus.style.display = 'none';
+    }
   });
 }

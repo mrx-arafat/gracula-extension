@@ -79,8 +79,11 @@ let apiConfig = {
   elevenlabsEndpoint: 'https://api.elevenlabs.io/v1/speech-to-text',
   googleApiKey: '', // Google Cloud Speech-to-Text API key
   deepgramApiKey: '', // Deepgram API key
-	  // AI toggle for autosuggestions (disabled by default)
-	  useAIForAutosuggestions: false,
+  // Supabase configuration for Vector Memory
+  supabaseUrl: 'https://ikxjxofwakkueedxiutu.supabase.co',
+  supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreGp4b2Z3YWtrdWVlZHhpdXR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2MTU2MDYsImV4cCI6MjA4MDE5MTYwNn0.t_koVMCAGzwTbgsj7ox_3dWLWUaeqRj9odSm0UbGjWQ',
+   // AI toggle for autosuggestions (disabled by default)
+   useAIForAutosuggestions: false,
 	  // Ghost text toggle (inline suggestions while typing)
 	  ghostTextEnabled: true,
 	  // Voice input toggle (enabled by default for quick access)
@@ -165,7 +168,54 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true; // Keep channel open for async response
   }
 
+  // NEW: Handle embedding generation
+  if (request.action === 'generateEmbedding') {
+    console.log('🎯 [MESSAGE] Received generateEmbedding request');
+    handleGenerateEmbedding(request.text)
+      .then(embedding => {
+        sendResponse({ success: true, embedding });
+      })
+      .catch(error => {
+        console.error('❌ [MESSAGE] generateEmbedding error:', error.message);
+        sendResponse({ success: false, error: error.message });
+      });
+    return true;
+  }
 
+  if (request.action === 'generateEmbeddingsBatch') {
+    console.log('🎯 [MESSAGE] Received generateEmbeddingsBatch request');
+    handleGenerateEmbeddingsBatch(request.texts)
+      .then(embeddings => {
+        sendResponse({ success: true, embeddings });
+      })
+      .catch(error => {
+        console.error('❌ [MESSAGE] generateEmbeddingsBatch error:', error.message);
+        sendResponse({ success: false, error: error.message });
+      });
+    return true;
+  }
+
+  // Auth handlers
+  if (request.action === 'auth') {
+    handleAuth(request.type, request.payload)
+      .then(data => sendResponse({ success: true, data }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
+  if (request.action === 'signOut') {
+    handleSignOut()
+      .then(() => sendResponse({ success: true }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
+  if (request.action === 'getSession') {
+    getSession()
+      .then(session => sendResponse({ success: true, session }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
 
   if (request.action === 'updateApiConfig') {
     apiConfig = { ...apiConfig, ...request.config };
@@ -241,13 +291,40 @@ function buildPrompt(tone, context, enhancedContext, responseMode = 'reply') {
   const smartSelection = enhancedContext?.smartSelection;
   const topicChanges = enhancedContext?.topicChanges || [];
   const contextQuality = enhancedContext?.contextQuality;
+  const relevantPastContext = enhancedContext?.relevantPastContext || [];
 
   // Use selected messages if smart selection was used
   const selectedMessages = enhancedContext?.selectedMessages;
   const useSmartSelection = smartSelection?.used && Array.isArray(selectedMessages);
 
+  // Determine which context array to use for the prompt
+  // If smart selection is active, use that. Otherwise use the full context.
+  // Note: 'context' passed to this function is usually an array of strings (simple context)
+  // while selectedMessages is an array of message objects. We need to handle both.
+  let contextToUse = context;
+  
   if (useSmartSelection) {
     console.log(`🧠 [PHASE 2] Using ${selectedMessages.length} smart-selected messages from ${smartSelection.originalCount} total`);
+    // Convert message objects to string format if needed, or use them directly if logic supports it
+    // For now, we'll map them to strings to be compatible with existing logic that expects strings
+    contextToUse = selectedMessages.map(msg => {
+      const speaker = msg.speaker || (msg.isOutgoing ? 'You' : 'Friend');
+      return `${speaker}: ${msg.text}`;
+    });
+  }
+
+  // ========================================
+  // PHASE 3: MEMORY INTEGRATION (RELEVANT PAST CONTEXT)
+  // ========================================
+  if (relevantPastContext && relevantPastContext.length > 0) {
+    prompt += '=== 🧠 RELEVANT PAST MEMORIES ===\n';
+    prompt += 'These are relevant messages from previous conversations with this contact:\n';
+    
+    relevantPastContext.forEach(item => {
+      const date = item.timestamp ? new Date(item.timestamp).toLocaleDateString() : 'Past';
+      prompt += `[${date}] ${item.speaker}: ${item.content}\n`;
+    });
+    prompt += '\nUse these memories to maintain continuity if relevant, but prioritize the current conversation.\n\n';
   }
 
   // ========================================
@@ -632,12 +709,30 @@ function buildPrompt(tone, context, enhancedContext, responseMode = 'reply') {
   // ADAPTIVE CONTEXT DISPLAY (For Reference)
   // ========================================
 
-  if (Array.isArray(context) && context.length > 0) {
-    if (isShortConversation) {
+  // Use contextToUse (which might be smart-selected) instead of raw context
+  const displayContext = contextToUse;
+  const displayTotal = Array.isArray(displayContext) ? displayContext.length : 0;
+
+  if (Array.isArray(displayContext) && displayTotal > 0) {
+    if (useSmartSelection) {
+      // SMART SELECTION MODE: Show the selected chunks
+      prompt += '=== 💬 CONVERSATION CONTEXT (Smart Selected) ===\n';
+      prompt += 'Note: Some less relevant messages may be hidden to fit context window.\n\n';
+      
+      displayContext.forEach((msg, index) => {
+        const isLast = index === displayTotal - 1;
+        if (isLast) {
+          prompt += `>>> ${msg} ← REPLY TO THIS\n`;
+        } else {
+          prompt += `    ${msg}\n`;
+        }
+      });
+      prompt += '\n';
+    } else if (isShortConversation) {
       // SHORT: Show all messages with clear reply marker
       prompt += '=== 💬 CONVERSATION ===\n';
-      context.forEach((msg, index) => {
-        const isLast = index === context.length - 1;
+      displayContext.forEach((msg, index) => {
+        const isLast = index === displayTotal - 1;
         if (isLast) {
           prompt += `>>> ${msg} ← REPLY TO THIS\n`;
         } else {
@@ -648,11 +743,11 @@ function buildPrompt(tone, context, enhancedContext, responseMode = 'reply') {
 
     } else if (isMediumConversation) {
       // MEDIUM: Show recent messages + immediate context
-      const recentStart = Math.max(0, totalMessages - 15);
-      const immediateStart = Math.max(0, totalMessages - 5);
+      const recentStart = Math.max(0, displayTotal - 15);
+      const immediateStart = Math.max(0, displayTotal - 5);
 
-      const recentMessages = context.slice(recentStart, immediateStart);
-      const immediateMessages = context.slice(immediateStart);
+      const recentMessages = displayContext.slice(recentStart, immediateStart);
+      const immediateMessages = displayContext.slice(immediateStart);
 
       if (recentMessages.length > 0) {
         prompt += '=== 💬 RECENT CONVERSATION ===\n';
@@ -675,13 +770,13 @@ function buildPrompt(tone, context, enhancedContext, responseMode = 'reply') {
 
     } else {
       // LONG: Show summary + recent + immediate
-      const backgroundEnd = totalMessages - 20;
-      const recentStart = totalMessages - 20;
-      const immediateStart = totalMessages - 5;
+      const backgroundEnd = displayTotal - 20;
+      const recentStart = displayTotal - 20;
+      const immediateStart = displayTotal - 5;
 
       // Background summary
       if (backgroundEnd > 0) {
-        const backgroundMessages = context.slice(0, backgroundEnd);
+        const backgroundMessages = displayContext.slice(0, backgroundEnd);
         prompt += '=== 📚 CONVERSATION BACKGROUND ===\n';
         prompt += `Earlier conversation (${backgroundMessages.length} messages): `;
         prompt += `Started discussing ${currentTopic}. `;
@@ -692,7 +787,7 @@ function buildPrompt(tone, context, enhancedContext, responseMode = 'reply') {
       }
 
       // Recent messages
-      const recentMessages = context.slice(recentStart, immediateStart);
+      const recentMessages = displayContext.slice(recentStart, immediateStart);
       if (recentMessages.length > 0) {
         prompt += '=== 💬 RECENT CONVERSATION ===\n';
         recentMessages.forEach((msg) => {
@@ -702,7 +797,7 @@ function buildPrompt(tone, context, enhancedContext, responseMode = 'reply') {
       }
 
       // Immediate context
-      const immediateMessages = context.slice(immediateStart);
+      const immediateMessages = displayContext.slice(immediateStart);
       prompt += '=== 🎯 IMMEDIATE CONTEXT ===\n';
       immediateMessages.forEach((msg, index) => {
         const isLast = index === immediateMessages.length - 1;
@@ -2415,6 +2510,180 @@ async function blobToBase64(blob) {
   });
 }
 
-console.log('🧛 Gracula Background Script: Loaded');
+// ========================================
+// AUTHENTICATION HANDLER
+// ========================================
+
+// Initialize Supabase client for Auth
+// We use a separate instance or the same one, but we need to handle sessions
+let supabaseAuthClient = null;
+
+async function getSupabaseAuth() {
+  if (!supabaseAuthClient) {
+    // Dynamically import or use the global if available (but background is a module/service worker)
+    // Since we don't have a bundler, we might need to rely on the client we created.
+    // However, importing modules in service workers requires 'type': 'module' in manifest.
+    // Our manifest uses "service_worker": "background.js", which defaults to classic script.
+    // We can't easily import the class here without changing manifest or using importScripts.
+    
+    // For now, we'll implement a minimal auth handler here using fetch, similar to the client.
+    supabaseAuthClient = {
+      url: apiConfig.supabaseUrl || 'https://ikxjxofwakkueedxiutu.supabase.co',
+      key: apiConfig.supabaseKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlreGp4b2Z3YWtrdWVlZHhpdXR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2MTU2MDYsImV4cCI6MjA4MDE5MTYwNn0.t_koVMCAGzwTbgsj7ox_3dWLWUaeqRj9odSm0UbGjWQ'
+    };
+  }
+  return supabaseAuthClient;
+}
+
+async function handleAuth(action, payload) {
+  const client = await getSupabaseAuth();
+  const headers = {
+    'apikey': client.key,
+    'Content-Type': 'application/json'
+  };
+
+  try {
+    let endpoint = '';
+    let body = {};
+
+    if (action === 'signUp') {
+      endpoint = '/auth/v1/signup';
+      body = { email: payload.email, password: payload.password };
+    } else if (action === 'signIn') {
+      endpoint = '/auth/v1/token?grant_type=password';
+      body = { email: payload.email, password: payload.password };
+    } else {
+      throw new Error('Invalid auth action');
+    }
+
+    const response = await fetch(`${client.url}${endpoint}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body)
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.msg || data.error_description || 'Auth failed');
+    }
+
+    // Store session
+    if (data.access_token) {
+      await chrome.storage.local.set({ 'gracula_session': data });
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Auth error:', error);
+    throw error;
+  }
+}
+
+async function handleSignOut() {
+  await chrome.storage.local.remove('gracula_session');
+  return { success: true };
+}
+
+async function getSession() {
+  const result = await chrome.storage.local.get('gracula_session');
+  return result.gracula_session || null;
+}
+
+// ========================================
+// EMBEDDING GENERATION HANDLER
+// ========================================
+
+async function handleGenerateEmbedding(text) {
+  if (!apiConfig.apiKey) {
+    throw new Error('API key is required for embedding generation');
+  }
+
+  // Support Google Gemini Embeddings
+  if (apiConfig.provider === 'google') {
+    const model = 'text-embedding-004';
+    const url = `${apiConfig.googleEndpoint}${model}:embedContent?key=${apiConfig.apiKey}`;
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: `models/${model}`,
+        content: { parts: [{ text }] },
+        outputDimensionality: 768 // Explicitly request 768 dimensions
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Google Embedding API Error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data.embedding.values;
+  }
+
+  // Default: Use OpenAI's embedding API
+  const url = 'https://api.openai.com/v1/embeddings';
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiConfig.apiKey}`
+    },
+    body: JSON.stringify({
+      input: text,
+      model: 'text-embedding-3-small' // 1536 dimensions
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenAI Embedding API Error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  return data.data[0].embedding;
+}
+
+async function handleGenerateEmbeddingsBatch(texts) {
+  if (!apiConfig.apiKey) {
+    throw new Error('API key is required for embedding generation');
+  }
+
+  // Support Google Gemini Embeddings (Batch)
+  if (apiConfig.provider === 'google') {
+    // Google doesn't have a simple batch endpoint like OpenAI, so we process in parallel
+    // Limit concurrency to avoid rate limits
+    const promises = texts.map(text => handleGenerateEmbedding(text));
+    return Promise.all(promises);
+  }
+
+  // Default: Use OpenAI's embedding API
+  const url = 'https://api.openai.com/v1/embeddings';
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiConfig.apiKey}`
+    },
+    body: JSON.stringify({
+      input: texts,
+      model: 'text-embedding-3-small'
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenAI Embedding API Error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  // Ensure order is preserved
+  return data.data.sort((a, b) => a.index - b.index).map(item => item.embedding);
+}
+
 console.log('🧛 Gracula Background Script: Loaded');
 

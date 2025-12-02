@@ -4,8 +4,8 @@
 window.Gracula = window.Gracula || {};
 
 
-const MAX_MESSAGES = 50;
-const RECENT_MESSAGE_WINDOW = 40;
+const MAX_MESSAGES = 200;
+const RECENT_MESSAGE_WINDOW = 150;
 const MIN_RECENT_MESSAGE_COUNT = 16;
 const MESSAGE_CONTAINER_FALLBACKS = [
   '[data-id]',
@@ -25,6 +25,11 @@ window.Gracula.ContextExtractor = class {
     this.analyzer = new window.Gracula.ConversationAnalyzer();
     this.summarizer = new window.Gracula.ConversationSummarizer();
     this.smartSelector = new window.Gracula.SmartMessageSelector(); // PHASE 2: Smart message selection
+    
+    // PHASE 3: Vector Memory Integration
+    this.vectorMemory = new window.Gracula.Memory.VectorMemory();
+    this.semanticSearch = new window.Gracula.Memory.SemanticSearch(this.vectorMemory);
+    
     this.messages = [];
     this.detectedUserName = null; // NEW: Store detected user name
   }
@@ -96,7 +101,18 @@ window.Gracula.ContextExtractor = class {
     this.normalizeTimestampsByDateLabels();
 
     // Sort by timestamp (oldest to newest)
+    // CRITICAL FIX: Prioritize DOM order (metadata.index) if timestamps are close or ambiguous
+    // This prevents "Yesterday" (parsed as fresh) from jumping ahead of specific dates if the visual order contradicts it
     this.messages.sort((a, b) => {
+      const aIndex = a?.metadata?.index ?? 0;
+      const bIndex = b?.metadata?.index ?? 0;
+      
+      // If indices are available and distinct, trust the DOM order primarily
+      // This assumes the chat platform renders messages in chronological order
+      if (aIndex !== bIndex) {
+        return aIndex - bIndex;
+      }
+
       const aTime = a?.timestamp instanceof Date ? a.timestamp.getTime() : (typeof a?.timestamp === 'number' ? a.timestamp : (a?.timestamp ? new Date(a.timestamp).getTime() : 0));
       const bTime = b?.timestamp instanceof Date ? b.timestamp.getTime() : (typeof b?.timestamp === 'number' ? b.timestamp : (b?.timestamp ? new Date(b.timestamp).getTime() : 0));
 
@@ -104,7 +120,7 @@ window.Gracula.ContextExtractor = class {
         return aTime - bTime;
       }
 
-      return (a?.metadata?.index || 0) - (b?.metadata?.index || 0);
+      return 0;
     });
 
     // Limit to the most recent exchange window for analysis
@@ -119,6 +135,10 @@ window.Gracula.ContextExtractor = class {
     const analysis = this.analyzer.analyze(this.messages);
     this.lastSpeaker = analysis.lastSpeaker;
     this.conversationAnalysis = analysis;
+
+    // PHASE 3: Process conversation for memory (async, don't block)
+    // DISABLED: User requested manual control
+    // this._processMemoryInBackground();
 
     // window.Gracula.logger.success(`Extracted ${this.messages.length} valid messages`);
     // window.Gracula.logger.debug(`📊 Last speaker: ${this.lastSpeaker}`);
@@ -1420,15 +1440,15 @@ window.Gracula.ContextExtractor = class {
   /**
    * Get context as formatted strings for AI with date grouping and topic awareness
    */
-  getContextStrings() {
-    if (this.messages.length === 0) {
+  getContextStrings(messages = this.messages) {
+    if (messages.length === 0) {
       return [];
     }
 
     // Check if we need summarization for long conversations
-    if (this.summarizer && this.summarizer.needsSummarization(this.messages)) {
+    if (this.summarizer && this.summarizer.needsSummarization(messages)) {
       // Use summarized context
-      return this.summarizer.getSummarizedContext(this.messages, this.conversationAnalysis);
+      return this.summarizer.getSummarizedContext(messages, this.conversationAnalysis);
     }
 
     const contextLines = [];
@@ -1440,7 +1460,7 @@ window.Gracula.ContextExtractor = class {
     }
 
     // Group messages by date
-    const messagesByDate = this.groupMessagesByDate();
+    const messagesByDate = this.groupMessagesByDate(messages);
 
     // Build context with date separators
     for (const [dateLabel, messages] of Object.entries(messagesByDate)) {
@@ -1550,11 +1570,11 @@ window.Gracula.ContextExtractor = class {
   /**
    * Group messages by date
    */
-  groupMessagesByDate() {
+  groupMessagesByDate(messages = this.messages) {
     const grouped = {};
     const dateOrder = [];
 
-    this.messages.forEach(msg => {
+    messages.forEach(msg => {
       const dateStr = msg.getDateString() || 'Unknown';
       if (!grouped[dateStr]) {
         grouped[dateStr] = [];
@@ -1642,7 +1662,7 @@ window.Gracula.ContextExtractor = class {
   /**
    * Get enhanced context with analysis - PHASE 2 ENHANCED
    */
-  getEnhancedContext() {
+  async getEnhancedContext() {
     const analysis = this.analyzer.analyze(this.messages);
     const summary = this.analyzer.getSummary();
     const metrics = this.computeMetrics(this.messages, analysis, summary);
@@ -1654,7 +1674,7 @@ window.Gracula.ContextExtractor = class {
 
     if (this.smartSelector.needsSmartSelection(this.messages)) {
       console.log('🧠 [PHASE 2] Using smart message selection for long conversation');
-      selectedMessages = this.smartSelector.selectRelevantMessages(this.messages, analysis, 30);
+      selectedMessages = this.smartSelector.selectRelevantMessages(this.messages, analysis, 40);
       smartSelectionUsed = true;
     }
 
@@ -1666,13 +1686,36 @@ window.Gracula.ContextExtractor = class {
 
     console.log(`✅ [PHASE 2] Context quality: ${contextQuality.quality}`, contextQuality.issues);
 
+    // PHASE 3: Retrieve relevant past context via Semantic Search
+    let relevantPastContext = [];
+    try {
+      // Initialize memory with config if needed
+      if (!this.vectorMemory.isInitialized) {
+        const config = await this._getApiConfig();
+        if (config && config.supabaseUrl && config.supabaseKey) {
+          await this.vectorMemory.init(config.supabaseUrl, config.supabaseKey);
+        }
+      }
+
+      if (this.vectorMemory.isInitialized) {
+        console.log('🧠 [PHASE 3] Searching for relevant past context...');
+        relevantPastContext = await this.semanticSearch.findRelevantContext({
+          messages: this.messages,
+          analysis
+        });
+        console.log(`✅ [PHASE 3] Found ${relevantPastContext.length} relevant past messages`);
+      }
+    } catch (error) {
+      console.warn('⚠️ [PHASE 3] Failed to retrieve past context:', error);
+    }
+
     return {
       messages: this.messages.map(msg => msg.toJSON()),
       selectedMessages: selectedMessages.map(msg => msg.toJSON()), // PHASE 2: Selected messages
       analysis,
       summary,
       metrics,
-      contextStrings: this.getContextStrings(),
+      contextStrings: this.getContextStrings(selectedMessages),
       dualAnalysis,  // NEW: Add dual context analysis
       // PHASE 2 enhancements:
       smartSelection: {
@@ -1681,8 +1724,96 @@ window.Gracula.ContextExtractor = class {
         selectedCount: selectedMessages.length
       },
       topicChanges,
-      contextQuality
+      contextQuality,
+      // PHASE 3 enhancements:
+      relevantPastContext
     };
+  }
+
+  async _processMemoryInBackground() {
+    // Disabled for manual control
+  }
+
+  /**
+   * Manually sync current conversation to memory
+   */
+  async syncToMemory() {
+    try {
+      console.log('🧠 [MEMORY] Starting manual sync...');
+      
+      // Initialize memory with config if needed
+      if (!this.vectorMemory.isInitialized) {
+        const config = await this._getApiConfig();
+        if (config && config.supabaseUrl && config.supabaseKey) {
+          await this.vectorMemory.init(config.supabaseUrl, config.supabaseKey);
+        }
+      }
+
+      if (this.vectorMemory.isInitialized) {
+        await this.vectorMemory.processConversation({
+          platform: this.platform?.name || 'unknown',
+          messages: this.messages,
+          summary: this.conversationAnalysis,
+          contactId: null
+        });
+        console.log('✅ [MEMORY] Manual sync complete');
+        return true;
+      } else {
+        console.warn('⚠️ [MEMORY] Not initialized (missing credentials)');
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ [MEMORY] Manual sync failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Forget current conversation from memory
+   */
+  async forgetConversation() {
+    try {
+      console.log('🧠 [MEMORY] Forgetting conversation...');
+      
+      if (!this.vectorMemory.isInitialized) {
+        const config = await this._getApiConfig();
+        if (config && config.supabaseUrl && config.supabaseKey) {
+          await this.vectorMemory.init(config.supabaseUrl, config.supabaseKey);
+        }
+      }
+
+      if (this.vectorMemory.isInitialized) {
+        // We need to identify the conversation first
+        // This logic duplicates some of processConversation, ideally should be in VectorMemory
+        // For now, we'll rely on VectorMemory to handle the deletion logic if we pass the context
+        // But VectorMemory needs a delete method.
+        
+        // Let's assume we add deleteConversation to VectorMemory
+        const contactName = this.vectorMemory._extractContactName({
+            messages: this.messages,
+            summary: this.conversationAnalysis
+        });
+        const platform = this.platform?.name || 'unknown';
+        
+        if (contactName) {
+            await this.vectorMemory.deleteConversation(platform, contactName);
+            console.log('✅ [MEMORY] Conversation forgotten');
+            return true;
+        }
+      }
+      return false;
+    } catch (error) {
+      console.error('❌ [MEMORY] Forget conversation failed:', error);
+      return false;
+    }
+  }
+
+  _getApiConfig() {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: 'getApiConfig' }, (response) => {
+        resolve(response && response.success ? response.config : null);
+      });
+    });
   }
 
   /**

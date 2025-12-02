@@ -53,6 +53,8 @@ window.Gracula.TopicAnalyzer = class {
       analysisDepth
     );
 
+    const mainTopics = this.extractMainTopics(entities, activities, contextUnderstanding);
+
     return {
       depth: analysisDepth,
       entities,
@@ -60,7 +62,9 @@ window.Gracula.TopicAnalyzer = class {
       languageAnalysis,
       contextUnderstanding,
       summary,
-      mainTopics: this.extractMainTopics(entities, activities, contextUnderstanding),
+      mainTopics,
+      // Populate legacy 'topics' array for backward compatibility with UI
+      topics: mainTopics.map(t => t.name),
       conversationType: this.determineConversationType(activities, contextUnderstanding),
       suggestedResponseType: this.suggestResponseType(messages, activities, contextUnderstanding)
     };

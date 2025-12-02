@@ -652,7 +652,17 @@ window.Gracula.GraculaApp = class {
     const summary = this.enhancedContext?.summary || {};
 
     // Extract topics
-    const topics = Array.isArray(analysis.topics) ? analysis.topics : [];
+    let topics = Array.isArray(analysis.topics) ? analysis.topics : [];
+    
+    // Fallback to topicAnalysis if main topics array is empty
+    if (topics.length === 0 && analysis.topicAnalysis) {
+      if (Array.isArray(analysis.topicAnalysis.mainTopics)) {
+        topics = analysis.topicAnalysis.mainTopics.map(t => t.name || t);
+      } else if (analysis.topicAnalysis.summary && analysis.topicAnalysis.summary !== 'None') {
+        topics = [analysis.topicAnalysis.summary];
+      }
+    }
+
     const topicsHTML = topics.length > 0 ? `
       <div class="gracula-topic-pills">
         ${topics.map(topic => `<span class="gracula-topic-pill">💡 ${topic}</span>`).join('')}
@@ -879,6 +889,30 @@ window.Gracula.GraculaApp = class {
             </div>
           </div>
         </div>
+
+        <!-- Memory Management -->
+        <div class="gracula-insight-card">
+          <div class="gracula-insight-header">
+            <span class="gracula-insight-icon">🧠</span>
+            <span>Memory</span>
+          </div>
+          <div class="gracula-insight-content" style="display: flex; gap: 8px; flex-direction: column;">
+            <button class="gracula-memory-btn sync" id="syncMemoryBtn" style="
+              background: #ecfdf5; color: #059669; border: 1px solid #d1fae5;
+              padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;
+              cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+            ">
+              <span>💾</span> Sync to Memory
+            </button>
+            <button class="gracula-memory-btn forget" id="forgetMemoryBtn" style="
+              background: #fef2f2; color: #b91c1c; border: 1px solid #fee2e2;
+              padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;
+              cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+            ">
+              <span>🗑️</span> Forget Conversation
+            </button>
+          </div>
+        </div>
       </div>
     `;
   }
@@ -1088,6 +1122,53 @@ window.Gracula.GraculaApp = class {
               const isHidden = allContextPanel.style.display === 'none' || !allContextPanel.style.display;
               allContextPanel.style.display = isHidden ? 'block' : 'none';
               allContextToggleBtn.classList.toggle('active', isHidden);
+            });
+          }
+
+          // Attach Memory buttons
+          const syncBtn = modalBody.querySelector('#syncMemoryBtn');
+          if (syncBtn) {
+            syncBtn.addEventListener('click', async () => {
+              syncBtn.textContent = '⏳ Syncing...';
+              syncBtn.disabled = true;
+              const success = await this.contextExtractor.syncToMemory();
+              if (success) {
+                syncBtn.textContent = '✅ Synced!';
+                setTimeout(() => {
+                  syncBtn.innerHTML = '<span>💾</span> Sync to Memory';
+                  syncBtn.disabled = false;
+                }, 2000);
+              } else {
+                syncBtn.textContent = '❌ Failed';
+                setTimeout(() => {
+                  syncBtn.innerHTML = '<span>💾</span> Sync to Memory';
+                  syncBtn.disabled = false;
+                }, 2000);
+              }
+            });
+          }
+
+          const forgetBtn = modalBody.querySelector('#forgetMemoryBtn');
+          if (forgetBtn) {
+            forgetBtn.addEventListener('click', async () => {
+              if (confirm('Are you sure you want to remove this conversation from memory?')) {
+                forgetBtn.textContent = '⏳ Removing...';
+                forgetBtn.disabled = true;
+                const success = await this.contextExtractor.forgetConversation();
+                if (success) {
+                  forgetBtn.textContent = '✅ Removed!';
+                  setTimeout(() => {
+                    forgetBtn.innerHTML = '<span>🗑️</span> Forget Conversation';
+                    forgetBtn.disabled = false;
+                  }, 2000);
+                } else {
+                  forgetBtn.textContent = '❌ Failed';
+                  setTimeout(() => {
+                    forgetBtn.innerHTML = '<span>🗑️</span> Forget Conversation';
+                    forgetBtn.disabled = false;
+                  }, 2000);
+                }
+              }
             });
           }
 

@@ -7,7 +7,7 @@ window.Gracula = window.Gracula || {};
 
 window.Gracula.SmartMessageSelector = class {
   constructor() {
-    this.VERY_LONG_THRESHOLD = 50; // Conversations with >50 messages need smart selection
+    this.VERY_LONG_THRESHOLD = 100; // Conversations with >100 messages need smart selection
   }
 
   /**
@@ -32,30 +32,56 @@ window.Gracula.SmartMessageSelector = class {
     console.log(`🧠 [SMART SELECTOR] Selecting ${targetCount} most relevant from ${messages.length} messages`);
 
     // Always include last N messages (immediate context)
-    const immediateCount = 5;
+    const immediateCount = 10;
     const immediateMessages = messages.slice(-immediateCount);
     
-    // Score and select from remaining messages
-    const remainingMessages = messages.slice(0, -immediateCount);
-    const scoredMessages = this.scoreMessages(remainingMessages, analysis);
+    // Work with the historical part of the conversation
+    const historyMessages = messages.slice(0, -immediateCount);
     
-    // Sort by score and take top messages
-    const topMessages = scoredMessages
-      .sort((a, b) => b.score - a.score)
-      .slice(0, targetCount - immediateCount)
-      .map(item => item.message);
+    // Score all historical messages
+    const scoredMessages = this.scoreMessages(historyMessages, analysis);
     
-    // Sort selected messages by timestamp to maintain chronological order
-    topMessages.sort((a, b) => {
-      const aTime = a?.timestamp instanceof Date ? a.timestamp.getTime() : 0;
-      const bTime = b?.timestamp instanceof Date ? b.timestamp.getTime() : 0;
-      return aTime - bTime;
-    });
+    // Identify "peaks" - high scoring messages
+    // We want to select chunks around these peaks to preserve local context
+    const sortedByScore = [...scoredMessages].sort((a, b) => b.score - a.score);
     
-    // Combine: selected messages + immediate context
-    const result = [...topMessages, ...immediateMessages];
+    // We'll select indices to keep
+    const selectedIndices = new Set();
+    const CHUNK_RADIUS = 2; // Keep 2 messages before and after a peak
     
-    console.log(`✅ [SMART SELECTOR] Selected ${result.length} messages (${topMessages.length} relevant + ${immediateCount} immediate)`);
+    // Iteratively pick peaks until we fill our quota
+    // Quota for history is targetCount - immediateCount
+    const historyQuota = Math.max(5, targetCount - immediateCount);
+    
+    for (const item of sortedByScore) {
+      if (selectedIndices.size >= historyQuota) break;
+      
+      const centerIndex = historyMessages.indexOf(item.message);
+      if (centerIndex === -1) continue;
+      
+      // If this peak is already covered, skip it
+      if (selectedIndices.has(centerIndex)) continue;
+      
+      // Select the chunk around this peak
+      const start = Math.max(0, centerIndex - CHUNK_RADIUS);
+      const end = Math.min(historyMessages.length - 1, centerIndex + CHUNK_RADIUS);
+      
+      for (let i = start; i <= end; i++) {
+        if (selectedIndices.size < historyQuota) {
+          selectedIndices.add(i);
+        }
+      }
+    }
+    
+    // Convert indices back to messages, sorted chronologically
+    const selectedHistory = Array.from(selectedIndices)
+      .sort((a, b) => a - b)
+      .map(index => historyMessages[index]);
+      
+    // Combine: selected history + immediate context
+    const result = [...selectedHistory, ...immediateMessages];
+    
+    console.log(`✅ [SMART SELECTOR] Selected ${result.length} messages (${selectedHistory.length} history + ${immediateCount} immediate)`);
     
     return result;
   }
