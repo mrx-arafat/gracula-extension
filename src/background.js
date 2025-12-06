@@ -364,7 +364,12 @@ function buildPrompt(tone, context, enhancedContext, responseMode = 'reply') {
 
   // Handle NEW CONVERSATION mode (Mode 3: Start fresh)
   if (responseMode === 'new_conversation' || (responseMode === 'new' && dualAnalysis?.newConversation)) {
-    const newConv = dualAnalysis.newConversation;
+    // Fallback if newConversation analysis is missing
+    const newConv = dualAnalysis?.newConversation || {
+      lastInteraction: 'recently',
+      conversationState: 'active',
+      suggestedTopics: ['General chat', 'Check-in']
+    };
 
     prompt += '=== 💬 START NEW CONVERSATION ===\n\n';
     prompt += `Last interaction: ${newConv.lastInteraction}\n`;

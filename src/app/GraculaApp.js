@@ -472,7 +472,7 @@ window.Gracula.GraculaApp = class {
     // Await the async extract() method
     const messages = await this.contextExtractor.extract();
 
-    this.enhancedContext = this.contextExtractor.getEnhancedContext();
+    this.enhancedContext = await this.contextExtractor.getEnhancedContext();
     this.context = this.contextExtractor.getSimpleContext();
 
     // Derive a stable contact key for this conversation (used for per-contact priority)

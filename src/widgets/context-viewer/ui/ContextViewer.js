@@ -91,7 +91,7 @@ Friend: Want to grab dinner?">${this.getFullContext()}</textarea>
    * Get time gap for mode selector
    */
   getTimeGap() {
-    if (!this.enhancedContext || !this.enhancedContext.dualAnalysis) {
+    if (!this.enhancedContext || !this.enhancedContext.dualAnalysis || !this.enhancedContext.dualAnalysis.newConversation) {
       return 'recently';
     }
     return this.enhancedContext.dualAnalysis.newConversation.lastInteraction || 'recently';
@@ -105,7 +105,8 @@ Friend: Want to grab dinner?">${this.getFullContext()}</textarea>
       return '';
     }
 
-    const { replyMode, newConversation } = this.enhancedContext.dualAnalysis;
+    const replyMode = this.enhancedContext.dualAnalysis.replyMode || {};
+    const newConversation = this.enhancedContext.dualAnalysis.newConversation || {};
     const escapeHtml = window.Gracula.DOMUtils.escapeHtml;
 
     // Reply Mode Context
