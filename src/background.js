@@ -100,6 +100,34 @@ chrome.storage.sync.get(['apiConfig'], (result) => {
   console.log('🧛 Gracula: API Config loaded:', { provider: apiConfig.provider, model: apiConfig.model });
 });
 
+// Listen for storage changes (e.g. from options page)
+chrome.storage.onChanged.addListener((changes, namespace) => {
+  if (namespace === 'sync' && changes.apiConfig) {
+    console.log('⚙️ Gracula: Storage changed, updating API config...');
+    const newConfig = changes.apiConfig.newValue;
+    if (newConfig) {
+      apiConfig = { ...apiConfig, ...newConfig };
+      console.log('✅ Gracula: API Config updated from storage:', {
+        provider: apiConfig.provider,
+        voiceEnabled: apiConfig.voiceInputEnabled,
+        aiEnabled: apiConfig.useAIForAutosuggestions
+      });
+
+      // Broadcast to all tabs
+      chrome.tabs.query({}, (tabs) => {
+        tabs.forEach((tab) => {
+          chrome.tabs.sendMessage(tab.id, {
+            action: 'configUpdated',
+            config: apiConfig
+          }).catch(() => {
+            // Ignore errors for tabs without content script
+          });
+        });
+      });
+    }
+  }
+});
+
 // Listen for messages from content script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // Handle keep-alive pings from content script

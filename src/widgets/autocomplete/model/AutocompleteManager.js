@@ -140,35 +140,45 @@ window.Gracula.AutocompleteManager = class {
    * Setup listener for real-time config updates
    */
   setupConfigListener() {
+    // Listen for messages from background
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       if (request.action === 'configUpdated' && request.config) {
-        const oldEnabled = this.enabled;
-
-        // Treat useAIForAutosuggestions as the master switch
-        this.enabled = request.config.useAIForAutosuggestions !== false;
-	        this.useAI = this.enabled;
-	        // Update Ghost Text toggle as well (defaults to true when not explicitly false)
-	        this.ghostTextEnabled = request.config.ghostTextEnabled !== false;
-
-        if (oldEnabled !== this.enabled) {
-          console.log('🧛 Autocomplete: Feature updated to:', this.enabled ? 'ENABLED' : 'DISABLED');
-
-          if (!this.enabled) {
-            this.autocompleteDropdown?.hide();
-            this.clearDebounce();
-          } else {
-            // Clear cache when re-enabled
-            this.cache.clear();
-            this.preGeneratedSuggestions.clear();
-
-            // Pre-generate common suggestions if enabled
-            if (this.inputField) {
-              this.preGenerateCommonSuggestions();
-            }
-          }
-        }
+        this.updateConfig(request.config);
       }
     });
+  }
+
+  /**
+   * Update configuration dynamically
+   */
+  updateConfig(config) {
+    if (!config) return;
+
+    const oldEnabled = this.enabled;
+
+    // Treat useAIForAutosuggestions as the master switch
+    this.enabled = config.useAIForAutosuggestions !== false;
+    this.useAI = this.enabled;
+    // Update Ghost Text toggle as well (defaults to true when not explicitly false)
+    this.ghostTextEnabled = config.ghostTextEnabled !== false;
+
+    if (oldEnabled !== this.enabled) {
+      console.log('🧛 Autocomplete: Feature updated to:', this.enabled ? 'ENABLED' : 'DISABLED');
+
+      if (!this.enabled) {
+        this.autocompleteDropdown?.hide();
+        this.clearDebounce();
+      } else {
+        // Clear cache when re-enabled
+        this.cache.clear();
+        this.preGeneratedSuggestions.clear();
+
+        // Pre-generate common suggestions if enabled
+        if (this.inputField) {
+          this.preGenerateCommonSuggestions();
+        }
+      }
+    }
   }
 
   /**

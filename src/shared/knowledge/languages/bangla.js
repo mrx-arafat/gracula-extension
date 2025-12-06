@@ -172,9 +172,8 @@ window.Gracula.Knowledge.Languages.Bangla = {
     'sala': { meaning: 'dude (vulgar)', sentiment: 'neutral', usage: 'close_friend_address', intimacy: 'very_high' },
     'baal': { meaning: 'nonsense (vulgar)', sentiment: 'negative', usage: 'dismissal', intimacy: 'high' },
     'bokachoda': { meaning: 'idiot/friend (vulgar)', sentiment: 'neutral', usage: 'close_friend_address', intimacy: 'very_high' },
-    'choda': { meaning: 'fucker (vulgar)'![1764700337301](image/bangla/1764700337301.png), sentiment: 'neutral', usage: 'close_friend_address', intimacy: 'very_high' },
+    'choda': { meaning: 'fucker (vulgar)', sentiment: 'neutral', usage: 'close_friend_address', intimacy: 'very_high' },
     'put': { meaning: 'son (vulgar)', sentiment: 'neutral', usage: 'close_friend_address', intimacy: 'very_high' },
-![1764700346902](image/bangla/1764700346902.png)
     // Common Slang
     'kop': { meaning: 'cool/awesome/great', sentiment: 'positive', usage: 'approval', intimacy: 'medium' },
     'darun': { meaning: 'awesome/great', sentiment: 'positive', usage: 'appreciation', intimacy: 'low' },

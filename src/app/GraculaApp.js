@@ -68,6 +68,9 @@ window.Gracula.GraculaApp = class {
 
     // Setup keyboard shortcuts
     this.setupKeyboardShortcuts();
+
+    // Listen for storage changes (direct config updates)
+    this.setupStorageListener();
   }
 
   /**
@@ -2337,42 +2340,66 @@ window.Gracula.GraculaApp = class {
 
       // Listen for config updates (real-time API key changes, etc.)
       if (request.action === 'configUpdated') {
-        console.log('⚙️ Config Updated: Settings changed, applying in real-time...');
-        console.log('   New config:', request.config);
-
-        // Propagate config updates to all components
-        if (request.config) {
-          // Update autocomplete manager (AI toggle, etc.)
-          if (this.autocompleteManager && this.autocompleteManager.setupConfigListener) {
-            // AutocompleteManager already has its own listener, but we can force update if needed
-            console.log('   ✓ Autocomplete manager has its own config listener');
-          }
-
-          // Update voice input manager (voice provider, language, etc.)
-          if (this.voiceInputManager && this.voiceInputManager.updateConfig) {
-            this.voiceInputManager.updateConfig(request.config);
-            console.log('   ✓ Voice input manager updated');
-          }
-
-          // Update global voice input manager
-          if (this.globalVoiceInputManager && this.globalVoiceInputManager.updateConfig) {
-            this.globalVoiceInputManager.updateConfig(request.config);
-            console.log('   ✓ Global voice input manager updated');
-          }
-
-          // Update transcription manager if it exists as a separate component
-          if (this.transcriptionManager && this.transcriptionManager.updateConfig) {
-            this.transcriptionManager.updateConfig(request.config);
-            console.log('   ✓ Transcription manager updated');
-          }
-        }
-
-        // Show notification
-        this.showNotification('✅ Settings updated! Changes applied instantly.', 'success');
-
-        console.log('✅ All components updated with new config');
+        this.handleConfigUpdate(request.config);
       }
     });
+  }
+
+  /**
+   * Setup storage listener for direct config updates
+   */
+  setupStorageListener() {
+    chrome.storage.onChanged.addListener((changes, namespace) => {
+      if (namespace === 'sync' && changes.apiConfig) {
+        console.log('⚙️ Storage Changed: API Config updated directly');
+        const newConfig = changes.apiConfig.newValue;
+        if (newConfig) {
+          // Merge with defaults if needed, but usually newValue is complete enough
+          this.handleConfigUpdate(newConfig);
+        }
+      }
+    });
+  }
+
+  /**
+   * Handle configuration updates
+   */
+  handleConfigUpdate(config) {
+    console.log('⚙️ Config Update Handler: Applying settings...', config);
+
+    if (!config) return;
+
+    // Propagate config updates to all components
+    
+    // Update autocomplete manager (AI toggle, etc.)
+    if (this.autocompleteManager) {
+      if (typeof this.autocompleteManager.updateConfig === 'function') {
+        this.autocompleteManager.updateConfig(config);
+        console.log('   ✓ Autocomplete manager updated');
+      }
+    }
+
+    // Update voice input manager (voice provider, language, etc.)
+    if (this.voiceInputManager && this.voiceInputManager.updateConfig) {
+      this.voiceInputManager.updateConfig(config);
+      console.log('   ✓ Voice input manager updated');
+    }
+
+    // Update global voice input manager
+    if (this.globalVoiceInputManager && this.globalVoiceInputManager.updateConfig) {
+      this.globalVoiceInputManager.updateConfig(config);
+      console.log('   ✓ Global voice input manager updated');
+    }
+
+    // Update transcription manager if it exists as a separate component
+    if (this.transcriptionManager && this.transcriptionManager.updateConfig) {
+      this.transcriptionManager.updateConfig(config);
+      console.log('   ✓ Transcription manager updated');
+    }
+
+    // Show notification
+    this.showNotification('✅ Settings updated! Changes applied instantly.', 'success');
+    console.log('✅ All components updated with new config');
   }
 
   /**
