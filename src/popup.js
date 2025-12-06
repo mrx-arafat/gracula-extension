@@ -127,7 +127,10 @@ function toggleProviderFields() {
 }
 
 function toggleVoiceProviderFields() {
-  const provider = document.getElementById('voiceProvider').value;
+  const providerEl = document.getElementById('voiceProvider');
+  if (!providerEl) return;
+
+  const provider = providerEl.value;
   const elevenlabsGroup = document.getElementById('elevenlabsKeyGroup');
   const googleGroup = document.getElementById('googleVoiceKeyGroup');
   const deepgramGroup = document.getElementById('deepgramKeyGroup');
