@@ -27,6 +27,24 @@ window.Gracula.GhostTextController = class {
 
     this.handleInput = this.handleInput.bind(this);
     this.handleKeydown = this.handleKeydown.bind(this);
+
+    // Listen for config updates to refresh state immediately
+    this.setupConfigListener();
+  }
+
+  /**
+   * Setup listener for real-time config updates
+   */
+  setupConfigListener() {
+    // Listen for messages from background
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+      if (request.action === 'configUpdated' && request.config) {
+        // Force re-check of feature enabled state
+        if (!this.isFeatureEnabled()) {
+          this.clearSuggestion(true);
+        }
+      }
+    });
   }
 
   /** Start listening to input + key events */
@@ -222,12 +240,19 @@ window.Gracula.GhostTextController = class {
 
   /** Check whether ghost text should be active based on config */
   isFeatureEnabled() {
-    // Respect AutocompleteManager master switch + AI toggle when available
+    // Respect AutocompleteManager config
     if (this.autocompleteManager) {
-      if (this.autocompleteManager.enabled === false) return false;
-      if (this.autocompleteManager.useAI === false) return false;
-	      // Respect Ghost Text specific toggle when present
-	      if (this.autocompleteManager.ghostTextEnabled === false) return false;
+      // If Ghost Text is explicitly disabled, return false
+      if (this.autocompleteManager.ghostTextEnabled === false) return false;
+      
+      // If Ghost Text is enabled (or undefined/default), we allow it
+      // even if the main AI toggle (useAI) is off, because we might use offline suggestions.
+      // However, if the master switch (enabled) is off, we should probably respect that too?
+      // The user said "autocomplete toggle is disabled, and the ghost text toggle is enabled... ghost text wasn't working".
+      // This implies they want Ghost Text to work even if Autocomplete (dropdown) is disabled.
+      
+      // So we ONLY check ghostTextEnabled here.
+      return true;
     }
 
     return true;

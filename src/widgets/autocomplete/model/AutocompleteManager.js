@@ -111,12 +111,17 @@ window.Gracula.AutocompleteManager = class {
       chrome.runtime.sendMessage({ action: 'getApiConfig' }, (response) => {
         // Check for extension context invalidation
         if (chrome.runtime.lastError) {
-          console.warn('🧛 Autocomplete: Extension context error, using offline mode:', chrome.runtime.lastError.message);
+          const msg = chrome.runtime.lastError.message;
+          if (msg.includes('Extension context invalidated')) {
+            console.log('🧛 Autocomplete: Extension reloaded, waiting for refresh...');
+          } else {
+            console.warn('🧛 Autocomplete: Extension context error, using offline mode:', msg);
+          }
           this.useAI = false;
           return;
         }
 
-	        if (response && response.success && response.config) {
+        if (response && response.success && response.config) {
 	          // Treat useAIForAutosuggestions as the master switch for the entire feature
 	          // If false, disable everything (including offline suggestions)
 	          this.enabled = response.config.useAIForAutosuggestions !== false;
@@ -131,7 +136,11 @@ window.Gracula.AutocompleteManager = class {
 	        }
       });
     } catch (error) {
-      console.warn('🧛 Autocomplete: Failed to load AI config, using offline mode:', error.message);
+      if (error.message && error.message.includes('Extension context invalidated')) {
+        console.log('🧛 Autocomplete: Extension context invalidated (likely updated/reloaded).');
+      } else {
+        console.warn('🧛 Autocomplete: Failed to load AI config, using offline mode:', error.message);
+      }
       this.useAI = false;
     }
   }
@@ -232,7 +241,8 @@ window.Gracula.AutocompleteManager = class {
   handleInput(event) {
     console.log('🔵 [INPUT] handleInput triggered, currentText:', this.getInputText(), 'isInserting:', this.isInserting);
 
-    if (!this.enabled) return;
+    // Allow processing if EITHER main AI is enabled OR Ghost Text is enabled
+    if (!this.enabled && !this.ghostTextEnabled) return;
 
     // Skip if we're in the middle of inserting a suggestion
     if (this.isInserting) {
@@ -241,7 +251,8 @@ window.Gracula.AutocompleteManager = class {
     }
 
     // NEW: Skip automatic triggering if in manual mode and Control key not pressed
-    if (this.manualTriggerMode && !this.controlKeyPressed) {
+    // BUT allow if Ghost Text is enabled (it should always work on typing)
+    if (this.manualTriggerMode && !this.controlKeyPressed && !this.ghostTextEnabled) {
       console.log('⚠️ [INPUT] SKIPPING handleInput - manual mode, Control key not pressed');
       return;
     }
@@ -411,7 +422,10 @@ window.Gracula.AutocompleteManager = class {
       const analysis = this.analyzePartialText(partialText);
 
       // NEW HYBRID MODE: Always show offline suggestions first (instant), then enhance with AI
-      if (!this.useAI) {
+      // If AI is disabled OR we are in Ghost Text only mode (automatic typing without Ctrl)
+      const isGhostTextOnly = !this.controlKeyPressed && this.ghostTextEnabled;
+      
+      if (!this.useAI || isGhostTextOnly) {
         // Pure offline mode - use pattern matcher + n-gram predictor
         const suggestions = this.generateHybridSuggestions(partialText, simpleContext, analysis);
 
@@ -427,8 +441,13 @@ window.Gracula.AutocompleteManager = class {
           this.phrasePredictor.learn(partialText);
         }
 
-        this.isGenerating = false;
-        return;
+        // If we are in Ghost Text only mode, we stop here (don't call AI)
+        // Unless AI is enabled AND we want to enhance it in background?
+        // For now, keep it fast and offline-first for ghost text
+        if (!this.useAI || isGhostTextOnly) {
+            this.isGenerating = false;
+            return;
+        }
       }
 
       // AI is enabled - Check if we should wait for AI (Control key) or show hybrid first (automatic)
@@ -511,13 +530,23 @@ window.Gracula.AutocompleteManager = class {
       if (error.name === 'AbortError') {
         // console.log('🧛 Autocomplete: Request aborted');
       } else {
-        // console.error('🧛 Autocomplete: Error generating suggestions:', error);
-        this.autocompleteDropdown?.hide();
+        console.warn('🧛 Autocomplete: AI generation failed, falling back to offline mode:', error.message);
+        
+        // Fallback to offline suggestions if AI fails (e.g. 429 Rate Limit)
+        const simpleContext = this.contextExtractor?.getSimpleContext() || [];
+        const analysis = this.analyzePartialText(partialText);
+        const hybridSuggestions = this.generateHybridSuggestions(partialText, simpleContext, analysis);
+        
+        if (hybridSuggestions && hybridSuggestions.length > 0) {
+          this.autocompleteDropdown?.show(hybridSuggestions, this.inputField);
+        } else {
+          this.autocompleteDropdown?.hide();
+        }
       }
-	    } finally {
-	      this.isGenerating = false;
-	    }
-	  }
+    } finally {
+      this.isGenerating = false;
+    }
+  }
 
 	  /**
 	   * Generate full-sentence, context-aware replies for the Ctrl-triggered command palette.
